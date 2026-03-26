@@ -14,9 +14,9 @@ function App() {
   const [weeklyBarberFilter, setWeeklyBarberFilter] = useState("");
   const [clientSearch, setClientSearch] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-const [username, setUsername] = useState("");
-const [password, setPassword] = useState("");
-const [loginError, setLoginError] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
 
   function getMonday(d) {
     const date = new Date(d);
@@ -122,21 +122,20 @@ const [loginError, setLoginError] = useState("");
   };
 
   const deleteAppointment = (id) => {
-  const confirmed = window.confirm("¿Seguro que quieres eliminar esta cita?");
+    const confirmed = window.confirm("¿Seguro que quieres eliminar esta cita?");
+    if (!confirmed) return;
 
-  if (!confirmed) return;
-
-  axios
-    .delete(`https://barbershop-scheduler.onrender.com/appointments/${id}`)
-    .then(() => {
-      setMessage("Cita eliminada correctamente ✅");
-      getAppointments();
-    })
-    .catch((err) => {
-      console.error(err);
-      setMessage("Error al eliminar cita");
-    });
-};
+    axios
+      .delete(`https://barbershop-scheduler.onrender.com/appointments/${id}`)
+      .then(() => {
+        setMessage("Cita eliminada correctamente ✅");
+        getAppointments();
+      })
+      .catch((err) => {
+        console.error(err);
+        setMessage("Error al eliminar cita");
+      });
+  };
 
   const editAppointment = (appointment) => {
     setName(appointment.name);
@@ -156,31 +155,31 @@ const [loginError, setLoginError] = useState("");
   };
 
   const handleLogin = () => {
-  axios
-    .post("https://barbershop-scheduler.onrender.com/login", {
-      username,
-      password,
-    })
-    .then((res) => {
-      setIsLoggedIn(true);
-      setLoginError("");
+    axios
+      .post("https://barbershop-scheduler.onrender.com/login", {
+        username,
+        password,
+      })
+      .then((res) => {
+        setIsLoggedIn(true);
+        setLoginError("");
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+      })
+      .catch((err) => {
+        if (err.response?.data?.message) {
+          setLoginError(err.response.data.message);
+        } else {
+          setLoginError("Error al iniciar sesión");
+        }
+      });
+  };
 
-      localStorage.setItem("user", JSON.stringify(res.data.user));
-    })
-    .catch((err) => {
-      if (err.response?.data?.message) {
-        setLoginError(err.response.data.message);
-      } else {
-        setLoginError("Error al iniciar sesión");
-      }
-    });
-};
-
-const handleLogout = () => {
-  setIsLoggedIn(false);
-  setUsername("");
-  setPassword("");
-};
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    setIsLoggedIn(false);
+    setUsername("");
+    setPassword("");
+  };
 
   const getBarberColors = (barberName) => {
     switch (barberName) {
@@ -206,8 +205,6 @@ const handleLogout = () => {
         };
     }
   };
-
-
 
   const goToPreviousWeek = () => {
     setSelectedWeekStart(addDays(selectedWeekStart, -7));
@@ -240,14 +237,14 @@ const handleLogout = () => {
   };
 
   useEffect(() => {
-  const savedUser = localStorage.getItem("user");
+    const savedUser = localStorage.getItem("user");
 
-  if (savedUser) {
-    setIsLoggedIn(true);
-  }
+    if (savedUser) {
+      setIsLoggedIn(true);
+    }
 
-  getAppointments();
-}, []);
+    getAppointments();
+  }, []);
 
   const styles = {
     page: {
@@ -290,6 +287,9 @@ const handleLogout = () => {
       borderRadius: "8px",
       border: "1px solid #d1d5db",
       fontSize: "14px",
+      marginBottom: "10px",
+      width: "100%",
+      boxSizing: "border-box",
     },
     select: {
       padding: "10px 12px",
@@ -414,97 +414,84 @@ const handleLogout = () => {
     },
   };
 
-// 👇 TODO ESTO VA ANTES DEL RETURN PRINCIPAL
-if (!isLoggedIn) {
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "#f3f4f6",
-        fontFamily: "Arial, sans-serif",
-      }}
-    >
+  if (!isLoggedIn) {
+    return (
       <div
         style={{
-          backgroundColor: "#fff",
-          padding: "30px",
-          borderRadius: "14px",
-          boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
-          border: "1px solid #e5e7eb",
-          width: "100%",
-          maxWidth: "360px",
+          minHeight: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#f3f4f6",
+          fontFamily: "Arial, sans-serif",
         }}
       >
-        <h2>Ingreso Agenda 💈</h2>
+        <div
+          style={{
+            backgroundColor: "#fff",
+            padding: "30px",
+            borderRadius: "14px",
+            boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+            border: "1px solid #e5e7eb",
+            width: "100%",
+            maxWidth: "360px",
+          }}
+        >
+          <h2>Ingreso Agenda 💈</h2>
 
-        <input
-          style={styles.input}
-          placeholder="Usuario"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
+          <input
+            style={styles.input}
+            placeholder="Usuario"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
 
-        <input
-          style={styles.input}
-          type="password"
-          placeholder="Contraseña"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+          <input
+            style={styles.input}
+            type="password"
+            placeholder="Contraseña"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
 
-        <button onClick={handleLogin}>Ingresar</button>
+          <button
+            style={{ ...styles.button, ...styles.primaryButton, width: "100%" }}
+            onClick={handleLogin}
+          >
+            Ingresar
+          </button>
 
-        {loginError && <p>{loginError}</p>}
+          {loginError && (
+            <p style={{ color: "#dc2626", marginTop: "10px", fontWeight: "bold" }}>
+              {loginError}
+            </p>
+          )}
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   return (
     <div style={styles.page}>
       <div
-  style={{
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "20px",
-    gap: "10px",
-    flexWrap: "wrap",
-  }}
->
-  <div
-  style={{
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "20px",
-    gap: "10px",
-    flexWrap: "wrap",
-  }}
->
-  <h1 style={{ ...styles.title, marginBottom: 0 }}>Agenda Barbería 💈</h1>
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "20px",
+          gap: "10px",
+          flexWrap: "wrap",
+        }}
+      >
+        <h1 style={{ ...styles.title, marginBottom: 0 }}>Agenda Barbería 💈</h1>
 
-  <button
-    style={{ ...styles.button, ...styles.dangerButton }}
-    onClick={() => {
-      localStorage.removeItem("user");
-      setIsLoggedIn(false);
-    }}
-  >
-    Cerrar sesión
-  </button>
-</div>
-
-  <button
-    style={{ ...styles.button, ...styles.secondaryButton }}
-    onClick={handleLogout}
-  >
-    Cerrar sesión
-  </button>
-</div>
+        <button
+          style={{ ...styles.button, ...styles.dangerButton }}
+          onClick={handleLogout}
+        >
+          Cerrar sesión
+        </button>
+      </div>
 
       <div style={styles.layout}>
         <div style={styles.card}>
@@ -633,20 +620,14 @@ if (!isLoggedIn) {
 
               {weekDays.map((day, index) => (
                 <div key={index} style={styles.headerCell}>
-                  <div>
-                    {day.toLocaleDateString("es-CL", { weekday: "long" })}
-                  </div>
-                  <div>
-                    {day.toLocaleDateString("es-CL")}
-                  </div>
+                  <div>{day.toLocaleDateString("es-CL", { weekday: "long" })}</div>
+                  <div>{day.toLocaleDateString("es-CL")}</div>
                 </div>
               ))}
 
               {hours.map((hour) => (
                 <React.Fragment key={hour}>
-                  <div style={styles.timeCell}>
-                    {formatHourLabel(hour)}
-                  </div>
+                  <div style={styles.timeCell}>{formatHourLabel(hour)}</div>
 
                   {weekDays.map((day, index) => {
                     const slotAppointments = getAppointmentsForSlot(day, hour);
