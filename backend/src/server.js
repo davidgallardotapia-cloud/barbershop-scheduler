@@ -27,6 +27,22 @@ const createTables = async () => {
       );
     `);
 
+const existingAdmin = await pool.query(
+  "SELECT * FROM users WHERE username = $1",
+  ["admin"]
+);
+
+if (existingAdmin.rows.length === 0) {
+  const hashedPassword = await bcrypt.hash("1234", 10);
+
+  await pool.query(
+    "INSERT INTO users (username, password) VALUES ($1, $2)",
+    ["admin", hashedPassword]
+  );
+
+  console.log("Usuario admin creado ✅");
+}
+    
     console.log("Tablas creadas 🚀");
   } catch (error) {
     console.error("Error creando tablas:", error);
