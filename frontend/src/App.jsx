@@ -1,0 +1,727 @@
+import React, { useEffect, useMemo, useState } from "react";
+import axios from "axios";
+
+function App() {
+  const [appointments, setAppointments] = useState([]);
+  const [name, setName] = useState("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [service, setService] = useState("");
+  const [barber, setBarber] = useState("");
+  const [message, setMessage] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [selectedWeekStart, setSelectedWeekStart] = useState(getMonday(new Date()));
+  const [weeklyBarberFilter, setWeeklyBarberFilter] = useState("");
+  const [clientSearch, setClientSearch] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+const [username, setUsername] = useState("");
+const [password, setPassword] = useState("");
+const [loginError, setLoginError] = useState("");
+
+  function getMonday(d) {
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    date.setDate(date.getDate() + diff);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+
+  function formatDateToInput(dateObj) {
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const day = String(dateObj.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function formatHourLabel(hour) {
+    return `${String(hour).padStart(2, "0")}:00`;
+  }
+
+  function addDays(dateObj, days) {
+    const d = new Date(dateObj);
+    d.setDate(d.getDate() + days);
+    return d;
+  }
+
+  function sameDate(dateString, dateObj) {
+    const normalizedDate = String(dateString).slice(0, 10);
+    return normalizedDate === formatDateToInput(dateObj);
+  }
+
+  const weekDays = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => addDays(selectedWeekStart, i));
+  }, [selectedWeekStart]);
+
+  const hours = Array.from({ length: 12 }, (_, i) => i + 9);
+
+  const getAppointments = () => {
+    axios
+      .get("http://localhost:5000/appointments")
+      .then((res) => setAppointments(res.data))
+      .catch((err) => console.error(err));
+  };
+
+  const resetForm = () => {
+    setName("");
+    setDate("");
+    setTime("");
+    setService("");
+    setBarber("");
+    setEditingId(null);
+  };
+
+  const createAppointment = () => {
+    setMessage("");
+
+    axios
+      .post("http://localhost:5000/appointments", {
+        name,
+        date,
+        time,
+        service,
+        barber,
+      })
+      .then(() => {
+        resetForm();
+        setMessage("Cita creada correctamente ✅");
+        getAppointments();
+      })
+      .catch((err) => {
+        if (err.response?.data?.message) {
+          setMessage(err.response.data.message);
+        } else {
+          setMessage("Error al crear cita");
+        }
+      });
+  };
+
+  const updateAppointment = () => {
+    setMessage("");
+
+    axios
+      .put(`http://localhost:5000/appointments/${editingId}`, {
+        name,
+        date,
+        time,
+        service,
+        barber,
+      })
+      .then(() => {
+        resetForm();
+        setMessage("Cita actualizada correctamente ✅");
+        getAppointments();
+      })
+      .catch((err) => {
+        if (err.response?.data?.message) {
+          setMessage(err.response.data.message);
+        } else {
+          setMessage("Error al actualizar cita");
+        }
+      });
+  };
+
+  const deleteAppointment = (id) => {
+  const confirmed = window.confirm("¿Seguro que quieres eliminar esta cita?");
+
+  if (!confirmed) return;
+
+  axios
+    .delete(`http://localhost:5000/appointments/${id}`)
+    .then(() => {
+      setMessage("Cita eliminada correctamente ✅");
+      getAppointments();
+    })
+    .catch((err) => {
+      console.error(err);
+      setMessage("Error al eliminar cita");
+    });
+};
+
+  const editAppointment = (appointment) => {
+    setName(appointment.name);
+    setDate(String(appointment.date).slice(0, 10));
+    setTime(String(appointment.time).slice(0, 5));
+    setService(appointment.service);
+    setBarber(appointment.barber);
+    setEditingId(appointment.id);
+    setMessage("Editando cita ✏️");
+  };
+
+  const selectSlot = (day, hour) => {
+    setDate(formatDateToInput(day));
+    setTime(`${String(hour).padStart(2, "0")}:00`);
+    setEditingId(null);
+    setMessage("Bloque horario seleccionado.");
+  };
+
+  const handleLogin = () => {
+  axios
+    .post("http://localhost:5000/login", {
+      username,
+      password,
+    })
+    .then((res) => {
+      setIsLoggedIn(true);
+      setLoginError("");
+
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+    })
+    .catch((err) => {
+      if (err.response?.data?.message) {
+        setLoginError(err.response.data.message);
+      } else {
+        setLoginError("Error al iniciar sesión");
+      }
+    });
+};
+
+const handleLogout = () => {
+  setIsLoggedIn(false);
+  setUsername("");
+  setPassword("");
+};
+
+  const getBarberColors = (barberName) => {
+    switch (barberName) {
+      case "Cristian":
+        return {
+          backgroundColor: "#dbeafe",
+          border: "1px solid #60a5fa",
+        };
+      case "Matías":
+        return {
+          backgroundColor: "#dcfce7",
+          border: "1px solid #4ade80",
+        };
+      case "Sebastián":
+        return {
+          backgroundColor: "#f3e8ff",
+          border: "1px solid #c084fc",
+        };
+      default:
+        return {
+          backgroundColor: "#e5e7eb",
+          border: "1px solid #d1d5db",
+        };
+    }
+  };
+
+
+
+  const goToPreviousWeek = () => {
+    setSelectedWeekStart(addDays(selectedWeekStart, -7));
+  };
+
+  const goToNextWeek = () => {
+    setSelectedWeekStart(addDays(selectedWeekStart, 7));
+  };
+
+  const goToCurrentWeek = () => {
+    setSelectedWeekStart(getMonday(new Date()));
+  };
+
+  const getAppointmentsForSlot = (day, hour) => {
+    return appointments.filter((appointment) => {
+      const rawTime = String(appointment.time || "");
+      const appointmentHour = rawTime.slice(0, 2);
+
+      const matchesDay = sameDate(appointment.date, day);
+      const matchesHour = Number(appointmentHour) === hour;
+      const matchesBarber = weeklyBarberFilter
+        ? appointment.barber === weeklyBarberFilter
+        : true;
+      const matchesClient = clientSearch
+        ? String(appointment.name).toLowerCase().includes(clientSearch.toLowerCase())
+        : true;
+
+      return matchesDay && matchesHour && matchesBarber && matchesClient;
+    });
+  };
+
+  useEffect(() => {
+  const savedUser = localStorage.getItem("user");
+
+  if (savedUser) {
+    setIsLoggedIn(true);
+  }
+
+  getAppointments();
+}, []);
+
+  const styles = {
+    page: {
+      minHeight: "100vh",
+      backgroundColor: "#f3f4f6",
+      padding: "24px",
+      fontFamily: "Arial, sans-serif",
+      color: "#111827",
+    },
+    title: {
+      marginBottom: "20px",
+      fontSize: "28px",
+      fontWeight: "bold",
+    },
+    layout: {
+      display: "grid",
+      gridTemplateColumns: "320px 1fr",
+      gap: "20px",
+      alignItems: "start",
+    },
+    card: {
+      backgroundColor: "#fff",
+      borderRadius: "14px",
+      padding: "20px",
+      boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+      border: "1px solid #e5e7eb",
+    },
+    sectionTitle: {
+      marginTop: 0,
+      marginBottom: "16px",
+      fontSize: "20px",
+    },
+    formGroup: {
+      display: "flex",
+      flexDirection: "column",
+      gap: "10px",
+    },
+    input: {
+      padding: "10px 12px",
+      borderRadius: "8px",
+      border: "1px solid #d1d5db",
+      fontSize: "14px",
+    },
+    select: {
+      padding: "10px 12px",
+      borderRadius: "8px",
+      border: "1px solid #d1d5db",
+      fontSize: "14px",
+      backgroundColor: "#fff",
+    },
+    button: {
+      padding: "10px 14px",
+      border: "none",
+      borderRadius: "8px",
+      cursor: "pointer",
+      fontWeight: "bold",
+    },
+    primaryButton: {
+      backgroundColor: "#111827",
+      color: "#fff",
+    },
+    secondaryButton: {
+      backgroundColor: "#e5e7eb",
+      color: "#111827",
+    },
+    editButton: {
+      backgroundColor: "#2563eb",
+      color: "#fff",
+    },
+    dangerButton: {
+      backgroundColor: "#dc2626",
+      color: "#fff",
+    },
+    message: {
+      marginTop: "10px",
+      fontWeight: "bold",
+    },
+    topBar: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: "16px",
+      gap: "10px",
+      flexWrap: "wrap",
+    },
+    weekActions: {
+      display: "flex",
+      gap: "8px",
+      flexWrap: "wrap",
+    },
+    calendarWrapper: {
+      overflowX: "auto",
+    },
+    calendarGrid: {
+      display: "grid",
+      gridTemplateColumns: "90px repeat(7, minmax(140px, 1fr))",
+      border: "1px solid #e5e7eb",
+      borderRadius: "12px",
+      overflow: "hidden",
+      backgroundColor: "#fff",
+    },
+    headerCell: {
+      backgroundColor: "#111827",
+      color: "#fff",
+      padding: "12px",
+      fontWeight: "bold",
+      borderRight: "1px solid #374151",
+      minHeight: "70px",
+    },
+    timeHeaderCell: {
+      backgroundColor: "#1f2937",
+      color: "#fff",
+      padding: "12px",
+      fontWeight: "bold",
+      borderRight: "1px solid #374151",
+      minHeight: "70px",
+    },
+    timeCell: {
+      padding: "12px",
+      borderRight: "1px solid #e5e7eb",
+      borderTop: "1px solid #e5e7eb",
+      backgroundColor: "#f9fafb",
+      fontWeight: "bold",
+      fontSize: "14px",
+      minHeight: "90px",
+    },
+    slotCell: {
+      padding: "8px",
+      borderRight: "1px solid #e5e7eb",
+      borderTop: "1px solid #e5e7eb",
+      minHeight: "90px",
+      backgroundColor: "#fff",
+      position: "relative",
+    },
+    appointmentBlock: {
+      borderRadius: "10px",
+      padding: "8px",
+      display: "flex",
+      flexDirection: "column",
+      gap: "6px",
+      fontSize: "12px",
+      boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+    },
+    appointmentTitle: {
+      fontWeight: "bold",
+      fontSize: "13px",
+    },
+    appointmentMeta: {
+      color: "#374151",
+    },
+    actionRow: {
+      display: "flex",
+      gap: "6px",
+      flexWrap: "wrap",
+      marginTop: "4px",
+    },
+    tinyButton: {
+      padding: "6px 8px",
+      border: "none",
+      borderRadius: "6px",
+      cursor: "pointer",
+      fontSize: "12px",
+      fontWeight: "bold",
+    },
+  };
+
+// 👇 TODO ESTO VA ANTES DEL RETURN PRINCIPAL
+if (!isLoggedIn) {
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#f3f4f6",
+        fontFamily: "Arial, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          backgroundColor: "#fff",
+          padding: "30px",
+          borderRadius: "14px",
+          boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+          border: "1px solid #e5e7eb",
+          width: "100%",
+          maxWidth: "360px",
+        }}
+      >
+        <h2>Ingreso Agenda 💈</h2>
+
+        <input
+          style={styles.input}
+          placeholder="Usuario"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+
+        <input
+          style={styles.input}
+          type="password"
+          placeholder="Contraseña"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <button onClick={handleLogin}>Ingresar</button>
+
+        {loginError && <p>{loginError}</p>}
+      </div>
+    </div>
+  );
+}
+
+  return (
+    <div style={styles.page}>
+      <div
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "20px",
+    gap: "10px",
+    flexWrap: "wrap",
+  }}
+>
+  <div
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "20px",
+    gap: "10px",
+    flexWrap: "wrap",
+  }}
+>
+  <h1 style={{ ...styles.title, marginBottom: 0 }}>Agenda Barbería 💈</h1>
+
+  <button
+    style={{ ...styles.button, ...styles.dangerButton }}
+    onClick={() => {
+      localStorage.removeItem("user");
+      setIsLoggedIn(false);
+    }}
+  >
+    Cerrar sesión
+  </button>
+</div>
+
+  <button
+    style={{ ...styles.button, ...styles.secondaryButton }}
+    onClick={handleLogout}
+  >
+    Cerrar sesión
+  </button>
+</div>
+
+      <div style={styles.layout}>
+        <div style={styles.card}>
+          <h2 style={styles.sectionTitle}>
+            {editingId ? "Editar cita" : "Nueva cita"}
+          </h2>
+
+          <div style={styles.formGroup}>
+            <input
+              style={styles.input}
+              placeholder="Nombre cliente"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+
+            <input
+              style={styles.input}
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
+
+            <input
+              style={styles.input}
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+            />
+
+            <input
+              style={styles.input}
+              placeholder="Servicio"
+              value={service}
+              onChange={(e) => setService(e.target.value)}
+            />
+
+            <select
+              style={styles.select}
+              value={barber}
+              onChange={(e) => setBarber(e.target.value)}
+            >
+              <option value="">Selecciona un barbero</option>
+              <option value="Cristian">Cristian</option>
+              <option value="Matías">Matías</option>
+              <option value="Sebastián">Sebastián</option>
+            </select>
+
+            {editingId ? (
+              <>
+                <button
+                  style={{ ...styles.button, ...styles.editButton }}
+                  onClick={updateAppointment}
+                >
+                  Actualizar cita
+                </button>
+                <button
+                  style={{ ...styles.button, ...styles.secondaryButton }}
+                  onClick={resetForm}
+                >
+                  Cancelar edición
+                </button>
+              </>
+            ) : (
+              <button
+                style={{ ...styles.button, ...styles.primaryButton }}
+                onClick={createAppointment}
+              >
+                Crear cita
+              </button>
+            )}
+
+            {message && <p style={styles.message}>{message}</p>}
+          </div>
+        </div>
+
+        <div style={styles.card}>
+          <div style={styles.topBar}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <h2 style={{ margin: 0 }}>Vista semanal</h2>
+
+              <input
+                style={{ ...styles.input, minWidth: "220px" }}
+                type="text"
+                placeholder="Buscar por cliente"
+                value={clientSearch}
+                onChange={(e) => setClientSearch(e.target.value)}
+              />
+
+              <select
+                style={{ ...styles.select, minWidth: "220px" }}
+                value={weeklyBarberFilter}
+                onChange={(e) => setWeeklyBarberFilter(e.target.value)}
+              >
+                <option value="">Todos los barberos</option>
+                <option value="Cristian">Cristian</option>
+                <option value="Matías">Matías</option>
+                <option value="Sebastián">Sebastián</option>
+              </select>
+            </div>
+
+            <div style={styles.weekActions}>
+              <button
+                style={{ ...styles.button, ...styles.secondaryButton }}
+                onClick={goToPreviousWeek}
+              >
+                ← Semana anterior
+              </button>
+              <button
+                style={{ ...styles.button, ...styles.primaryButton }}
+                onClick={goToCurrentWeek}
+              >
+                Semana actual
+              </button>
+              <button
+                style={{ ...styles.button, ...styles.secondaryButton }}
+                onClick={goToNextWeek}
+              >
+                Semana siguiente →
+              </button>
+            </div>
+          </div>
+
+          <div style={styles.calendarWrapper}>
+            <div style={styles.calendarGrid}>
+              <div style={styles.timeHeaderCell}>Hora</div>
+
+              {weekDays.map((day, index) => (
+                <div key={index} style={styles.headerCell}>
+                  <div>
+                    {day.toLocaleDateString("es-CL", { weekday: "long" })}
+                  </div>
+                  <div>
+                    {day.toLocaleDateString("es-CL")}
+                  </div>
+                </div>
+              ))}
+
+              {hours.map((hour) => (
+                <React.Fragment key={hour}>
+                  <div style={styles.timeCell}>
+                    {formatHourLabel(hour)}
+                  </div>
+
+                  {weekDays.map((day, index) => {
+                    const slotAppointments = getAppointmentsForSlot(day, hour);
+
+                    return (
+                      <div key={`${hour}-${index}`} style={styles.slotCell}>
+                        {slotAppointments.length > 0 ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                            {slotAppointments.map((appointment) => (
+                              <div
+                                key={appointment.id}
+                                style={{
+                                  ...styles.appointmentBlock,
+                                  ...getBarberColors(appointment.barber),
+                                }}
+                              >
+                                <div style={styles.appointmentTitle}>
+                                  {appointment.name}
+                                </div>
+                                <div style={styles.appointmentMeta}>
+                                  {appointment.service}
+                                </div>
+                                <div style={styles.appointmentMeta}>
+                                  {appointment.barber}
+                                </div>
+                                <div style={styles.appointmentMeta}>
+                                  {String(appointment.time).slice(0, 5)}
+                                </div>
+
+                                <div style={styles.actionRow}>
+                                  <button
+                                    style={{
+                                      ...styles.tinyButton,
+                                      ...styles.editButton,
+                                    }}
+                                    onClick={() => editAppointment(appointment)}
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    style={{
+                                      ...styles.tinyButton,
+                                      ...styles.dangerButton,
+                                    }}
+                                    onClick={() => deleteAppointment(appointment.id)}
+                                  >
+                                    Eliminar
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <button
+                            style={{
+                              ...styles.tinyButton,
+                              ...styles.secondaryButton,
+                              width: "100%",
+                            }}
+                            onClick={() => selectSlot(day, hour)}
+                          >
+                            Disponible
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default App;
