@@ -6,6 +6,33 @@ require('dotenv').config();
 
 const app = express();
 
+const createTables = async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS appointments (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        date DATE NOT NULL,
+        time TIME NOT NULL,
+        service VARCHAR(100) NOT NULL,
+        barber VARCHAR(100) NOT NULL
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(100) UNIQUE NOT NULL,
+        password VARCHAR(100) NOT NULL
+      );
+    `);
+
+    console.log("Tablas creadas 🚀");
+  } catch (error) {
+    console.error("Error creando tablas:", error);
+  }
+};
+
 app.use(cors());
 app.use(express.json());
 
@@ -119,6 +146,7 @@ app.post('/login', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
+  await createTables();
 });

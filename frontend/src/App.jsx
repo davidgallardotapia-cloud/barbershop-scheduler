@@ -57,7 +57,7 @@ const [loginError, setLoginError] = useState("");
 
   const getAppointments = () => {
     axios
-      .get("http://localhost:5000/appointments")
+      .get("https://barbershop-scheduler.onrender.com/appointments")
       .then((res) => setAppointments(res.data))
       .catch((err) => console.error(err));
   };
@@ -75,7 +75,7 @@ const [loginError, setLoginError] = useState("");
     setMessage("");
 
     axios
-      .post("http://localhost:5000/appointments", {
+      .post("https://barbershop-scheduler.onrender.com/appointments", {
         name,
         date,
         time,
@@ -100,7 +100,7 @@ const [loginError, setLoginError] = useState("");
     setMessage("");
 
     axios
-      .put(`http://localhost:5000/appointments/${editingId}`, {
+      .put(`https://barbershop-scheduler.onrender.com/appointments/${editingId}`, {
         name,
         date,
         time,
@@ -127,7 +127,7 @@ const [loginError, setLoginError] = useState("");
   if (!confirmed) return;
 
   axios
-    .delete(`http://localhost:5000/appointments/${id}`)
+    .delete(`https://barbershop-scheduler.onrender.com/appointments/${id}`)
     .then(() => {
       setMessage("Cita eliminada correctamente ✅");
       getAppointments();
@@ -157,7 +157,7 @@ const [loginError, setLoginError] = useState("");
 
   const handleLogin = () => {
   axios
-    .post("http://localhost:5000/login", {
+    .post("https://barbershop-scheduler.onrender.com/login", {
       username,
       password,
     })
