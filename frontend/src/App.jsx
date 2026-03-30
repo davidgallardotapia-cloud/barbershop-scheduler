@@ -85,6 +85,7 @@ function App() {
       })
       .then(() => {
         resetForm();
+        setSelectedWeekStart(getMonday(new Date()));
         setMessage("Cita creada correctamente ✅");
         getAppointments();
       })
@@ -591,9 +592,9 @@ function App() {
       {isClientMode ? (
         <div style={styles.card}>
           <div style={{ marginBottom: "20px" }}>
-            <h2 style={{ marginTop: 0 }}>Reservar cita</h2>
-            <p style={{ color: "#4b5563" }}>
-              Selecciona tu barbero, fecha, hora y servicio.
+            <h2 style={{ marginTop: 0 }}>Agenda tu hora</h2>
+            <p style={{ color: "#4b5563", lineHeight: 1.5 }}>
+              Elige tu barbero, selecciona un bloque disponible y confirma tu reserva en segundos.
             </p>
           </div>
 
@@ -607,7 +608,7 @@ function App() {
           >
             <input
               style={styles.input}
-              placeholder="Nombre cliente"
+              placeholder="Tu nombre"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -628,7 +629,7 @@ function App() {
 
             <input
               style={styles.input}
-              placeholder="Servicio"
+              placeholder="Servicio que deseas"
               value={service}
               onChange={(e) => setService(e.target.value)}
             />
@@ -648,7 +649,7 @@ function App() {
               style={{ ...styles.button, ...styles.primaryButton }}
               onClick={createAppointment}
             >
-              Reservar cita
+              Confirmar reserva
             </button>
           </div>
 
@@ -656,7 +657,7 @@ function App() {
 
           <div style={styles.topBar}>
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <h2 style={{ margin: 0 }}>Horarios disponibles</h2>
+              <h2 style={{ margin: 0 }}>Disponibilidad semanal</h2>
 
               <select
                 style={{ ...styles.select, minWidth: "220px" }}
@@ -722,10 +723,7 @@ function App() {
                                   ...getBarberColors(appointment.barber),
                                 }}
                               >
-                                <div style={styles.appointmentTitle}>Reservado</div>
-                                <div style={styles.appointmentMeta}>
-                                  {appointment.service}
-                                </div>
+                                <div style={styles.appointmentTitle}>Ocupado</div>
                                 <div style={styles.appointmentMeta}>
                                   {appointment.barber}
                                 </div>
