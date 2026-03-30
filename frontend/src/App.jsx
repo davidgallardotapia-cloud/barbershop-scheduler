@@ -17,6 +17,7 @@ function App() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [appMode, setAppMode] = useState(null);
 
   function getMonday(d) {
     const date = new Date(d);
@@ -179,6 +180,7 @@ function App() {
     setIsLoggedIn(false);
     setUsername("");
     setPassword("");
+    setAppMode(null);
   };
 
   const getBarberColors = (barberName) => {
@@ -241,6 +243,7 @@ function App() {
 
     if (savedUser) {
       setIsLoggedIn(true);
+      setAppMode("admin");
     }
 
     getAppointments();
@@ -297,6 +300,8 @@ function App() {
       border: "1px solid #d1d5db",
       fontSize: "14px",
       backgroundColor: "#fff",
+      width: "100%",
+      boxSizing: "border-box",
     },
     button: {
       padding: "10px 14px",
@@ -414,7 +419,68 @@ function App() {
     },
   };
 
-  if (!isLoggedIn) {
+  const isClientMode = appMode === "client";
+  const isAdminMode = appMode === "admin" && isLoggedIn;
+
+  if (appMode === null) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#f3f4f6",
+          fontFamily: "Arial, sans-serif",
+          padding: "20px",
+        }}
+      >
+        <div
+          style={{
+            backgroundColor: "#fff",
+            padding: "30px",
+            borderRadius: "14px",
+            boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+            border: "1px solid #e5e7eb",
+            width: "100%",
+            maxWidth: "420px",
+            textAlign: "center",
+          }}
+        >
+          <h1 style={{ marginTop: 0 }}>Agenda Barbería 💈</h1>
+          <p style={{ color: "#4b5563", marginBottom: "24px" }}>
+            Selecciona cómo quieres ingresar
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <button
+              style={{
+                ...styles.button,
+                ...styles.primaryButton,
+                width: "100%",
+              }}
+              onClick={() => setAppMode("client")}
+            >
+              Entrar como cliente
+            </button>
+
+            <button
+              style={{
+                ...styles.button,
+                ...styles.secondaryButton,
+                width: "100%",
+              }}
+              onClick={() => setAppMode("admin")}
+            >
+              Entrar como administrador
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (appMode === "admin" && !isLoggedIn) {
     return (
       <div
         style={{
@@ -461,6 +527,18 @@ function App() {
             Ingresar
           </button>
 
+          <button
+            style={{
+              ...styles.button,
+              ...styles.secondaryButton,
+              width: "100%",
+              marginTop: "10px",
+            }}
+            onClick={() => setAppMode(null)}
+          >
+            Volver
+          </button>
+
           {loginError && (
             <p style={{ color: "#dc2626", marginTop: "10px", fontWeight: "bold" }}>
               {loginError}
@@ -483,23 +561,50 @@ function App() {
           flexWrap: "wrap",
         }}
       >
-        <h1 style={{ ...styles.title, marginBottom: 0 }}>Agenda Barbería 💈</h1>
+        <h1 style={{ ...styles.title, marginBottom: 0 }}>
+          {isClientMode ? "Reserva tu hora 💈" : "Agenda Barbería 💈"}
+        </h1>
 
-        <button
-          style={{ ...styles.button, ...styles.dangerButton }}
-          onClick={handleLogout}
-        >
-          Cerrar sesión
-        </button>
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <button
+            style={{ ...styles.button, ...styles.secondaryButton }}
+            onClick={() => {
+              setAppMode(null);
+              setIsLoggedIn(false);
+              localStorage.removeItem("user");
+            }}
+          >
+            Inicio
+          </button>
+
+          {isAdminMode && (
+            <button
+              style={{ ...styles.button, ...styles.dangerButton }}
+              onClick={handleLogout}
+            >
+              Cerrar sesión
+            </button>
+          )}
+        </div>
       </div>
 
-      <div style={styles.layout}>
+      {isClientMode ? (
         <div style={styles.card}>
-          <h2 style={styles.sectionTitle}>
-            {editingId ? "Editar cita" : "Nueva cita"}
-          </h2>
+          <div style={{ marginBottom: "20px" }}>
+            <h2 style={{ marginTop: 0 }}>Reservar cita</h2>
+            <p style={{ color: "#4b5563" }}>
+              Selecciona tu barbero, fecha, hora y servicio.
+            </p>
+          </div>
 
-          <div style={styles.formGroup}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "12px",
+              marginBottom: "20px",
+            }}
+          >
             <input
               style={styles.input}
               placeholder="Nombre cliente"
@@ -539,46 +644,19 @@ function App() {
               <option value="Sebastián">Sebastián</option>
             </select>
 
-            {editingId ? (
-              <>
-                <button
-                  style={{ ...styles.button, ...styles.editButton }}
-                  onClick={updateAppointment}
-                >
-                  Actualizar cita
-                </button>
-                <button
-                  style={{ ...styles.button, ...styles.secondaryButton }}
-                  onClick={resetForm}
-                >
-                  Cancelar edición
-                </button>
-              </>
-            ) : (
-              <button
-                style={{ ...styles.button, ...styles.primaryButton }}
-                onClick={createAppointment}
-              >
-                Crear cita
-              </button>
-            )}
-
-            {message && <p style={styles.message}>{message}</p>}
+            <button
+              style={{ ...styles.button, ...styles.primaryButton }}
+              onClick={createAppointment}
+            >
+              Reservar cita
+            </button>
           </div>
-        </div>
 
-        <div style={styles.card}>
+          {message && <p style={styles.message}>{message}</p>}
+
           <div style={styles.topBar}>
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <h2 style={{ margin: 0 }}>Vista semanal</h2>
-
-              <input
-                style={{ ...styles.input, minWidth: "220px" }}
-                type="text"
-                placeholder="Buscar por cliente"
-                value={clientSearch}
-                onChange={(e) => setClientSearch(e.target.value)}
-              />
+              <h2 style={{ margin: 0 }}>Horarios disponibles</h2>
 
               <select
                 style={{ ...styles.select, minWidth: "220px" }}
@@ -644,9 +722,7 @@ function App() {
                                   ...getBarberColors(appointment.barber),
                                 }}
                               >
-                                <div style={styles.appointmentTitle}>
-                                  {appointment.name}
-                                </div>
+                                <div style={styles.appointmentTitle}>Reservado</div>
                                 <div style={styles.appointmentMeta}>
                                   {appointment.service}
                                 </div>
@@ -655,27 +731,6 @@ function App() {
                                 </div>
                                 <div style={styles.appointmentMeta}>
                                   {String(appointment.time).slice(0, 5)}
-                                </div>
-
-                                <div style={styles.actionRow}>
-                                  <button
-                                    style={{
-                                      ...styles.tinyButton,
-                                      ...styles.editButton,
-                                    }}
-                                    onClick={() => editAppointment(appointment)}
-                                  >
-                                    Editar
-                                  </button>
-                                  <button
-                                    style={{
-                                      ...styles.tinyButton,
-                                      ...styles.dangerButton,
-                                    }}
-                                    onClick={() => deleteAppointment(appointment.id)}
-                                  >
-                                    Eliminar
-                                  </button>
                                 </div>
                               </div>
                             ))}
@@ -700,7 +755,216 @@ function App() {
             </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div style={styles.layout}>
+          <div style={styles.card}>
+            <h2 style={styles.sectionTitle}>
+              {editingId ? "Editar cita" : "Nueva cita"}
+            </h2>
+
+            <div style={styles.formGroup}>
+              <input
+                style={styles.input}
+                placeholder="Nombre cliente"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+
+              <input
+                style={styles.input}
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+
+              <input
+                style={styles.input}
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+              />
+
+              <input
+                style={styles.input}
+                placeholder="Servicio"
+                value={service}
+                onChange={(e) => setService(e.target.value)}
+              />
+
+              <select
+                style={styles.select}
+                value={barber}
+                onChange={(e) => setBarber(e.target.value)}
+              >
+                <option value="">Selecciona un barbero</option>
+                <option value="Cristian">Cristian</option>
+                <option value="Matías">Matías</option>
+                <option value="Sebastián">Sebastián</option>
+              </select>
+
+              {editingId ? (
+                <>
+                  <button
+                    style={{ ...styles.button, ...styles.editButton }}
+                    onClick={updateAppointment}
+                  >
+                    Actualizar cita
+                  </button>
+                  <button
+                    style={{ ...styles.button, ...styles.secondaryButton }}
+                    onClick={resetForm}
+                  >
+                    Cancelar edición
+                  </button>
+                </>
+              ) : (
+                <button
+                  style={{ ...styles.button, ...styles.primaryButton }}
+                  onClick={createAppointment}
+                >
+                  Crear cita
+                </button>
+              )}
+
+              {message && <p style={styles.message}>{message}</p>}
+            </div>
+          </div>
+
+          <div style={styles.card}>
+            <div style={styles.topBar}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <h2 style={{ margin: 0 }}>Vista semanal</h2>
+
+                <input
+                  style={{ ...styles.input, minWidth: "220px" }}
+                  type="text"
+                  placeholder="Buscar por cliente"
+                  value={clientSearch}
+                  onChange={(e) => setClientSearch(e.target.value)}
+                />
+
+                <select
+                  style={{ ...styles.select, minWidth: "220px" }}
+                  value={weeklyBarberFilter}
+                  onChange={(e) => setWeeklyBarberFilter(e.target.value)}
+                >
+                  <option value="">Todos los barberos</option>
+                  <option value="Cristian">Cristian</option>
+                  <option value="Matías">Matías</option>
+                  <option value="Sebastián">Sebastián</option>
+                </select>
+              </div>
+
+              <div style={styles.weekActions}>
+                <button
+                  style={{ ...styles.button, ...styles.secondaryButton }}
+                  onClick={goToPreviousWeek}
+                >
+                  ← Semana anterior
+                </button>
+                <button
+                  style={{ ...styles.button, ...styles.primaryButton }}
+                  onClick={goToCurrentWeek}
+                >
+                  Semana actual
+                </button>
+                <button
+                  style={{ ...styles.button, ...styles.secondaryButton }}
+                  onClick={goToNextWeek}
+                >
+                  Semana siguiente →
+                </button>
+              </div>
+            </div>
+
+            <div style={styles.calendarWrapper}>
+              <div style={styles.calendarGrid}>
+                <div style={styles.timeHeaderCell}>Hora</div>
+
+                {weekDays.map((day, index) => (
+                  <div key={index} style={styles.headerCell}>
+                    <div>{day.toLocaleDateString("es-CL", { weekday: "long" })}</div>
+                    <div>{day.toLocaleDateString("es-CL")}</div>
+                  </div>
+                ))}
+
+                {hours.map((hour) => (
+                  <React.Fragment key={hour}>
+                    <div style={styles.timeCell}>{formatHourLabel(hour)}</div>
+
+                    {weekDays.map((day, index) => {
+                      const slotAppointments = getAppointmentsForSlot(day, hour);
+
+                      return (
+                        <div key={`${hour}-${index}`} style={styles.slotCell}>
+                          {slotAppointments.length > 0 ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                              {slotAppointments.map((appointment) => (
+                                <div
+                                  key={appointment.id}
+                                  style={{
+                                    ...styles.appointmentBlock,
+                                    ...getBarberColors(appointment.barber),
+                                  }}
+                                >
+                                  <div style={styles.appointmentTitle}>
+                                    {appointment.name}
+                                  </div>
+                                  <div style={styles.appointmentMeta}>
+                                    {appointment.service}
+                                  </div>
+                                  <div style={styles.appointmentMeta}>
+                                    {appointment.barber}
+                                  </div>
+                                  <div style={styles.appointmentMeta}>
+                                    {String(appointment.time).slice(0, 5)}
+                                  </div>
+
+                                  <div style={styles.actionRow}>
+                                    <button
+                                      style={{
+                                        ...styles.tinyButton,
+                                        ...styles.editButton,
+                                      }}
+                                      onClick={() => editAppointment(appointment)}
+                                    >
+                                      Editar
+                                    </button>
+                                    <button
+                                      style={{
+                                        ...styles.tinyButton,
+                                        ...styles.dangerButton,
+                                      }}
+                                      onClick={() => deleteAppointment(appointment.id)}
+                                    >
+                                      Eliminar
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <button
+                              style={{
+                                ...styles.tinyButton,
+                                ...styles.secondaryButton,
+                                width: "100%",
+                              }}
+                              onClick={() => selectSlot(day, hour)}
+                            >
+                              Disponible
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
