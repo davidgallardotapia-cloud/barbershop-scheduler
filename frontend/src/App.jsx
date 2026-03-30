@@ -3,6 +3,9 @@ import axios from "axios";
 
 function App() {
   const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [loggingIn, setLoggingIn] = useState(false);
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -18,6 +21,7 @@ function App() {
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [appMode, setAppMode] = useState(null);
+
 
   function getMonday(d) {
     const date = new Date(d);
@@ -57,10 +61,16 @@ function App() {
   const hours = Array.from({ length: 12 }, (_, i) => i + 9);
 
   const getAppointments = () => {
+    setLoading(true);
+
     axios
       .get("https://barbershop-scheduler.onrender.com/appointments")
       .then((res) => setAppointments(res.data))
-      .catch((err) => console.error(err));
+      .catch((err) => {
+        console.error(err);
+        setMessage("Error al cargar citas");
+      })
+      .finally(() => setLoading(false));
   };
 
   const resetForm = () => {
@@ -73,71 +83,84 @@ function App() {
   };
 
   const createAppointment = () => {
-    setMessage("");
+  if (submitting) return;
 
-    axios
-      .post("https://barbershop-scheduler.onrender.com/appointments", {
-        name,
-        date,
-        time,
-        service,
-        barber,
-      })
-      .then(() => {
-        resetForm();
-        setSelectedWeekStart(getMonday(new Date()));
-        setMessage("Cita creada correctamente ✅");
-        getAppointments();
-      })
-      .catch((err) => {
-        if (err.response?.data?.message) {
-          setMessage(err.response.data.message);
-        } else {
-          setMessage("Error al crear cita");
-        }
-      });
-  };
+  setSubmitting(true);
+  setMessage("");
+
+  axios
+    .post("https://barbershop-scheduler.onrender.com/appointments", {
+      name,
+      date,
+      time,
+      service,
+      barber,
+    })
+    .then(() => {
+      resetForm();
+      setSelectedWeekStart(getMonday(new Date()));
+      setMessage("Cita creada correctamente ✅");
+      getAppointments();
+    })
+    .catch((err) => {
+      if (err.response?.data?.message) {
+        setMessage(err.response.data.message);
+      } else {
+        setMessage("Error al crear cita");
+      }
+    })
+    .finally(() => setSubmitting(false));
+};
 
   const updateAppointment = () => {
-    setMessage("");
+  if (submitting) return;
 
-    axios
-      .put(`https://barbershop-scheduler.onrender.com/appointments/${editingId}`, {
-        name,
-        date,
-        time,
-        service,
-        barber,
-      })
-      .then(() => {
-        resetForm();
-        setMessage("Cita actualizada correctamente ✅");
-        getAppointments();
-      })
-      .catch((err) => {
-        if (err.response?.data?.message) {
-          setMessage(err.response.data.message);
-        } else {
-          setMessage("Error al actualizar cita");
-        }
-      });
-  };
+  setSubmitting(true);
+  setMessage("");
+
+  axios
+    .put(`https://barbershop-scheduler.onrender.com/appointments/${editingId}`, {
+      name,
+      date,
+      time,
+      service,
+      barber,
+    })
+    .then(() => {
+      resetForm();
+      setMessage("Cita actualizada correctamente ✅");
+      getAppointments();
+    })
+    .catch((err) => {
+      if (err.response?.data?.message) {
+        setMessage(err.response.data.message);
+      } else {
+        setMessage("Error al actualizar cita");
+      }
+    })
+    .finally(() => setSubmitting(false));
+};
 
   const deleteAppointment = (id) => {
-    const confirmed = window.confirm("¿Seguro que quieres eliminar esta cita?");
-    if (!confirmed) return;
+  if (submitting) return;
 
-    axios
-      .delete(`https://barbershop-scheduler.onrender.com/appointments/${id}`)
-      .then(() => {
-        setMessage("Cita eliminada correctamente ✅");
-        getAppointments();
-      })
-      .catch((err) => {
-        console.error(err);
-        setMessage("Error al eliminar cita");
-      });
-  };
+  const confirmed = window.confirm("¿Seguro que quieres eliminar esta cita?");
+  if (!confirmed) return;
+
+  setSubmitting(true);
+
+  axios
+    .delete(`https://barbershop-scheduler.onrender.com/appointments/${id}`)
+    .then(() => {
+      setMessage("Cita eliminada correctamente ✅");
+      getAppointments();
+    })
+    .catch((err) => {
+      console.error(err);
+      setMessage("Error al eliminar cita");
+    })
+    .finally(() => setSubmitting(false));
+};
 
   const editAppointment = (appointment) => {
     setName(appointment.name);
@@ -157,24 +180,30 @@ function App() {
   };
 
   const handleLogin = () => {
-    axios
-      .post("https://barbershop-scheduler.onrender.com/login", {
-        username,
-        password,
-      })
-      .then((res) => {
-        setIsLoggedIn(true);
-        setLoginError("");
-        localStorage.setItem("user", JSON.stringify(res.data.user));
-      })
-      .catch((err) => {
-        if (err.response?.data?.message) {
-          setLoginError(err.response.data.message);
-        } else {
-          setLoginError("Error al iniciar sesión");
-        }
-      });
-  };
+  if (loggingIn) return;
+
+  setLoggingIn(true);
+
+  axios
+    .post("https://barbershop-scheduler.onrender.com/login", {
+      username,
+      password,
+    })
+    .then((res) => {
+      setIsLoggedIn(true);
+      setLoginError("");
+      setAppMode("admin"); // 👈 importante
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+    })
+    .catch((err) => {
+      if (err.response?.data?.message) {
+        setLoginError(err.response.data.message);
+      } else {
+        setLoginError("Error al iniciar sesión");
+      }
+    })
+    .finally(() => setLoggingIn(false));
+};
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -362,6 +391,7 @@ function App() {
       fontWeight: "bold",
       borderRight: "1px solid #374151",
       minHeight: "70px",
+      textTransform: "capitalize",
     },
     timeHeaderCell: {
       backgroundColor: "#1f2937",
@@ -418,6 +448,36 @@ function App() {
       fontSize: "12px",
       fontWeight: "bold",
     },
+    spinnerBox: {
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: "30px",
+},
+
+spinner: {
+  width: "42px",
+  height: "42px",
+  border: "4px solid #e5e7eb",
+  borderTop: "4px solid #111827",
+  borderRadius: "50%",
+  animation: "spin 1s linear infinite",
+},
+
+emptyState: {
+  backgroundColor: "#fff",
+  border: "1px dashed #d1d5db",
+  borderRadius: "12px",
+  padding: "18px",
+  textAlign: "center",
+  color: "#6b7280",
+  fontWeight: "bold",
+},
+
+disabledButton: {
+  opacity: 0.6,
+  cursor: "not-allowed",
+},
   };
 
   const isClientMode = appMode === "client";
@@ -694,63 +754,65 @@ function App() {
           </div>
 
           <div style={styles.calendarWrapper}>
-            <div style={styles.calendarGrid}>
-              <div style={styles.timeHeaderCell}>Hora</div>
+            {loading ? (
+              <div style={styles.card}>Cargando disponibilidad...</div>
+            ) : (
+              <div style={styles.calendarGrid}>
+                <div style={styles.timeHeaderCell}>Hora</div>
 
-              {weekDays.map((day, index) => (
-                <div key={index} style={styles.headerCell}>
-                  <div>{day.toLocaleDateString("es-CL", { weekday: "long" })}</div>
-                  <div>{day.toLocaleDateString("es-CL")}</div>
-                </div>
-              ))}
+                {weekDays.map((day, index) => (
+                  <div key={index} style={styles.headerCell}>
+                    <div>{day.toLocaleDateString("es-CL", { weekday: "long" })}</div>
+                    <div>{day.toLocaleDateString("es-CL")}</div>
+                  </div>
+                ))}
 
-              {hours.map((hour) => (
-                <React.Fragment key={hour}>
-                  <div style={styles.timeCell}>{formatHourLabel(hour)}</div>
+                {hours.map((hour) => (
+                  <React.Fragment key={hour}>
+                    <div style={styles.timeCell}>{formatHourLabel(hour)}</div>
 
-                  {weekDays.map((day, index) => {
-                    const slotAppointments = getAppointmentsForSlot(day, hour);
+                    {weekDays.map((day, index) => {
+                      const slotAppointments = getAppointmentsForSlot(day, hour);
 
-                    return (
-                      <div key={`${hour}-${index}`} style={styles.slotCell}>
-                        {slotAppointments.length > 0 ? (
-                          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                            {slotAppointments.map((appointment) => (
-                              <div
-                                key={appointment.id}
-                                style={{
-                                  ...styles.appointmentBlock,
-                                  ...getBarberColors(appointment.barber),
-                                }}
-                              >
-                                <div style={styles.appointmentTitle}>Ocupado</div>
-                                <div style={styles.appointmentMeta}>
-                                  {appointment.barber}
+                      return (
+                        <div key={`${hour}-${index}`} style={styles.slotCell}>
+                          {slotAppointments.length > 0 ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                              {slotAppointments.map((appointment) => (
+                                <div
+                                  key={appointment.id}
+                                  style={{
+                                    ...styles.appointmentBlock,
+                                    ...getBarberColors(appointment.barber),
+                                  }}
+                                >
+                                  <div style={styles.appointmentTitle}>Ocupado</div>
+                                  <div style={styles.appointmentMeta}>{appointment.barber}</div>
+                                  <div style={styles.appointmentMeta}>
+                                    {String(appointment.time).slice(0, 5)}
+                                  </div>
                                 </div>
-                                <div style={styles.appointmentMeta}>
-                                  {String(appointment.time).slice(0, 5)}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <button
-                            style={{
-                              ...styles.tinyButton,
-                              ...styles.secondaryButton,
-                              width: "100%",
-                            }}
-                            onClick={() => selectSlot(day, hour)}
-                          >
-                            Disponible
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </React.Fragment>
-              ))}
-            </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <button
+                              style={{
+                                ...styles.tinyButton,
+                                ...styles.secondaryButton,
+                                width: "100%",
+                              }}
+                              onClick={() => selectSlot(day, hour)}
+                            >
+                              Disponible
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       ) : (
@@ -876,89 +938,87 @@ function App() {
             </div>
 
             <div style={styles.calendarWrapper}>
-              <div style={styles.calendarGrid}>
-                <div style={styles.timeHeaderCell}>Hora</div>
+              {loading ? (
+                <div style={styles.card}>Cargando citas...</div>
+              ) : (
+                <div style={styles.calendarGrid}>
+                  <div style={styles.timeHeaderCell}>Hora</div>
 
-                {weekDays.map((day, index) => (
-                  <div key={index} style={styles.headerCell}>
-                    <div>{day.toLocaleDateString("es-CL", { weekday: "long" })}</div>
-                    <div>{day.toLocaleDateString("es-CL")}</div>
-                  </div>
-                ))}
+                  {weekDays.map((day, index) => (
+                    <div key={index} style={styles.headerCell}>
+                      <div>{day.toLocaleDateString("es-CL", { weekday: "long" })}</div>
+                      <div>{day.toLocaleDateString("es-CL")}</div>
+                    </div>
+                  ))}
 
-                {hours.map((hour) => (
-                  <React.Fragment key={hour}>
-                    <div style={styles.timeCell}>{formatHourLabel(hour)}</div>
+                  {hours.map((hour) => (
+                    <React.Fragment key={hour}>
+                      <div style={styles.timeCell}>{formatHourLabel(hour)}</div>
 
-                    {weekDays.map((day, index) => {
-                      const slotAppointments = getAppointmentsForSlot(day, hour);
+                      {weekDays.map((day, index) => {
+                        const slotAppointments = getAppointmentsForSlot(day, hour);
 
-                      return (
-                        <div key={`${hour}-${index}`} style={styles.slotCell}>
-                          {slotAppointments.length > 0 ? (
-                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                              {slotAppointments.map((appointment) => (
-                                <div
-                                  key={appointment.id}
-                                  style={{
-                                    ...styles.appointmentBlock,
-                                    ...getBarberColors(appointment.barber),
-                                  }}
-                                >
-                                  <div style={styles.appointmentTitle}>
-                                    {appointment.name}
-                                  </div>
-                                  <div style={styles.appointmentMeta}>
-                                    {appointment.service}
-                                  </div>
-                                  <div style={styles.appointmentMeta}>
-                                    {appointment.barber}
-                                  </div>
-                                  <div style={styles.appointmentMeta}>
-                                    {String(appointment.time).slice(0, 5)}
-                                  </div>
+                        return (
+                          <div key={`${hour}-${index}`} style={styles.slotCell}>
+                            {slotAppointments.length > 0 ? (
+                              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                {slotAppointments.map((appointment) => (
+                                  <div
+                                    key={appointment.id}
+                                    style={{
+                                      ...styles.appointmentBlock,
+                                      ...getBarberColors(appointment.barber),
+                                    }}
+                                  >
+                                    <div style={styles.appointmentTitle}>{appointment.name}</div>
+                                    <div style={styles.appointmentMeta}>{appointment.service}</div>
+                                    <div style={styles.appointmentMeta}>{appointment.barber}</div>
+                                    <div style={styles.appointmentMeta}>
+                                      {String(appointment.time).slice(0, 5)}
+                                    </div>
 
-                                  <div style={styles.actionRow}>
-                                    <button
-                                      style={{
-                                        ...styles.tinyButton,
-                                        ...styles.editButton,
-                                      }}
-                                      onClick={() => editAppointment(appointment)}
-                                    >
-                                      Editar
-                                    </button>
-                                    <button
-                                      style={{
-                                        ...styles.tinyButton,
-                                        ...styles.dangerButton,
-                                      }}
-                                      onClick={() => deleteAppointment(appointment.id)}
-                                    >
-                                      Eliminar
-                                    </button>
+                                    <div style={styles.actionRow}>
+                                      <button
+                                        style={{
+                                          ...styles.tinyButton,
+                                          ...styles.editButton,
+                                        }}
+                                        onClick={() => editAppointment(appointment)}
+                                      >
+                                        Editar
+                                      </button>
+                                      <button
+                                        style={{
+                                          ...styles.tinyButton,
+                                          ...styles.dangerButton,
+                                        }}
+                                        onClick={() => deleteAppointment(appointment.id)}
+                                      >
+                                        Eliminar
+                                      </button>
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <button
-                              style={{
-                                ...styles.tinyButton,
-                                ...styles.secondaryButton,
-                                width: "100%",
-                              }}
-                              onClick={() => selectSlot(day, hour)}
-                            >
-                              Disponible
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </React.Fragment>
-                ))}
-              </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <button
+                                style={{
+                                  ...styles.tinyButton,
+                                  ...styles.secondaryButton,
+                                  width: "100%",
+                                }}
+                                onClick={() => selectSlot(day, hour)}
+                              >
+                                Disponible
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </React.Fragment>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
