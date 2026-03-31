@@ -50,18 +50,10 @@ function App() {
     return d;
   }
 
-  const sameDate = (date1, date2) => {
-  const d1 = new Date(date1);
-  const d2 = new Date(date2);
-
-  console.log("Comparando:", d1, d2);
-
-  return (
-    d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate()
-  );
-};
+  function sameDate(dateString, dateObj) {
+    const normalizedDate = String(dateString).slice(0, 10);
+    return normalizedDate === formatDateToInput(dateObj);
+  }
 
   useEffect(() => {
     const handleResize = () => {
@@ -115,34 +107,74 @@ function App() {
   };
 
   const createAppointment = () => {
-    if (submitting) return;
+  if (submitting) return;
 
-    setSubmitting(true);
-    setMessage("");
+  setSubmitting(true);
+  setMessage("");
 
-    axios
-      .post("https://barbershop-scheduler.onrender.com/appointments", {
-        name,
-        date,
-        time,
-        service,
-        barber,
+  axios
+    .post("https://barbershop-scheduler.onrender.com/appointments", {
+      name,
+      date,
+      time,
+      service,
+      barber,
+    })
+    .then(() => {
+      const barberPhones = {
+        James: "56988287547",
+        "Jesús": "56957265409",
+      };
+
+      const phone = barberPhones[barber] || "56988287547";
+
+      const messageText = `Hola! 👋
+
+Quiero confirmar mi reserva:
+
+👤 Nombre: ${name}
+💈 Barbero: ${barber}
+✂️ Servicio: ${service}
+📅 Fecha: ${date}
+⏰ Hora: ${time}
+
+Quedo atento, gracias 🙌`;
+
+      const encodedMessage = encodeURIComponent(messageText);
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodedMessage}`;
+
+      console.log("INTENTANDO GUARDAR EN SHEETS");
+
+      fetch("https://script.google.com/macros/s/AKfycbwYenifhbLBZXFMTL8H5Z_98ErR_WZgYSeEaVjwh5lezubvf15JN06MREfiaQ62DfcYkA/exec", {
+        method: "POST",
+        body: JSON.stringify({
+          date,
+          time,
+          name,
+          barber,
+          service,
+        }),
       })
-      .then(() => {
-        resetForm();
-        setSelectedWeekStart(getMonday(new Date()));
-        setMessage("Cita creada correctamente ✅");
-        getAppointments();
-      })
-      .catch((err) => {
-        if (err.response?.data?.message) {
-          setMessage(err.response.data.message);
-        } else {
-          setMessage("Error al crear cita");
-        }
-      })
-      .finally(() => setSubmitting(false));
-  };
+        .then((res) => res.json())
+        .then((data) => console.log("Guardado en Sheets:", data))
+        .catch((err) => console.error("Error guardando en Sheets:", err));
+
+      resetForm();
+      setSelectedWeekStart(getMonday(new Date()));
+      setMessage("Cita creada correctamente ✅");
+      getAppointments();
+
+      window.open(whatsappUrl, "_blank");
+    })
+    .catch((err) => {
+      if (err.response?.data?.message) {
+        setMessage(err.response.data.message);
+      } else {
+        setMessage("Error al crear cita");
+      }
+    })
+    .finally(() => setSubmitting(false));
+};
 
   const updateAppointment = () => {
     if (submitting) return;
@@ -159,6 +191,20 @@ function App() {
         barber,
       })
       .then(() => {
+
+        fetch("https://script.google.com/macros/s/AKfycbwYenifhbLBZXFMTL8H5Z_98ErR_WZgYSeEaVjwh5lezubvf15JN06MREfiaQ62DfcYkA/exec", {
+  method: "POST",
+  body: JSON.stringify({
+    date,
+    time,
+    name,
+    barber,
+    service,
+  }),
+})
+  .then((res) => res.json())
+  .then((data) => console.log("Guardado en Sheets:", data))
+  .catch((err) => console.error("Error guardando en Sheets:", err));
         resetForm();
         setMessage("Cita actualizada correctamente ✅");
         getAppointments();
@@ -247,20 +293,15 @@ function App() {
 
   const getBarberColors = (barberName) => {
     switch (barberName) {
-      case "Cristian":
+      case "James":
         return {
           backgroundColor: "#dbeafe",
           border: "1px solid #60a5fa",
         };
-      case "Matías":
+      case "Jesús":
         return {
           backgroundColor: "#dcfce7",
           border: "1px solid #4ade80",
-        };
-      case "Sebastián":
-        return {
-          backgroundColor: "#f3e8ff",
-          border: "1px solid #c084fc",
         };
       default:
         return {
@@ -531,45 +572,39 @@ function App() {
       opacity: 0.6,
       cursor: "not-allowed",
     },
-
     mobileSlotsWrapper: {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "10px",
-},
-
-mobileSlotButton: {
-  padding: "14px 10px",
-  borderRadius: "12px",
-  border: "1px solid #d1d5db",
-  backgroundColor: "#ffffff",
-  color: "#111827",
-  cursor: "pointer",
-  textAlign: "center",
-  minHeight: "72px",
-},
-
-mobileSlotOccupied: {
-  backgroundColor: "#f3f4f6",
-  color: "#9ca3af",
-  cursor: "not-allowed",
-},
-
-mobileSlotSelected: {
-  backgroundColor: "#111827",
-  color: "#ffffff",
-  border: "1px solid #111827",
-},
-
-mobileSlotTime: {
-  fontSize: "15px",
-  fontWeight: "600",
-  marginBottom: "4px",
-},
-
-mobileSlotStatus: {
-  fontSize: "12px",
-},
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: "10px",
+    },
+    mobileSlotButton: {
+      padding: "14px 10px",
+      borderRadius: "12px",
+      border: "1px solid #d1d5db",
+      backgroundColor: "#ffffff",
+      color: "#111827",
+      cursor: "pointer",
+      textAlign: "center",
+      minHeight: "72px",
+    },
+    mobileSlotOccupied: {
+      backgroundColor: "#f3f4f6",
+      color: "#9ca3af",
+      cursor: "not-allowed",
+    },
+    mobileSlotSelected: {
+      backgroundColor: "#111827",
+      color: "#ffffff",
+      border: "1px solid #111827",
+    },
+    mobileSlotTime: {
+      fontSize: "15px",
+      fontWeight: "600",
+      marginBottom: "4px",
+    },
+    mobileSlotStatus: {
+      fontSize: "12px",
+    },
   };
 
   const isClientFormComplete =
@@ -791,12 +826,15 @@ mobileSlotStatus: {
                 onChange={(e) => setName(e.target.value)}
               />
 
-              <input
-                style={styles.input}
-                placeholder="Servicio que deseas"
-                value={service}
-                onChange={(e) => setService(e.target.value)}
-              />
+              <select
+  style={styles.select}
+  value={service}
+  onChange={(e) => setService(e.target.value)}
+>
+  <option value="">Selecciona un servicio</option>
+  <option value="Corte de pelo">Corte de pelo</option>
+  <option value="Corte de pelo + barba">Corte de pelo + barba</option>
+</select>
 
               <select
                 style={styles.select}
@@ -804,9 +842,8 @@ mobileSlotStatus: {
                 onChange={(e) => setBarber(e.target.value)}
               >
                 <option value="">Selecciona un barbero</option>
-                <option value="Cristian">Cristian</option>
-                <option value="Matías">Matías</option>
-                <option value="Sebastián">Sebastián</option>
+                <option value="James">James</option>
+                <option value="Jesús">Jesús</option>
               </select>
 
               <div
@@ -907,85 +944,84 @@ mobileSlotStatus: {
             </div>
 
             {isMobile && (
-  <div style={{ marginBottom: "14px", overflowX: "auto" }}>
-    <div style={{ display: "flex", gap: "8px" }}>
-      {weekDays.map((day) => {
-        const isActive =
-          selectedMobileDay &&
-          formatDateToInput(day) === formatDateToInput(selectedMobileDay);
+              <div style={{ marginBottom: "14px", overflowX: "auto" }}>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  {weekDays.map((day) => {
+                    const isActive =
+                      selectedMobileDay &&
+                      formatDateToInput(day) === formatDateToInput(selectedMobileDay);
 
-        return (
-          <button
-            key={formatDateToInput(day)}
-            onClick={() => setSelectedMobileDay(day)}
-            style={{
-              ...styles.button,
-              backgroundColor: isActive ? "#111827" : "#ffffff",
-              color: isActive ? "#ffffff" : "#111827",
-              border: isActive ? "1px solid #111827" : "1px solid #d1d5db",
-              borderRadius: "10px",
-              minWidth: "74px",
-              padding: "10px 12px",
-              whiteSpace: "nowrap",
-              flexShrink: 0,
-            }}
-          >
-            <div style={{ textTransform: "capitalize", fontSize: "13px" }}>
-              {day.toLocaleDateString("es-CL", { weekday: "short" })}
-            </div>
-            <div style={{ fontSize: "12px", opacity: 0.9 }}>
-              {day.getDate()}
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  </div>
-)}
+                    return (
+                      <button
+                        key={formatDateToInput(day)}
+                        onClick={() => setSelectedMobileDay(day)}
+                        style={{
+                          ...styles.button,
+                          backgroundColor: isActive ? "#111827" : "#ffffff",
+                          color: isActive ? "#ffffff" : "#111827",
+                          border: isActive ? "1px solid #111827" : "1px solid #d1d5db",
+                          borderRadius: "10px",
+                          minWidth: "74px",
+                          padding: "10px 12px",
+                          whiteSpace: "nowrap",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <div style={{ textTransform: "capitalize", fontSize: "13px" }}>
+                          {day.toLocaleDateString("es-CL", { weekday: "short" })}
+                        </div>
+                        <div style={{ fontSize: "12px", opacity: 0.9 }}>
+                          {day.getDate()}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div style={styles.calendarWrapper}>
-  {loading ? (
-    <div style={styles.spinnerBox}>
-      <div style={styles.spinner}></div>
-    </div>
-  ) : isMobile ? (
-    <div style={styles.mobileSlotsWrapper}>
-      {mobileSlots.map((slot) => {
-        const isSelected =
-  selectedMobileDay &&
-  date &&
-  sameDate(date, selectedMobileDay) &&
-  time &&
-  time.startsWith(String(slot.hour).padStart(2, "0"));
+              {loading ? (
+                <div style={styles.spinnerBox}>
+                  <div style={styles.spinner}></div>
+                </div>
+              ) : isMobile ? (
+                <div style={styles.mobileSlotsWrapper}>
+                  {mobileSlots.map((slot) => {
+                    const isSelected =
+                      selectedMobileDay &&
+                      date &&
+                      sameDate(date, selectedMobileDay) &&
+                      time &&
+                      time.startsWith(String(slot.hour).padStart(2, "0"));
 
-        return (
-          <button
-            key={slot.hour}
-            type="button"
-            onClick={() => {
-              if (slot.isOccupied) return;
-              setDate(formatDateToInput(selectedMobileDay));
-              setTime(`${String(slot.hour).padStart(2, "0")}:00`);
-
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
-            disabled={slot.isOccupied}
-            style={{
-              ...styles.mobileSlotButton,
-              ...(slot.isOccupied ? styles.mobileSlotOccupied : {}),
-              ...(isSelected ? styles.mobileSlotSelected : {}),
-            }}
-          >
-            <div style={styles.mobileSlotTime}>{slot.label}</div>
-            <div style={styles.mobileSlotStatus}>
-              {slot.isOccupied ? "Ocupado" : "Disponible"}
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  ) : (
-    <div style={styles.calendarGrid}>
+                    return (
+                      <button
+                        key={slot.hour}
+                        type="button"
+                        onClick={() => {
+                          if (slot.isOccupied) return;
+                          setDate(formatDateToInput(selectedMobileDay));
+                          setTime(`${String(slot.hour).padStart(2, "0")}:00`);
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }}
+                        disabled={slot.isOccupied}
+                        style={{
+                          ...styles.mobileSlotButton,
+                          ...(slot.isOccupied ? styles.mobileSlotOccupied : {}),
+                          ...(isSelected ? styles.mobileSlotSelected : {}),
+                        }}
+                      >
+                        <div style={styles.mobileSlotTime}>{slot.label}</div>
+                        <div style={styles.mobileSlotStatus}>
+                          {slot.isOccupied ? "Ocupado" : "Disponible"}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={styles.calendarGrid}>
                   <div style={styles.timeHeaderCell}>Hora</div>
 
                   {weekDays.map((day, index) => (
@@ -1090,9 +1126,8 @@ mobileSlotStatus: {
                   onChange={(e) => setBarber(e.target.value)}
                 >
                   <option value="">Selecciona un barbero</option>
-                  <option value="Cristian">Cristian</option>
-                  <option value="Matías">Matías</option>
-                  <option value="Sebastián">Sebastián</option>
+                  <option value="James">James</option>
+                  <option value="Jesús">Jesús</option>
                 </select>
 
                 {editingId ? (
@@ -1153,9 +1188,8 @@ mobileSlotStatus: {
                     onChange={(e) => setWeeklyBarberFilter(e.target.value)}
                   >
                     <option value="">Todos los barberos</option>
-                    <option value="Cristian">Cristian</option>
-                    <option value="Matías">Matías</option>
-                    <option value="Sebastián">Sebastián</option>
+                    <option value="James">James</option>
+                    <option value="Jesús">Jesús</option>
                   </select>
                 </div>
 
