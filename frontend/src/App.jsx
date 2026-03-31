@@ -22,6 +22,7 @@ function App() {
   const [loginError, setLoginError] = useState("");
   const [appMode, setAppMode] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [selectedMobileDay, setSelectedMobileDay] = useState(null);
 
   function getMonday(d) {
     const date = new Date(d);
@@ -64,14 +65,37 @@ function App() {
   }, []);
 
   const weekDays = useMemo(() => {
-    if (isMobile) {
-      return [selectedWeekStart];
-    }
+  return Array.from({ length: 7 }, (_, i) => addDays(selectedWeekStart, i));
+}, [selectedWeekStart]);
 
-    return Array.from({ length: 7 }, (_, i) => addDays(selectedWeekStart, i));
-  }, [selectedWeekStart, isMobile]);
+useEffect(() => {
+  if (weekDays.length > 0) {
+    const stillExists = weekDays.some(
+      (day) => selectedMobileDay && formatDateToInput(day) === formatDateToInput(selectedMobileDay)
+    );
+
+    if (!selectedMobileDay || !stillExists) {
+      setSelectedMobileDay(weekDays[0]);
+    }
+  }
+}, [weekDays, selectedMobileDay]);
 
   const hours = Array.from({ length: 12 }, (_, i) => i + 9);
+
+  const mobileSlots = useMemo(() => {
+  if (!selectedMobileDay) return [];
+
+  return hours.map((hour) => {
+    const slotAppointments = getAppointmentsForSlot(selectedMobileDay, hour);
+
+    return {
+      hour,
+      label: formatHourLabel(hour),
+      appointments: slotAppointments,
+      isOccupied: slotAppointments.length > 0,
+    };
+  });
+}, [selectedMobileDay, hours, appointments, weeklyBarberFilter]);
 
   const getAppointments = () => {
     setLoading(true);
