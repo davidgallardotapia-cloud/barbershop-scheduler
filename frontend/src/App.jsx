@@ -392,13 +392,15 @@ const matchesBarber = activeBarberFilter
       overflowX: "auto",
     },
     calendarGrid: {
-      display: "grid",
-      gridTemplateColumns: "90px repeat(7, minmax(140px, 1fr))",
-      border: "1px solid #e5e7eb",
-      borderRadius: "12px",
-      overflow: "hidden",
-      backgroundColor: "#fff",
-    },
+  display: "grid",
+  gridTemplateColumns: isMobile
+    ? "80px minmax(180px, 1fr)"
+    : "90px repeat(7, minmax(140px, 1fr))",
+  border: "1px solid #e5e7eb",
+  borderRadius: "12px",
+  overflow: "hidden",
+  backgroundColor: "#fff",
+},
     headerCell: {
       backgroundColor: "#111827",
       color: "#fff",
