@@ -21,7 +21,7 @@ function App() {
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [appMode, setAppMode] = useState(null);
-
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   function getMonday(d) {
     const date = new Date(d);
@@ -55,8 +55,12 @@ function App() {
   }
 
   const weekDays = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => addDays(selectedWeekStart, i));
-  }, [selectedWeekStart]);
+  if (isMobile) {
+    return [new Date()];
+  }
+
+  return Array.from({ length: 7 }, (_, i) => addDays(selectedWeekStart, i));
+}, [selectedWeekStart, isMobile]);
 
   const hours = Array.from({ length: 12 }, (_, i) => i + 9);
 
@@ -257,9 +261,11 @@ function App() {
 
       const matchesDay = sameDate(appointment.date, day);
       const matchesHour = Number(appointmentHour) === hour;
-      const matchesBarber = weeklyBarberFilter
-        ? appointment.barber === weeklyBarberFilter
-        : true;
+      const activeBarberFilter = isClientMode ? barber : weeklyBarberFilter;
+
+const matchesBarber = activeBarberFilter
+  ? appointment.barber === activeBarberFilter
+  : true;
       const matchesClient = clientSearch
         ? String(appointment.name).toLowerCase().includes(clientSearch.toLowerCase())
         : true;
@@ -278,6 +284,15 @@ function App() {
 
     getAppointments();
   }, []);
+
+  useEffect(() => {
+  const handleResize = () => {
+    setIsMobile(window.innerWidth < 768);
+  };
+
+  window.addEventListener("resize", handleResize);
+  return () => window.removeEventListener("resize", handleResize);
+}, []);
 
   const styles = {
     page: {
@@ -483,6 +498,10 @@ disabledButton: {
   const isClientMode = appMode === "client";
   const isAdminMode = appMode === "admin" && isLoggedIn;
 
+  const isClientFormComplete =
+  name.trim() && date && time && service.trim() && barber;
+  const isBarberSelected = Boolean(barber);
+
   if (appMode === null) {
     return (
       <div
@@ -566,14 +585,7 @@ disabledButton: {
         >
           <h2>Ingreso Agenda 💈</h2>
 
-          <input
-            style={styles.input}
-            placeholder="Usuario"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-
-          <input
+            <input
             style={styles.input}
             type="password"
             placeholder="Contraseña"
@@ -611,6 +623,14 @@ disabledButton: {
   }
 
   return (
+  <>
+    <style>{`
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `}</style>
+
     <div style={styles.page}>
       <div
         style={{
@@ -652,11 +672,21 @@ disabledButton: {
       {isClientMode ? (
         <div style={styles.card}>
           <div style={{ marginBottom: "20px" }}>
-            <h2 style={{ marginTop: 0 }}>Agenda tu hora</h2>
-            <p style={{ color: "#4b5563", lineHeight: 1.5 }}>
-              Elige tu barbero, selecciona un bloque disponible y confirma tu reserva en segundos.
-            </p>
-          </div>
+  <h2 style={{ marginTop: 0 }}>Agenda tu hora</h2>
+  <p style={{ color: "#4b5563", lineHeight: 1.5, marginBottom: "8px" }}>
+    Elige tu barbero, selecciona un bloque disponible y confirma tu reserva en segundos.
+  </p>
+  <p
+    style={{
+      color: "#2563eb",
+      fontWeight: "bold",
+      margin: 0,
+      fontSize: "14px",
+    }}
+  >
+    Para reservar, primero selecciona un bloque disponible en el calendario.
+  </p>
+</div>
 
           <div
             style={{
@@ -680,14 +710,47 @@ disabledButton: {
               onChange={(e) => setDate(e.target.value)}
             />
 
-            <input
-              style={styles.input}
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-            />
+            <div
+  style={{
+    backgroundColor: "#f9fafb",
+    border: "1px solid #d1d5db",
+    borderRadius: "8px",
+    padding: "12px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    minHeight: "44px",
+  }}
+>
+  <span style={{ fontSize: "12px", color: "#6b7280", fontWeight: "bold" }}>
+    Fecha seleccionada
+  </span>
+  <span style={{ fontSize: "14px", color: "#111827" }}>
+    {date || "Selecciona un bloque disponible"}
+  </span>
+</div>
 
-            <input
+<div
+  style={{
+    backgroundColor: "#f9fafb",
+    border: "1px solid #d1d5db",
+    borderRadius: "8px",
+    padding: "12px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    minHeight: "44px",
+  }}
+>
+  <span style={{ fontSize: "12px", color: "#6b7280", fontWeight: "bold" }}>
+    Hora seleccionada
+  </span>
+  <span style={{ fontSize: "14px", color: "#111827" }}>
+    {time || "Selecciona un bloque disponible"}
+  </span>
+</div>
+
+              <input
               style={styles.input}
               placeholder="Servicio que deseas"
               value={service}
@@ -705,12 +768,19 @@ disabledButton: {
               <option value="Sebastián">Sebastián</option>
             </select>
 
-            <button
-              style={{ ...styles.button, ...styles.primaryButton }}
-              onClick={createAppointment}
-            >
-              Confirmar reserva
-            </button>
+           <button
+  style={{
+    ...styles.button,
+    ...styles.primaryButton,
+    ...((submitting || !isClientFormComplete)
+      ? styles.disabledButton
+      : {}),
+  }}
+  onClick={createAppointment}
+  disabled={submitting || !isClientFormComplete}
+>
+  {submitting ? "Reservando..." : "Confirmar reserva"}
+</button>
           </div>
 
           {message && <p style={styles.message}>{message}</p>}
@@ -719,16 +789,18 @@ disabledButton: {
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               <h2 style={{ margin: 0 }}>Disponibilidad semanal</h2>
 
-              <select
-                style={{ ...styles.select, minWidth: "220px" }}
-                value={weeklyBarberFilter}
-                onChange={(e) => setWeeklyBarberFilter(e.target.value)}
-              >
-                <option value="">Todos los barberos</option>
-                <option value="Cristian">Cristian</option>
-                <option value="Matías">Matías</option>
-                <option value="Sebastián">Sebastián</option>
-              </select>
+              <div
+  style={{
+    ...styles.select,
+    minWidth: "220px",
+    backgroundColor: "#f9fafb",
+    display: "flex",
+    alignItems: "center",
+    color: barber ? "#111827" : "#6b7280",
+  }}
+>
+  {barber ? `Barbero seleccionado: ${barber}` : "Selecciona un barbero arriba"}
+</div>
             </div>
 
             <div style={styles.weekActions}>
@@ -755,8 +827,10 @@ disabledButton: {
 
           <div style={styles.calendarWrapper}>
             {loading ? (
-              <div style={styles.card}>Cargando disponibilidad...</div>
-            ) : (
+              <div style={styles.spinnerBox}>
+      <div style={styles.spinner}></div>
+    </div>
+  ) : (
               <div style={styles.calendarGrid}>
                 <div style={styles.timeHeaderCell}>Hora</div>
 
@@ -796,15 +870,20 @@ disabledButton: {
                             </div>
                           ) : (
                             <button
-                              style={{
-                                ...styles.tinyButton,
-                                ...styles.secondaryButton,
-                                width: "100%",
-                              }}
-                              onClick={() => selectSlot(day, hour)}
-                            >
-                              Disponible
-                            </button>
+  style={{
+    ...styles.tinyButton,
+    ...styles.secondaryButton,
+    width: "100%",
+    ...(!isBarberSelected ? styles.disabledButton : {}),
+  }}
+  onClick={() => {
+    if (!isBarberSelected) return;
+    selectSlot(day, hour);
+  }}
+  disabled={!isBarberSelected}
+>
+  {isBarberSelected ? "Disponible" : "Elige barbero"}
+</button>
                           )}
                         </div>
                       );
@@ -865,11 +944,16 @@ disabledButton: {
               {editingId ? (
                 <>
                   <button
-                    style={{ ...styles.button, ...styles.editButton }}
-                    onClick={updateAppointment}
-                  >
-                    Actualizar cita
-                  </button>
+  style={{
+    ...styles.button,
+    ...styles.editButton,
+    ...(submitting ? styles.disabledButton : {}),
+  }}
+  onClick={updateAppointment}
+  disabled={submitting}
+>
+  {submitting ? "Actualizando..." : "Actualizar cita"}
+</button>
                   <button
                     style={{ ...styles.button, ...styles.secondaryButton }}
                     onClick={resetForm}
@@ -879,11 +963,16 @@ disabledButton: {
                 </>
               ) : (
                 <button
-                  style={{ ...styles.button, ...styles.primaryButton }}
-                  onClick={createAppointment}
-                >
-                  Crear cita
-                </button>
+  style={{
+    ...styles.button,
+    ...styles.primaryButton,
+    ...(submitting ? styles.disabledButton : {}),
+  }}
+  onClick={createAppointment}
+  disabled={submitting}
+>
+  {submitting ? "Creando..." : "Crear cita"}
+</button>
               )}
 
               {message && <p style={styles.message}>{message}</p>}
@@ -939,8 +1028,10 @@ disabledButton: {
 
             <div style={styles.calendarWrapper}>
               {loading ? (
-                <div style={styles.card}>Cargando citas...</div>
-              ) : (
+                <div style={styles.spinnerBox}>
+      <div style={styles.spinner}></div>
+    </div>
+  ) : (
                 <div style={styles.calendarGrid}>
                   <div style={styles.timeHeaderCell}>Hora</div>
 
@@ -979,23 +1070,27 @@ disabledButton: {
 
                                     <div style={styles.actionRow}>
                                       <button
-                                        style={{
-                                          ...styles.tinyButton,
-                                          ...styles.editButton,
-                                        }}
-                                        onClick={() => editAppointment(appointment)}
-                                      >
-                                        Editar
-                                      </button>
+  style={{
+    ...styles.tinyButton,
+    ...styles.editButton,
+    ...(submitting ? styles.disabledButton : {}),
+  }}
+  onClick={() => editAppointment(appointment)}
+  disabled={submitting}
+>
+  Editar
+</button>
                                       <button
-                                        style={{
-                                          ...styles.tinyButton,
-                                          ...styles.dangerButton,
-                                        }}
-                                        onClick={() => deleteAppointment(appointment.id)}
-                                      >
-                                        Eliminar
-                                      </button>
+  style={{
+    ...styles.tinyButton,
+    ...styles.dangerButton,
+    ...(submitting ? styles.disabledButton : {}),
+  }}
+  onClick={() => deleteAppointment(appointment.id)}
+  disabled={submitting}
+>
+  Eliminar
+</button>
                                     </div>
                                   </div>
                                 ))}
@@ -1024,6 +1119,7 @@ disabledButton: {
         </div>
       )}
     </div>
+    </>
   );
 }
 
