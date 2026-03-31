@@ -50,10 +50,18 @@ function App() {
     return d;
   }
 
-  function sameDate(dateString, dateObj) {
-    const normalizedDate = String(dateString).slice(0, 10);
-    return normalizedDate === formatDateToInput(dateObj);
-  }
+  const sameDate = (date1, date2) => {
+  const d1 = new Date(date1);
+  const d2 = new Date(date2);
+
+  console.log("Comparando:", d1, d2);
+
+  return (
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate()
+  );
+};
 
   useEffect(() => {
     const handleResize = () => {
@@ -65,37 +73,24 @@ function App() {
   }, []);
 
   const weekDays = useMemo(() => {
-  return Array.from({ length: 7 }, (_, i) => addDays(selectedWeekStart, i));
-}, [selectedWeekStart]);
+    return Array.from({ length: 7 }, (_, i) => addDays(selectedWeekStart, i));
+  }, [selectedWeekStart]);
 
-useEffect(() => {
-  if (weekDays.length > 0) {
-    const stillExists = weekDays.some(
-      (day) => selectedMobileDay && formatDateToInput(day) === formatDateToInput(selectedMobileDay)
-    );
+  useEffect(() => {
+    if (weekDays.length > 0) {
+      const stillExists = weekDays.some(
+        (day) =>
+          selectedMobileDay &&
+          formatDateToInput(day) === formatDateToInput(selectedMobileDay)
+      );
 
-    if (!selectedMobileDay || !stillExists) {
-      setSelectedMobileDay(weekDays[0]);
+      if (!selectedMobileDay || !stillExists) {
+        setSelectedMobileDay(weekDays[0]);
+      }
     }
-  }
-}, [weekDays, selectedMobileDay]);
+  }, [weekDays, selectedMobileDay]);
 
   const hours = Array.from({ length: 12 }, (_, i) => i + 9);
-
-  const mobileSlots = useMemo(() => {
-  if (!selectedMobileDay) return [];
-
-  return hours.map((hour) => {
-    const slotAppointments = getAppointmentsForSlot(selectedMobileDay, hour);
-
-    return {
-      hour,
-      label: formatHourLabel(hour),
-      appointments: slotAppointments,
-      isOccupied: slotAppointments.length > 0,
-    };
-  });
-}, [selectedMobileDay, hours, appointments, weeklyBarberFilter]);
 
   const getAppointments = () => {
     setLoading(true);
@@ -312,6 +307,21 @@ useEffect(() => {
     });
   };
 
+  const mobileSlots = useMemo(() => {
+    if (!selectedMobileDay) return [];
+
+    return hours.map((hour) => {
+      const slotAppointments = getAppointmentsForSlot(selectedMobileDay, hour);
+
+      return {
+        hour,
+        label: formatHourLabel(hour),
+        appointments: slotAppointments,
+        isOccupied: slotAppointments.length > 0,
+      };
+    });
+  }, [selectedMobileDay, appointments, barber, weeklyBarberFilter, clientSearch]);
+
   useEffect(() => {
     const savedUser = localStorage.getItem("user");
 
@@ -521,6 +531,45 @@ useEffect(() => {
       opacity: 0.6,
       cursor: "not-allowed",
     },
+
+    mobileSlotsWrapper: {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "10px",
+},
+
+mobileSlotButton: {
+  padding: "14px 10px",
+  borderRadius: "12px",
+  border: "1px solid #d1d5db",
+  backgroundColor: "#ffffff",
+  color: "#111827",
+  cursor: "pointer",
+  textAlign: "center",
+  minHeight: "72px",
+},
+
+mobileSlotOccupied: {
+  backgroundColor: "#f3f4f6",
+  color: "#9ca3af",
+  cursor: "not-allowed",
+},
+
+mobileSlotSelected: {
+  backgroundColor: "#111827",
+  color: "#ffffff",
+  border: "1px solid #111827",
+},
+
+mobileSlotTime: {
+  fontSize: "15px",
+  fontWeight: "600",
+  marginBottom: "4px",
+},
+
+mobileSlotStatus: {
+  fontSize: "12px",
+},
   };
 
   const isClientFormComplete =
@@ -857,13 +906,86 @@ useEffect(() => {
               </div>
             </div>
 
+            {isMobile && (
+  <div style={{ marginBottom: "14px", overflowX: "auto" }}>
+    <div style={{ display: "flex", gap: "8px" }}>
+      {weekDays.map((day) => {
+        const isActive =
+          selectedMobileDay &&
+          formatDateToInput(day) === formatDateToInput(selectedMobileDay);
+
+        return (
+          <button
+            key={formatDateToInput(day)}
+            onClick={() => setSelectedMobileDay(day)}
+            style={{
+              ...styles.button,
+              backgroundColor: isActive ? "#111827" : "#ffffff",
+              color: isActive ? "#ffffff" : "#111827",
+              border: isActive ? "1px solid #111827" : "1px solid #d1d5db",
+              borderRadius: "10px",
+              minWidth: "74px",
+              padding: "10px 12px",
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ textTransform: "capitalize", fontSize: "13px" }}>
+              {day.toLocaleDateString("es-CL", { weekday: "short" })}
+            </div>
+            <div style={{ fontSize: "12px", opacity: 0.9 }}>
+              {day.getDate()}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  </div>
+)}
+
             <div style={styles.calendarWrapper}>
-              {loading ? (
-                <div style={styles.spinnerBox}>
-                  <div style={styles.spinner}></div>
-                </div>
-              ) : (
-                <div style={styles.calendarGrid}>
+  {loading ? (
+    <div style={styles.spinnerBox}>
+      <div style={styles.spinner}></div>
+    </div>
+  ) : isMobile ? (
+    <div style={styles.mobileSlotsWrapper}>
+      {mobileSlots.map((slot) => {
+        const isSelected =
+  selectedMobileDay &&
+  date &&
+  sameDate(date, selectedMobileDay) &&
+  time &&
+  time.startsWith(String(slot.hour).padStart(2, "0"));
+
+        return (
+          <button
+            key={slot.hour}
+            type="button"
+            onClick={() => {
+              if (slot.isOccupied) return;
+              setDate(formatDateToInput(selectedMobileDay));
+              setTime(`${String(slot.hour).padStart(2, "0")}:00`);
+
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            disabled={slot.isOccupied}
+            style={{
+              ...styles.mobileSlotButton,
+              ...(slot.isOccupied ? styles.mobileSlotOccupied : {}),
+              ...(isSelected ? styles.mobileSlotSelected : {}),
+            }}
+          >
+            <div style={styles.mobileSlotTime}>{slot.label}</div>
+            <div style={styles.mobileSlotStatus}>
+              {slot.isOccupied ? "Ocupado" : "Disponible"}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  ) : (
+    <div style={styles.calendarGrid}>
                   <div style={styles.timeHeaderCell}>Hora</div>
 
                   {weekDays.map((day, index) => (
