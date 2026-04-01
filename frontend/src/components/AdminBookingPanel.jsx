@@ -6,6 +6,8 @@ function AdminBookingPanel({
   editingId,
   name,
   setName,
+  phone,
+  setPhone,
   date,
   setDate,
   time,
@@ -33,6 +35,13 @@ function AdminBookingPanel({
           placeholder="Nombre cliente"
           value={name}
           onChange={(e) => setName(e.target.value)}
+        />
+
+        <input
+          style={styles.input}
+          placeholder="Teléfono cliente"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
         />
 
         <input

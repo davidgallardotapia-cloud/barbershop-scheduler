@@ -25,6 +25,8 @@ function WeeklyCalendar({
   editAppointment,
   deleteAppointment,
   submitting,
+  isPastSlot,
+  isPastDayOnly,
 }) {
   return (
     <>
@@ -36,14 +38,24 @@ function WeeklyCalendar({
                 selectedMobileDay &&
                 formatDateToInput(day) === formatDateToInput(selectedMobileDay);
 
+              const isPastDay = isClientMode ? isPastDayOnly(day) : false;
+
               return (
                 <button
                   key={formatDateToInput(day)}
-                  onClick={() => setSelectedMobileDay(day)}
+                  onClick={() => {
+                    if (isPastDay) return;
+                    setSelectedMobileDay(day);
+                  }}
+                  disabled={isPastDay}
                   style={{
                     ...styles.button,
-                    backgroundColor: isActive ? "#111827" : "#ffffff",
-                    color: isActive ? "#ffffff" : "#111827",
+                    backgroundColor: isPastDay
+                      ? "#e5e7eb"
+                      : isActive
+                      ? "#111827"
+                      : "#ffffff",
+                    color: isPastDay ? "#9ca3af" : isActive ? "#ffffff" : "#111827",
                     border: isActive
                       ? "1px solid #111827"
                       : "1px solid #d1d5db",
@@ -52,6 +64,8 @@ function WeeklyCalendar({
                     padding: "10px 12px",
                     whiteSpace: "nowrap",
                     flexShrink: 0,
+                    cursor: isPastDay ? "not-allowed" : "pointer",
+                    opacity: isPastDay ? 0.8 : 1,
                   }}
                 >
                   <div style={{ textTransform: "capitalize", fontSize: "13px" }}>
@@ -85,7 +99,8 @@ function WeeklyCalendar({
                   time &&
                   time.startsWith(String(slot.hour).padStart(2, "0"));
 
-                const isDisabled = slot.isOccupied || !isBarberSelected;
+                const isDisabled =
+                  slot.isOccupied || slot.isPast || !isBarberSelected;
 
                 return (
                   <button
@@ -100,7 +115,7 @@ function WeeklyCalendar({
                     disabled={isDisabled}
                     style={{
                       ...styles.mobileSlotButton,
-                      ...(slot.isOccupied || !isBarberSelected
+                      ...(slot.isOccupied || slot.isPast || !isBarberSelected
                         ? styles.mobileSlotOccupied
                         : {}),
                       ...(isSelected ? styles.mobileSlotSelected : {}),
@@ -110,6 +125,8 @@ function WeeklyCalendar({
                     <div style={styles.mobileSlotStatus}>
                       {!isBarberSelected
                         ? "Elige barbero"
+                        : slot.isPast
+                        ? "No disponible"
                         : slot.isOccupied
                         ? "Ocupado"
                         : "Disponible"}
@@ -219,6 +236,7 @@ function WeeklyCalendar({
 
                 {weekDays.map((day, index) => {
                   const slotAppointments = getAppointmentsForSlot(day, hour);
+                  const isPast = isClientMode ? isPastSlot(day, hour) : false;
 
                   return (
                     <div key={`${hour}-${index}`} style={styles.slotCell}>
@@ -305,15 +323,28 @@ function WeeklyCalendar({
                             ...styles.tinyButton,
                             ...styles.secondaryButton,
                             width: "100%",
-                            ...(!isBarberSelected ? styles.disabledButton : {}),
+                            ...((!isBarberSelected || isPast)
+                              ? styles.disabledButton
+                              : {}),
+                            ...(isPast
+                              ? {
+                                  backgroundColor: "#e5e7eb",
+                                  color: "#9ca3af",
+                                  cursor: "not-allowed",
+                                }
+                              : {}),
                           }}
                           onClick={() => {
-                            if (!isBarberSelected) return;
+                            if (!isBarberSelected || isPast) return;
                             selectSlot(day, hour);
                           }}
-                          disabled={!isBarberSelected}
+                          disabled={!isBarberSelected || isPast}
                         >
-                          {isBarberSelected ? "Disponible" : "Elige barbero"}
+                          {!isBarberSelected
+                            ? "Elige barbero"
+                            : isPast
+                            ? "No disponible"
+                            : "Disponible"}
                         </button>
                       ) : (
                         <button

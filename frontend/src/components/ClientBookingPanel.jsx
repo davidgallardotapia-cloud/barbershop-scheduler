@@ -4,6 +4,8 @@ function ClientBookingPanel({
   styles,
   name,
   setName,
+  phone,
+  setPhone,
   service,
   setService,
   barber,
@@ -51,6 +53,13 @@ function ClientBookingPanel({
           placeholder="Tu nombre"
           value={name}
           onChange={(e) => setName(e.target.value)}
+        />
+
+        <input
+          style={styles.input}
+          placeholder="Tu teléfono"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
         />
 
         <select

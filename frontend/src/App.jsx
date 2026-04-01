@@ -1,5 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import LoginScreen from "./components/LoginScreen";
+import ClientBookingPanel from "./components/ClientBookingPanel";
+import AdminBookingPanel from "./components/AdminBookingPanel";
+import WeeklyCalendar from "./components/WeeklyCalendar";
 
 const API_URL = "https://barbershop-scheduler.onrender.com";
 const SHEETS_URL =
@@ -20,6 +24,7 @@ function App() {
   const [loggingIn, setLoggingIn] = useState(false);
 
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [service, setService] = useState("");
@@ -38,11 +43,11 @@ function App() {
 
   const [appMode, setAppMode] = useState("client");
   const [isMobile, setIsMobile] = useState(() =>
-  typeof window !== "undefined" ? window.innerWidth < 768 : false
-);
-const [isCompactAdmin, setIsCompactAdmin] = useState(() =>
-  typeof window !== "undefined" ? window.innerWidth < 1180 : false
-);
+    typeof window !== "undefined" ? window.innerWidth < 768 : false
+  );
+  const [isCompactAdmin, setIsCompactAdmin] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth < 1180 : false
+  );
   const [selectedMobileDay, setSelectedMobileDay] = useState(null);
 
   function getMonday(d) {
@@ -77,6 +82,36 @@ const [isCompactAdmin, setIsCompactAdmin] = useState(() =>
     return normalizedDate === formatDateToInput(dateObj);
   }
 
+  function isPastSlot(day, hour) {
+    const now = new Date();
+
+    const slotDate = new Date(day);
+    slotDate.setHours(0, 0, 0, 0);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (slotDate < today) {
+      return true;
+    }
+
+    if (slotDate > today) {
+      return false;
+    }
+
+    return hour < now.getHours();
+  }
+
+  function isPastDayOnly(day) {
+    const slotDate = new Date(day);
+    slotDate.setHours(0, 0, 0, 0);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return slotDate < today;
+  }
+
   async function syncToGoogleSheets(payload) {
     try {
       const response = await fetch(SHEETS_URL, {
@@ -101,15 +136,15 @@ const [isCompactAdmin, setIsCompactAdmin] = useState(() =>
   }
 
   useEffect(() => {
-  const handleResize = () => {
-    setIsMobile(window.innerWidth < 768);
-    setIsCompactAdmin(window.innerWidth < 1180);
-  };
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+      setIsCompactAdmin(window.innerWidth < 1180);
+    };
 
-  handleResize();
-  window.addEventListener("resize", handleResize);
-  return () => window.removeEventListener("resize", handleResize);
-}, []);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => addDays(selectedWeekStart, i));
@@ -124,7 +159,12 @@ const [isCompactAdmin, setIsCompactAdmin] = useState(() =>
       );
 
       if (!selectedMobileDay || !stillExists) {
-        setSelectedMobileDay(weekDays[0]);
+        const today = new Date();
+        const todayInCurrentWeek = weekDays.find(
+          (day) => formatDateToInput(day) === formatDateToInput(today)
+        );
+
+        setSelectedMobileDay(todayInCurrentWeek || weekDays[0]);
       }
     }
   }, [weekDays, selectedMobileDay]);
@@ -146,6 +186,7 @@ const [isCompactAdmin, setIsCompactAdmin] = useState(() =>
 
   const resetForm = () => {
     setName("");
+    setPhone("");
     setDate("");
     setTime("");
     setService("");
@@ -156,7 +197,7 @@ const [isCompactAdmin, setIsCompactAdmin] = useState(() =>
   const createAppointment = async () => {
     if (submitting) return;
 
-    if (!name.trim() || !date || !time || !service.trim() || !barber) {
+    if (!name.trim() || !phone.trim() || !date || !time || !service.trim() || !barber) {
       setMessage("Completa todos los campos para agendar.");
       return;
     }
@@ -167,19 +208,21 @@ const [isCompactAdmin, setIsCompactAdmin] = useState(() =>
     try {
       await axios.post(`${API_URL}/appointments`, {
         name: name.trim(),
+        phone: phone.trim(),
         date,
         time,
         service: service.trim(),
         barber,
       });
 
-      const phone = BARBER_PHONES[barber] || BARBER_PHONES.James;
+      const barberPhone = BARBER_PHONES[barber] || BARBER_PHONES.James;
 
       const messageText = `Hola! 👋
 
 Quiero confirmar mi reserva:
 
 👤 Nombre: ${name.trim()}
+📱 Teléfono: ${phone.trim()}
 💈 Barbero: ${barber}
 ✂️ Servicio: ${service.trim()}
 📅 Fecha: ${date}
@@ -188,12 +231,13 @@ Quiero confirmar mi reserva:
 Quedo atento, gracias 🙌`;
 
       const encodedMessage = encodeURIComponent(messageText);
-      const whatsappUrl = `https://wa.me/${phone}?text=${encodedMessage}`;
+      const whatsappUrl = `https://wa.me/${barberPhone}?text=${encodedMessage}`;
 
       await syncToGoogleSheets({
         date,
         time,
         name: name.trim(),
+        phone: phone.trim(),
         barber,
         service: service.trim(),
       });
@@ -218,7 +262,7 @@ Quedo atento, gracias 🙌`;
   const updateAppointment = async () => {
     if (submitting || !editingId) return;
 
-    if (!name.trim() || !date || !time || !service.trim() || !barber) {
+    if (!name.trim() || !phone.trim() || !date || !time || !service.trim() || !barber) {
       setMessage("Completa todos los campos para actualizar.");
       return;
     }
@@ -229,6 +273,7 @@ Quedo atento, gracias 🙌`;
     try {
       await axios.put(`${API_URL}/appointments/${editingId}`, {
         name: name.trim(),
+        phone: phone.trim(),
         date,
         time,
         service: service.trim(),
@@ -239,6 +284,7 @@ Quedo atento, gracias 🙌`;
         date,
         time,
         name: name.trim(),
+        phone: phone.trim(),
         barber,
         service: service.trim(),
       });
@@ -279,6 +325,7 @@ Quedo atento, gracias 🙌`;
 
   const editAppointment = (appointment) => {
     setName(appointment.name || "");
+    setPhone(appointment.phone || "");
     setDate(String(appointment.date || "").slice(0, 10));
     setTime(String(appointment.time || "").slice(0, 5));
     setService(appointment.service || "");
@@ -287,7 +334,9 @@ Quedo atento, gracias 🙌`;
     setMessage("Editando cita ✏️");
 
     if (appointment.date) {
-      const appointmentDate = new Date(String(appointment.date).slice(0, 10) + "T00:00:00");
+      const appointmentDate = new Date(
+        String(appointment.date).slice(0, 10) + "T00:00:00"
+      );
       setSelectedWeekStart(getMonday(appointmentDate));
       setSelectedMobileDay(appointmentDate);
     }
@@ -372,9 +421,10 @@ Quedo atento, gracias 🙌`;
   };
 
   const goToCurrentWeek = () => {
-    const currentMonday = getMonday(new Date());
+    const today = new Date();
+    const currentMonday = getMonday(today);
     setSelectedWeekStart(currentMonday);
-    setSelectedMobileDay(currentMonday);
+    setSelectedMobileDay(today);
   };
 
   const isClientMode = appMode === "client";
@@ -409,15 +459,24 @@ Quedo atento, gracias 🙌`;
 
     return hours.map((hour) => {
       const slotAppointments = getAppointmentsForSlot(selectedMobileDay, hour);
+      const isPast = isClientMode ? isPastSlot(selectedMobileDay, hour) : false;
 
       return {
         hour,
         label: formatHourLabel(hour),
         appointments: slotAppointments,
         isOccupied: slotAppointments.length > 0,
+        isPast,
       };
     });
-  }, [selectedMobileDay, appointments, barber, weeklyBarberFilter, clientSearch]);
+  }, [
+    selectedMobileDay,
+    appointments,
+    barber,
+    weeklyBarberFilter,
+    clientSearch,
+    isClientMode,
+  ]);
 
   useEffect(() => {
     const savedUser = localStorage.getItem("user");
@@ -432,37 +491,37 @@ Quedo atento, gracias 🙌`;
 
   const styles = {
     page: {
-  minHeight: "100vh",
-  backgroundColor: "#f3f4f6",
-  padding: isMobile ? "12px" : "24px",
-  fontFamily: "Arial, sans-serif",
-  color: "#111827",
-  boxSizing: "border-box",
-  width: "100%",
-  overflowX: "hidden",
-},
+      minHeight: "100vh",
+      backgroundColor: "#f3f4f6",
+      padding: isMobile ? "12px" : "24px",
+      fontFamily: "Arial, sans-serif",
+      color: "#111827",
+      boxSizing: "border-box",
+      width: "100%",
+      overflowX: "hidden",
+    },
     title: {
       marginBottom: "20px",
       fontSize: "28px",
       fontWeight: "bold",
     },
     layout: {
-  display: "grid",
-  gridTemplateColumns: isCompactAdmin ? "1fr" : "320px minmax(0, 1fr)",
-  gap: "20px",
-  alignItems: "start",
-  width: "100%",
-},
+      display: "grid",
+      gridTemplateColumns: isCompactAdmin ? "1fr" : "320px minmax(0, 1fr)",
+      gap: "20px",
+      alignItems: "start",
+      width: "100%",
+    },
     card: {
-  backgroundColor: "#fff",
-  borderRadius: "14px",
-  padding: isMobile ? "16px" : "20px",
-  boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
-  border: "1px solid #e5e7eb",
-  boxSizing: "border-box",
-  width: "100%",
-  minWidth: 0,
-},
+      backgroundColor: "#fff",
+      borderRadius: "14px",
+      padding: isMobile ? "16px" : "20px",
+      boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+      border: "1px solid #e5e7eb",
+      boxSizing: "border-box",
+      width: "100%",
+      minWidth: 0,
+    },
     sectionTitle: {
       marginTop: 0,
       marginBottom: "16px",
@@ -532,21 +591,21 @@ Quedo atento, gracias 🙌`;
       flexWrap: "wrap",
     },
     calendarWrapper: {
-  overflowX: "auto",
-  width: "100%",
-  minWidth: 0,
-},
+      overflowX: "auto",
+      width: "100%",
+      minWidth: 0,
+    },
     calendarGrid: {
-  display: "grid",
-  gridTemplateColumns: isMobile
-    ? "80px minmax(180px, 1fr)"
-    : "90px repeat(7, minmax(140px, 1fr))",
-  border: "1px solid #e5e7eb",
-  borderRadius: "12px",
-  overflow: "hidden",
-  backgroundColor: "#fff",
-  minWidth: isMobile ? "100%" : "1070px",
-},
+      display: "grid",
+      gridTemplateColumns: isMobile
+        ? "80px minmax(180px, 1fr)"
+        : "90px repeat(7, minmax(140px, 1fr))",
+      border: "1px solid #e5e7eb",
+      borderRadius: "12px",
+      overflow: "hidden",
+      backgroundColor: "#fff",
+      minWidth: isMobile ? "100%" : "1070px",
+    },
     headerCell: {
       backgroundColor: "#111827",
       color: "#fff",
@@ -645,9 +704,10 @@ Quedo atento, gracias 🙌`;
       minHeight: "72px",
     },
     mobileSlotOccupied: {
-      backgroundColor: "#f3f4f6",
+      backgroundColor: "#e5e7eb",
       color: "#9ca3af",
       cursor: "not-allowed",
+      border: "1px solid #d1d5db",
     },
     mobileSlotSelected: {
       backgroundColor: "#111827",
@@ -665,115 +725,23 @@ Quedo atento, gracias 🙌`;
   };
 
   const isClientFormComplete =
-    name.trim() && date && time && service.trim() && barber;
+    name.trim() && phone.trim() && date && time && service.trim() && barber;
 
   const isBarberSelected = Boolean(barber);
 
   if (appMode === "admin" && !isLoggedIn) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#f3f4f6",
-          fontFamily: "Arial, sans-serif",
-          padding: "20px",
-        }}
-      >
-        <div
-          style={{
-            backgroundColor: "#fff",
-            padding: "32px",
-            borderRadius: "16px",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-            border: "1px solid #e5e7eb",
-            width: "100%",
-            maxWidth: "400px",
-          }}
-        >
-          <div style={{ marginBottom: "22px", textAlign: "center" }}>
-            <div style={{ fontSize: "34px", marginBottom: "8px" }}>💈</div>
-            <h2 style={{ margin: 0, fontSize: "24px", color: "#111827" }}>
-              Iniciar sesión
-            </h2>
-            <p
-              style={{
-                margin: "10px 0 0 0",
-                color: "#6b7280",
-                fontSize: "14px",
-                lineHeight: 1.5,
-              }}
-            >
-              Accede al panel de administración para gestionar reservas, horarios y clientes.
-            </p>
-          </div>
-
-          <input
-            style={styles.input}
-            placeholder="Nombre de usuario"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleLogin();
-            }}
-          />
-
-          <input
-            style={styles.input}
-            type="password"
-            placeholder="Contraseña"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleLogin();
-            }}
-          />
-
-          <button
-            style={{
-              ...styles.button,
-              ...styles.primaryButton,
-              width: "100%",
-              ...(loggingIn ? styles.disabledButton : {}),
-            }}
-            onClick={handleLogin}
-            disabled={loggingIn}
-          >
-            {loggingIn ? "Ingresando..." : "Entrar al panel"}
-          </button>
-
-          <button
-            style={{
-              ...styles.button,
-              ...styles.secondaryButton,
-              width: "100%",
-              marginTop: "10px",
-            }}
-            onClick={() => setAppMode("client")}
-          >
-            Volver a reservas
-          </button>
-
-          {loginError && (
-            <div
-              style={{
-                marginTop: "14px",
-                backgroundColor: "#fef2f2",
-                border: "1px solid #fecaca",
-                color: "#b91c1c",
-                borderRadius: "10px",
-                padding: "10px 12px",
-                fontWeight: "bold",
-                fontSize: "14px",
-              }}
-            >
-              {loginError}
-            </div>
-          )}
-        </div>
-      </div>
+      <LoginScreen
+        styles={styles}
+        username={username}
+        password={password}
+        loginError={loginError}
+        loggingIn={loggingIn}
+        setUsername={setUsername}
+        setPassword={setPassword}
+        handleLogin={handleLogin}
+        setAppMode={setAppMode}
+      />
     );
   }
 
@@ -798,15 +766,15 @@ Quedo atento, gracias 🙌`;
           }}
         >
           <h1
-  style={{
-    ...styles.title,
-    marginBottom: 0,
-    fontSize: isMobile ? "24px" : "28px",
-    lineHeight: 1.2,
-  }}
->
-  {isClientMode ? "Reserva tu hora 💈" : "Agenda Barbería 💈"}
-</h1>
+            style={{
+              ...styles.title,
+              marginBottom: 0,
+              fontSize: isMobile ? "24px" : "28px",
+              lineHeight: 1.2,
+            }}
+          >
+            {isClientMode ? "Reserva tu hora 💈" : "Agenda Barbería 💈"}
+          </h1>
 
           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
             {isAdminMode ? (
@@ -829,120 +797,25 @@ Quedo atento, gracias 🙌`;
 
         {isClientMode ? (
           <div style={styles.card}>
-            <div style={{ marginBottom: "20px" }}>
-              <h2 style={{ marginTop: 0 }}>Agenda tu hora</h2>
-              <p style={{ color: "#4b5563", lineHeight: 1.5, marginBottom: "8px" }}>
-                Elige tu barbero, selecciona un bloque disponible y confirma tu reserva en segundos.
-              </p>
-              <p
-                style={{
-                  color: "#2563eb",
-                  fontWeight: "bold",
-                  margin: 0,
-                  fontSize: "14px",
-                }}
-              >
-                Para reservar, primero selecciona un bloque disponible en el calendario.
-              </p>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "12px",
-                marginBottom: "20px",
-              }}
-            >
-              <input
-                style={styles.input}
-                placeholder="Tu nombre"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-
-              <select
-                style={styles.select}
-                value={service}
-                onChange={(e) => setService(e.target.value)}
-              >
-                <option value="">Selecciona un servicio</option>
-                {SERVICES.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                style={styles.select}
-                value={barber}
-                onChange={(e) => setBarber(e.target.value)}
-              >
-                <option value="">Selecciona un barbero</option>
-                {BARBERS.map((barberName) => (
-                  <option key={barberName} value={barberName}>
-                    {barberName}
-                  </option>
-                ))}
-              </select>
-
-              <div
-                style={{
-                  backgroundColor: "#f9fafb",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  padding: "12px",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  minHeight: "44px",
-                }}
-              >
-                <span style={{ fontSize: "12px", color: "#6b7280", fontWeight: "bold" }}>
-                  Fecha seleccionada
-                </span>
-                <span style={{ fontSize: "14px", color: "#111827" }}>
-                  {date || "Selecciona un bloque disponible"}
-                </span>
-              </div>
-
-              <div
-                style={{
-                  backgroundColor: "#f9fafb",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                  padding: "12px",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  minHeight: "44px",
-                }}
-              >
-                <span style={{ fontSize: "12px", color: "#6b7280", fontWeight: "bold" }}>
-                  Hora seleccionada
-                </span>
-                <span style={{ fontSize: "14px", color: "#111827" }}>
-                  {time || "Selecciona un bloque disponible"}
-                </span>
-              </div>
-
-              <button
-                style={{
-                  ...styles.button,
-                  ...styles.primaryButton,
-                  ...((submitting || !isClientFormComplete)
-                    ? styles.disabledButton
-                    : {}),
-                }}
-                onClick={createAppointment}
-                disabled={submitting || !isClientFormComplete}
-              >
-                {submitting ? "Reservando..." : "Confirmar reserva"}
-              </button>
-            </div>
-
-            {message && <p style={styles.message}>{message}</p>}
+            <ClientBookingPanel
+              styles={styles}
+              name={name}
+              setName={setName}
+              phone={phone}
+              setPhone={setPhone}
+              service={service}
+              setService={setService}
+              barber={barber}
+              setBarber={setBarber}
+              date={date}
+              time={time}
+              SERVICES={SERVICES}
+              BARBERS={BARBERS}
+              createAppointment={createAppointment}
+              submitting={submitting}
+              isClientFormComplete={isClientFormComplete}
+              message={message}
+            />
 
             <div style={styles.topBar}>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -984,240 +857,60 @@ Quedo atento, gracias 🙌`;
               </div>
             </div>
 
-            {isMobile && (
-              <div style={{ marginBottom: "14px", overflowX: "auto" }}>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  {weekDays.map((day) => {
-                    const isActive =
-                      selectedMobileDay &&
-                      formatDateToInput(day) === formatDateToInput(selectedMobileDay);
-
-                    return (
-                      <button
-                        key={formatDateToInput(day)}
-                        onClick={() => setSelectedMobileDay(day)}
-                        style={{
-                          ...styles.button,
-                          backgroundColor: isActive ? "#111827" : "#ffffff",
-                          color: isActive ? "#ffffff" : "#111827",
-                          border: isActive ? "1px solid #111827" : "1px solid #d1d5db",
-                          borderRadius: "10px",
-                          minWidth: "74px",
-                          padding: "10px 12px",
-                          whiteSpace: "nowrap",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <div style={{ textTransform: "capitalize", fontSize: "13px" }}>
-                          {day.toLocaleDateString("es-CL", { weekday: "short" })}
-                        </div>
-                        <div style={{ fontSize: "12px", opacity: 0.9 }}>
-                          {day.getDate()}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <div style={styles.calendarWrapper}>
-              {loading ? (
-                <div style={styles.spinnerBox}>
-                  <div style={styles.spinner}></div>
-                </div>
-              ) : isMobile ? (
-                <div style={styles.mobileSlotsWrapper}>
-                  {mobileSlots.map((slot) => {
-                    const isSelected =
-                      selectedMobileDay &&
-                      date &&
-                      sameDate(date, selectedMobileDay) &&
-                      time &&
-                      time.startsWith(String(slot.hour).padStart(2, "0"));
-
-                    const isDisabled = slot.isOccupied || !isBarberSelected;
-
-                    return (
-                      <button
-                        key={slot.hour}
-                        type="button"
-                        onClick={() => {
-                          if (isDisabled) return;
-                          setDate(formatDateToInput(selectedMobileDay));
-                          setTime(`${String(slot.hour).padStart(2, "0")}:00`);
-                          window.scrollTo({ top: 0, behavior: "smooth" });
-                        }}
-                        disabled={isDisabled}
-                        style={{
-                          ...styles.mobileSlotButton,
-                          ...(slot.isOccupied || !isBarberSelected ? styles.mobileSlotOccupied : {}),
-                          ...(isSelected ? styles.mobileSlotSelected : {}),
-                        }}
-                      >
-                        <div style={styles.mobileSlotTime}>{slot.label}</div>
-                        <div style={styles.mobileSlotStatus}>
-                          {!isBarberSelected
-                            ? "Elige barbero"
-                            : slot.isOccupied
-                            ? "Ocupado"
-                            : "Disponible"}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div style={styles.calendarGrid}>
-                  <div style={styles.timeHeaderCell}>Hora</div>
-
-                  {weekDays.map((day, index) => (
-                    <div key={index} style={styles.headerCell}>
-                      <div>{day.toLocaleDateString("es-CL", { weekday: "long" })}</div>
-                      <div>{day.toLocaleDateString("es-CL")}</div>
-                    </div>
-                  ))}
-
-                  {hours.map((hour) => (
-                    <React.Fragment key={hour}>
-                      <div style={styles.timeCell}>{formatHourLabel(hour)}</div>
-
-                      {weekDays.map((day, index) => {
-                        const slotAppointments = getAppointmentsForSlot(day, hour);
-
-                        return (
-                          <div key={`${hour}-${index}`} style={styles.slotCell}>
-                            {slotAppointments.length > 0 ? (
-                              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                                {slotAppointments.map((appointment) => (
-                                  <div
-                                    key={appointment.id}
-                                    style={{
-                                      ...styles.appointmentBlock,
-                                      ...getBarberColors(appointment.barber),
-                                    }}
-                                  >
-                                    <div style={styles.appointmentTitle}>Ocupado</div>
-                                    <div style={styles.appointmentMeta}>{appointment.barber}</div>
-                                    <div style={styles.appointmentMeta}>
-                                      {String(appointment.time).slice(0, 5)}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <button
-                                style={{
-                                  ...styles.tinyButton,
-                                  ...styles.secondaryButton,
-                                  width: "100%",
-                                  ...(!isBarberSelected ? styles.disabledButton : {}),
-                                }}
-                                onClick={() => {
-                                  if (!isBarberSelected) return;
-                                  selectSlot(day, hour);
-                                }}
-                                disabled={!isBarberSelected}
-                              >
-                                {isBarberSelected ? "Disponible" : "Elige barbero"}
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </React.Fragment>
-                  ))}
-                </div>
-              )}
-            </div>
+            <WeeklyCalendar
+              styles={styles}
+              loading={loading}
+              isMobile={isMobile}
+              weekDays={weekDays}
+              selectedMobileDay={selectedMobileDay}
+              setSelectedMobileDay={setSelectedMobileDay}
+              formatDateToInput={formatDateToInput}
+              formatHourLabel={formatHourLabel}
+              sameDate={sameDate}
+              date={date}
+              time={time}
+              hours={hours}
+              mobileSlots={mobileSlots}
+              isBarberSelected={isBarberSelected}
+              selectSlot={selectSlot}
+              setDate={setDate}
+              setTime={setTime}
+              getAppointmentsForSlot={getAppointmentsForSlot}
+              getBarberColors={getBarberColors}
+              isClientMode={true}
+              barber={barber}
+              editAppointment={editAppointment}
+              deleteAppointment={deleteAppointment}
+              submitting={submitting}
+              isPastSlot={isPastSlot}
+              isPastDayOnly={isPastDayOnly}
+            />
           </div>
         ) : (
           <div style={styles.layout}>
-            <div style={{ ...styles.card, maxWidth: isCompactAdmin ? "100%" : "320px" }}>
-  <h2 style={styles.sectionTitle}>
-    {editingId ? "Editar cita" : "Nueva cita"}
-  </h2>
-
-              <div style={styles.formGroup}>
-                <input
-                  style={styles.input}
-                  placeholder="Nombre cliente"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-
-                <input
-                  style={styles.input}
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                />
-
-                <input
-                  style={styles.input}
-                  type="time"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                />
-
-                <input
-                  style={styles.input}
-                  placeholder="Servicio"
-                  value={service}
-                  onChange={(e) => setService(e.target.value)}
-                />
-
-                <select
-                  style={styles.select}
-                  value={barber}
-                  onChange={(e) => setBarber(e.target.value)}
-                >
-                  <option value="">Selecciona un barbero</option>
-                  {BARBERS.map((barberName) => (
-                    <option key={barberName} value={barberName}>
-                      {barberName}
-                    </option>
-                  ))}
-                </select>
-
-                {editingId ? (
-                  <>
-                    <button
-                      style={{
-                        ...styles.button,
-                        ...styles.editButton,
-                        ...(submitting ? styles.disabledButton : {}),
-                      }}
-                      onClick={updateAppointment}
-                      disabled={submitting}
-                    >
-                      {submitting ? "Actualizando..." : "Actualizar cita"}
-                    </button>
-
-                    <button
-                      style={{ ...styles.button, ...styles.secondaryButton }}
-                      onClick={resetForm}
-                    >
-                      Cancelar edición
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    style={{
-                      ...styles.button,
-                      ...styles.primaryButton,
-                      ...(submitting ? styles.disabledButton : {}),
-                    }}
-                    onClick={createAppointment}
-                    disabled={submitting}
-                  >
-                    {submitting ? "Creando..." : "Crear cita"}
-                  </button>
-                )}
-
-                {message && <p style={styles.message}>{message}</p>}
-              </div>
-            </div>
+            <AdminBookingPanel
+              styles={styles}
+              isCompactAdmin={isCompactAdmin}
+              editingId={editingId}
+              name={name}
+              setName={setName}
+              phone={phone}
+              setPhone={setPhone}
+              date={date}
+              setDate={setDate}
+              time={time}
+              setTime={setTime}
+              service={service}
+              setService={setService}
+              barber={barber}
+              setBarber={setBarber}
+              BARBERS={BARBERS}
+              updateAppointment={updateAppointment}
+              createAppointment={createAppointment}
+              resetForm={resetForm}
+              submitting={submitting}
+              message={message}
+            />
 
             <div style={styles.card}>
               <div style={styles.topBar}>
@@ -1268,222 +961,34 @@ Quedo atento, gracias 🙌`;
                 </div>
               </div>
 
-              {isMobile && (
-                <div style={{ marginBottom: "14px", overflowX: "auto" }}>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    {weekDays.map((day) => {
-                      const isActive =
-                        selectedMobileDay &&
-                        formatDateToInput(day) === formatDateToInput(selectedMobileDay);
-
-                      return (
-                        <button
-                          key={formatDateToInput(day)}
-                          onClick={() => setSelectedMobileDay(day)}
-                          style={{
-                            ...styles.button,
-                            backgroundColor: isActive ? "#111827" : "#ffffff",
-                            color: isActive ? "#ffffff" : "#111827",
-                            border: isActive ? "1px solid #111827" : "1px solid #d1d5db",
-                            borderRadius: "10px",
-                            minWidth: "74px",
-                            padding: "10px 12px",
-                            whiteSpace: "nowrap",
-                            flexShrink: 0,
-                          }}
-                        >
-                          <div style={{ textTransform: "capitalize", fontSize: "13px" }}>
-                            {day.toLocaleDateString("es-CL", { weekday: "short" })}
-                          </div>
-                          <div style={{ fontSize: "12px", opacity: 0.9 }}>
-                            {day.getDate()}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div style={styles.calendarWrapper}>
-                {loading ? (
-                  <div style={styles.spinnerBox}>
-                    <div style={styles.spinner}></div>
-                  </div>
-                ) : isMobile ? (
-                  <div style={styles.mobileSlotsWrapper}>
-                    {mobileSlots.map((slot) => {
-                      const firstAppointment = slot.appointments[0];
-
-                      return slot.isOccupied ? (
-                        <div
-                          key={slot.hour}
-                          style={{
-                            ...styles.mobileSlotButton,
-                            textAlign: "left",
-                            padding: "14px",
-                            borderRadius: "14px",
-                            boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-                            background: "#ffffff",
-                            color: "#111827",
-                            cursor: "default",
-                          }}
-                        >
-                          <div
-                            style={{
-                              fontSize: "12px",
-                              color: "#6b7280",
-                              marginBottom: "6px",
-                            }}
-                          >
-                            {slot.label}
-                          </div>
-
-                          <div
-                            style={{
-                              fontSize: "15px",
-                              fontWeight: "600",
-                              marginBottom: "2px",
-                            }}
-                          >
-                            {firstAppointment?.name}
-                          </div>
-
-                          <div style={{ fontSize: "12px", marginBottom: "2px" }}>
-                            {firstAppointment?.service}
-                          </div>
-
-                          <div style={{ fontSize: "12px", marginBottom: "8px" }}>
-                            {firstAppointment?.barber}
-                          </div>
-
-                          <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
-                            <button
-                              type="button"
-                              style={{
-                                ...styles.tinyButton,
-                                ...styles.editButton,
-                                flex: 1,
-                              }}
-                              onClick={() => editAppointment(firstAppointment)}
-                            >
-                              Editar
-                            </button>
-
-                            <button
-                              type="button"
-                              style={{
-                                ...styles.tinyButton,
-                                ...styles.dangerButton,
-                                flex: 1,
-                              }}
-                              onClick={() => deleteAppointment(firstAppointment.id)}
-                            >
-                              Eliminar
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          key={slot.hour}
-                          type="button"
-                          onClick={() => selectSlot(selectedMobileDay, slot.hour)}
-                          style={{
-                            ...styles.mobileSlotButton,
-                            textAlign: "center",
-                          }}
-                        >
-                          <div style={styles.mobileSlotTime}>{slot.label}</div>
-                          <div style={styles.mobileSlotStatus}>Disponible</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div style={styles.calendarGrid}>
-                    <div style={styles.timeHeaderCell}>Hora</div>
-
-                    {weekDays.map((day, index) => (
-                      <div key={index} style={styles.headerCell}>
-                        <div>{day.toLocaleDateString("es-CL", { weekday: "long" })}</div>
-                        <div>{day.toLocaleDateString("es-CL")}</div>
-                      </div>
-                    ))}
-
-                    {hours.map((hour) => (
-                      <React.Fragment key={hour}>
-                        <div style={styles.timeCell}>{formatHourLabel(hour)}</div>
-
-                        {weekDays.map((day, index) => {
-                          const slotAppointments = getAppointmentsForSlot(day, hour);
-
-                          return (
-                            <div key={`${hour}-${index}`} style={styles.slotCell}>
-                              {slotAppointments.length > 0 ? (
-                                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                                  {slotAppointments.map((appointment) => (
-                                    <div
-                                      key={appointment.id}
-                                      style={{
-                                        ...styles.appointmentBlock,
-                                        ...getBarberColors(appointment.barber),
-                                      }}
-                                    >
-                                      <div style={styles.appointmentTitle}>{appointment.name}</div>
-                                      <div style={styles.appointmentMeta}>{appointment.service}</div>
-                                      <div style={styles.appointmentMeta}>{appointment.barber}</div>
-                                      <div style={styles.appointmentMeta}>
-                                        {String(appointment.time).slice(0, 5)}
-                                      </div>
-
-                                      <div style={styles.actionRow}>
-                                        <button
-                                          style={{
-                                            ...styles.tinyButton,
-                                            ...styles.editButton,
-                                            ...(submitting ? styles.disabledButton : {}),
-                                          }}
-                                          onClick={() => editAppointment(appointment)}
-                                          disabled={submitting}
-                                        >
-                                          Editar
-                                        </button>
-
-                                        <button
-                                          style={{
-                                            ...styles.tinyButton,
-                                            ...styles.dangerButton,
-                                            ...(submitting ? styles.disabledButton : {}),
-                                          }}
-                                          onClick={() => deleteAppointment(appointment.id)}
-                                          disabled={submitting}
-                                        >
-                                          Eliminar
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <button
-                                  style={{
-                                    ...styles.tinyButton,
-                                    ...styles.secondaryButton,
-                                    width: "100%",
-                                  }}
-                                  onClick={() => selectSlot(day, hour)}
-                                >
-                                  Disponible
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </React.Fragment>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <WeeklyCalendar
+                styles={styles}
+                loading={loading}
+                isMobile={isMobile}
+                weekDays={weekDays}
+                selectedMobileDay={selectedMobileDay}
+                setSelectedMobileDay={setSelectedMobileDay}
+                formatDateToInput={formatDateToInput}
+                formatHourLabel={formatHourLabel}
+                sameDate={sameDate}
+                date={date}
+                time={time}
+                hours={hours}
+                mobileSlots={mobileSlots}
+                isBarberSelected={true}
+                selectSlot={selectSlot}
+                setDate={setDate}
+                setTime={setTime}
+                getAppointmentsForSlot={getAppointmentsForSlot}
+                getBarberColors={getBarberColors}
+                isClientMode={false}
+                barber={barber}
+                editAppointment={editAppointment}
+                deleteAppointment={deleteAppointment}
+                submitting={submitting}
+                isPastSlot={isPastSlot}
+                isPastDayOnly={isPastDayOnly}
+              />
             </div>
           </div>
         )}
