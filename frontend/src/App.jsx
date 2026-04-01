@@ -1,11 +1,24 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
+const API_URL = "https://barbershop-scheduler.onrender.com";
+const SHEETS_URL =
+  "https://script.google.com/macros/s/AKfycbwYenifhbLBZXFMTL8H5Z_98ErR_WZgYSeEaVjwh5lezubvf15JN06MREfiaQ62DfcYkA/exec";
+
+const BARBER_PHONES = {
+  James: "56988287547",
+  Jesús: "56957265409",
+};
+
+const BARBERS = ["James", "Jesús"];
+const SERVICES = ["Corte de pelo", "Corte de pelo + barba"];
+
 function App() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [loggingIn, setLoggingIn] = useState(false);
+
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -13,15 +26,23 @@ function App() {
   const [barber, setBarber] = useState("");
   const [message, setMessage] = useState("");
   const [editingId, setEditingId] = useState(null);
+
   const [selectedWeekStart, setSelectedWeekStart] = useState(getMonday(new Date()));
   const [weeklyBarberFilter, setWeeklyBarberFilter] = useState("");
   const [clientSearch, setClientSearch] = useState("");
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
-  const [appMode, setAppMode] = useState(null);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  const [appMode, setAppMode] = useState("client");
+  const [isMobile, setIsMobile] = useState(() =>
+  typeof window !== "undefined" ? window.innerWidth < 768 : false
+);
+const [isCompactAdmin, setIsCompactAdmin] = useState(() =>
+  typeof window !== "undefined" ? window.innerWidth < 1180 : false
+);
   const [selectedMobileDay, setSelectedMobileDay] = useState(null);
 
   function getMonday(d) {
@@ -51,18 +72,44 @@ function App() {
   }
 
   function sameDate(dateString, dateObj) {
+    if (!dateString || !dateObj) return false;
     const normalizedDate = String(dateString).slice(0, 10);
     return normalizedDate === formatDateToInput(dateObj);
   }
 
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
+  async function syncToGoogleSheets(payload) {
+    try {
+      const response = await fetch(SHEETS_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8",
+        },
+        body: JSON.stringify(payload),
+      });
 
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+      const text = await response.text();
+
+      try {
+        const data = JSON.parse(text);
+        console.log("Guardado en Sheets:", data);
+      } catch {
+        console.log("Respuesta Sheets:", text);
+      }
+    } catch (error) {
+      console.error("Error guardando en Sheets:", error);
+    }
+  }
+
+  useEffect(() => {
+  const handleResize = () => {
+    setIsMobile(window.innerWidth < 768);
+    setIsCompactAdmin(window.innerWidth < 1180);
+  };
+
+  handleResize();
+  window.addEventListener("resize", handleResize);
+  return () => window.removeEventListener("resize", handleResize);
+}, []);
 
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => addDays(selectedWeekStart, i));
@@ -84,17 +131,17 @@ function App() {
 
   const hours = Array.from({ length: 12 }, (_, i) => i + 9);
 
-  const getAppointments = () => {
+  const getAppointments = async () => {
     setLoading(true);
-
-    axios
-      .get("https://barbershop-scheduler.onrender.com/appointments")
-      .then((res) => setAppointments(res.data))
-      .catch((err) => {
-        console.error(err);
-        setMessage("Error al cargar citas");
-      })
-      .finally(() => setLoading(false));
+    try {
+      const res = await axios.get(`${API_URL}/appointments`);
+      setAppointments(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error(err);
+      setMessage("Error al cargar citas");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const resetForm = () => {
@@ -106,35 +153,35 @@ function App() {
     setEditingId(null);
   };
 
-  const createAppointment = () => {
-  if (submitting) return;
+  const createAppointment = async () => {
+    if (submitting) return;
 
-  setSubmitting(true);
-  setMessage("");
+    if (!name.trim() || !date || !time || !service.trim() || !barber) {
+      setMessage("Completa todos los campos para agendar.");
+      return;
+    }
 
-  axios
-    .post("https://barbershop-scheduler.onrender.com/appointments", {
-      name,
-      date,
-      time,
-      service,
-      barber,
-    })
-    .then(() => {
-      const barberPhones = {
-        James: "56988287547",
-        "Jesús": "56957265409",
-      };
+    setSubmitting(true);
+    setMessage("");
 
-      const phone = barberPhones[barber] || "56988287547";
+    try {
+      await axios.post(`${API_URL}/appointments`, {
+        name: name.trim(),
+        date,
+        time,
+        service: service.trim(),
+        barber,
+      });
+
+      const phone = BARBER_PHONES[barber] || BARBER_PHONES.James;
 
       const messageText = `Hola! 👋
 
 Quiero confirmar mi reserva:
 
-👤 Nombre: ${name}
+👤 Nombre: ${name.trim()}
 💈 Barbero: ${barber}
-✂️ Servicio: ${service}
+✂️ Servicio: ${service.trim()}
 📅 Fecha: ${date}
 ⏰ Hora: ${time}
 
@@ -143,83 +190,74 @@ Quedo atento, gracias 🙌`;
       const encodedMessage = encodeURIComponent(messageText);
       const whatsappUrl = `https://wa.me/${phone}?text=${encodedMessage}`;
 
-      console.log("INTENTANDO GUARDAR EN SHEETS");
-
-      fetch("https://script.google.com/macros/s/AKfycbwYenifhbLBZXFMTL8H5Z_98ErR_WZgYSeEaVjwh5lezubvf15JN06MREfiaQ62DfcYkA/exec", {
-        method: "POST",
-        body: JSON.stringify({
-          date,
-          time,
-          name,
-          barber,
-          service,
-        }),
-      })
-        .then((res) => res.json())
-        .then((data) => console.log("Guardado en Sheets:", data))
-        .catch((err) => console.error("Error guardando en Sheets:", err));
+      await syncToGoogleSheets({
+        date,
+        time,
+        name: name.trim(),
+        barber,
+        service: service.trim(),
+      });
 
       resetForm();
       setSelectedWeekStart(getMonday(new Date()));
       setMessage("Cita creada correctamente ✅");
-      getAppointments();
+      await getAppointments();
 
       window.open(whatsappUrl, "_blank");
-    })
-    .catch((err) => {
+    } catch (err) {
       if (err.response?.data?.message) {
         setMessage(err.response.data.message);
       } else {
         setMessage("Error al crear cita");
       }
-    })
-    .finally(() => setSubmitting(false));
-};
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-  const updateAppointment = () => {
-    if (submitting) return;
+  const updateAppointment = async () => {
+    if (submitting || !editingId) return;
+
+    if (!name.trim() || !date || !time || !service.trim() || !barber) {
+      setMessage("Completa todos los campos para actualizar.");
+      return;
+    }
 
     setSubmitting(true);
     setMessage("");
 
-    axios
-      .put(`https://barbershop-scheduler.onrender.com/appointments/${editingId}`, {
-        name,
+    try {
+      await axios.put(`${API_URL}/appointments/${editingId}`, {
+        name: name.trim(),
         date,
         time,
-        service,
+        service: service.trim(),
         barber,
-      })
-      .then(() => {
+      });
 
-        fetch("https://script.google.com/macros/s/AKfycbwYenifhbLBZXFMTL8H5Z_98ErR_WZgYSeEaVjwh5lezubvf15JN06MREfiaQ62DfcYkA/exec", {
-  method: "POST",
-  body: JSON.stringify({
-    date,
-    time,
-    name,
-    barber,
-    service,
-  }),
-})
-  .then((res) => res.json())
-  .then((data) => console.log("Guardado en Sheets:", data))
-  .catch((err) => console.error("Error guardando en Sheets:", err));
-        resetForm();
-        setMessage("Cita actualizada correctamente ✅");
-        getAppointments();
-      })
-      .catch((err) => {
-        if (err.response?.data?.message) {
-          setMessage(err.response.data.message);
-        } else {
-          setMessage("Error al actualizar cita");
-        }
-      })
-      .finally(() => setSubmitting(false));
+      await syncToGoogleSheets({
+        date,
+        time,
+        name: name.trim(),
+        barber,
+        service: service.trim(),
+      });
+
+      resetForm();
+      setMessage("Cita actualizada correctamente ✅");
+      await getAppointments();
+    } catch (err) {
+      if (err.response?.data?.message) {
+        setMessage(err.response.data.message);
+      } else {
+        setMessage("Error al actualizar cita");
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const deleteAppointment = (id) => {
+  const deleteAppointment = async (id) => {
     if (submitting) return;
 
     const confirmed = window.confirm("¿Seguro que quieres eliminar esta cita?");
@@ -227,27 +265,34 @@ Quedo atento, gracias 🙌`;
 
     setSubmitting(true);
 
-    axios
-      .delete(`https://barbershop-scheduler.onrender.com/appointments/${id}`)
-      .then(() => {
-        setMessage("Cita eliminada correctamente ✅");
-        getAppointments();
-      })
-      .catch((err) => {
-        console.error(err);
-        setMessage("Error al eliminar cita");
-      })
-      .finally(() => setSubmitting(false));
+    try {
+      await axios.delete(`${API_URL}/appointments/${id}`);
+      setMessage("Cita eliminada correctamente ✅");
+      await getAppointments();
+    } catch (err) {
+      console.error(err);
+      setMessage("Error al eliminar cita");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const editAppointment = (appointment) => {
-    setName(appointment.name);
-    setDate(String(appointment.date).slice(0, 10));
-    setTime(String(appointment.time).slice(0, 5));
-    setService(appointment.service);
-    setBarber(appointment.barber);
+    setName(appointment.name || "");
+    setDate(String(appointment.date || "").slice(0, 10));
+    setTime(String(appointment.time || "").slice(0, 5));
+    setService(appointment.service || "");
+    setBarber(appointment.barber || "");
     setEditingId(appointment.id);
     setMessage("Editando cita ✏️");
+
+    if (appointment.date) {
+      const appointmentDate = new Date(String(appointment.date).slice(0, 10) + "T00:00:00");
+      setSelectedWeekStart(getMonday(appointmentDate));
+      setSelectedMobileDay(appointmentDate);
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const selectSlot = (day, hour) => {
@@ -257,30 +302,36 @@ Quedo atento, gracias 🙌`;
     setMessage("Bloque horario seleccionado.");
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (loggingIn) return;
 
-    setLoggingIn(true);
+    if (!username.trim() || !password.trim()) {
+      setLoginError("Ingresa usuario y contraseña");
+      return;
+    }
 
-    axios
-      .post("https://barbershop-scheduler.onrender.com/login", {
-        username,
+    setLoggingIn(true);
+    setLoginError("");
+
+    try {
+      const res = await axios.post(`${API_URL}/login`, {
+        username: username.trim(),
         password,
-      })
-      .then((res) => {
-        setIsLoggedIn(true);
-        setLoginError("");
-        setAppMode("admin");
-        localStorage.setItem("user", JSON.stringify(res.data.user));
-      })
-      .catch((err) => {
-        if (err.response?.data?.message) {
-          setLoginError(err.response.data.message);
-        } else {
-          setLoginError("Error al iniciar sesión");
-        }
-      })
-      .finally(() => setLoggingIn(false));
+      });
+
+      setIsLoggedIn(true);
+      setLoginError("");
+      setAppMode("admin");
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+    } catch (err) {
+      if (err.response?.data?.message) {
+        setLoginError(err.response.data.message);
+      } else {
+        setLoginError("Error al iniciar sesión");
+      }
+    } finally {
+      setLoggingIn(false);
+    }
   };
 
   const handleLogout = () => {
@@ -288,7 +339,8 @@ Quedo atento, gracias 🙌`;
     setIsLoggedIn(false);
     setUsername("");
     setPassword("");
-    setAppMode(null);
+    setLoginError("");
+    setAppMode("client");
   };
 
   const getBarberColors = (barberName) => {
@@ -312,15 +364,17 @@ Quedo atento, gracias 🙌`;
   };
 
   const goToPreviousWeek = () => {
-    setSelectedWeekStart(addDays(selectedWeekStart, -7));
+    setSelectedWeekStart((prev) => addDays(prev, -7));
   };
 
   const goToNextWeek = () => {
-    setSelectedWeekStart(addDays(selectedWeekStart, 7));
+    setSelectedWeekStart((prev) => addDays(prev, 7));
   };
 
   const goToCurrentWeek = () => {
-    setSelectedWeekStart(getMonday(new Date()));
+    const currentMonday = getMonday(new Date());
+    setSelectedWeekStart(currentMonday);
+    setSelectedMobileDay(currentMonday);
   };
 
   const isClientMode = appMode === "client";
@@ -341,7 +395,9 @@ Quedo atento, gracias 🙌`;
         : true;
 
       const matchesClient = clientSearch
-        ? String(appointment.name).toLowerCase().includes(clientSearch.toLowerCase())
+        ? String(appointment.name || "")
+            .toLowerCase()
+            .includes(clientSearch.toLowerCase())
         : true;
 
       return matchesDay && matchesHour && matchesBarber && matchesClient;
@@ -376,30 +432,37 @@ Quedo atento, gracias 🙌`;
 
   const styles = {
     page: {
-      minHeight: "100vh",
-      backgroundColor: "#f3f4f6",
-      padding: "24px",
-      fontFamily: "Arial, sans-serif",
-      color: "#111827",
-    },
+  minHeight: "100vh",
+  backgroundColor: "#f3f4f6",
+  padding: isMobile ? "12px" : "24px",
+  fontFamily: "Arial, sans-serif",
+  color: "#111827",
+  boxSizing: "border-box",
+  width: "100%",
+  overflowX: "hidden",
+},
     title: {
       marginBottom: "20px",
       fontSize: "28px",
       fontWeight: "bold",
     },
     layout: {
-      display: "grid",
-      gridTemplateColumns: isMobile ? "1fr" : "320px 1fr",
-      gap: "20px",
-      alignItems: "start",
-    },
+  display: "grid",
+  gridTemplateColumns: isCompactAdmin ? "1fr" : "320px minmax(0, 1fr)",
+  gap: "20px",
+  alignItems: "start",
+  width: "100%",
+},
     card: {
-      backgroundColor: "#fff",
-      borderRadius: "14px",
-      padding: "20px",
-      boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
-      border: "1px solid #e5e7eb",
-    },
+  backgroundColor: "#fff",
+  borderRadius: "14px",
+  padding: isMobile ? "16px" : "20px",
+  boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+  border: "1px solid #e5e7eb",
+  boxSizing: "border-box",
+  width: "100%",
+  minWidth: 0,
+},
     sectionTitle: {
       marginTop: 0,
       marginBottom: "16px",
@@ -469,18 +532,21 @@ Quedo atento, gracias 🙌`;
       flexWrap: "wrap",
     },
     calendarWrapper: {
-      overflowX: "auto",
-    },
+  overflowX: "auto",
+  width: "100%",
+  minWidth: 0,
+},
     calendarGrid: {
-      display: "grid",
-      gridTemplateColumns: isMobile
-        ? "80px minmax(180px, 1fr)"
-        : "90px repeat(7, minmax(140px, 1fr))",
-      border: "1px solid #e5e7eb",
-      borderRadius: "12px",
-      overflow: "hidden",
-      backgroundColor: "#fff",
-    },
+  display: "grid",
+  gridTemplateColumns: isMobile
+    ? "80px minmax(180px, 1fr)"
+    : "90px repeat(7, minmax(140px, 1fr))",
+  border: "1px solid #e5e7eb",
+  borderRadius: "12px",
+  overflow: "hidden",
+  backgroundColor: "#fff",
+  minWidth: isMobile ? "100%" : "1070px",
+},
     headerCell: {
       backgroundColor: "#111827",
       color: "#fff",
@@ -559,15 +625,6 @@ Quedo atento, gracias 🙌`;
       borderRadius: "50%",
       animation: "spin 1s linear infinite",
     },
-    emptyState: {
-      backgroundColor: "#fff",
-      border: "1px dashed #d1d5db",
-      borderRadius: "12px",
-      padding: "18px",
-      textAlign: "center",
-      color: "#6b7280",
-      fontWeight: "bold",
-    },
     disabledButton: {
       opacity: 0.6,
       cursor: "not-allowed",
@@ -612,7 +669,7 @@ Quedo atento, gracias 🙌`;
 
   const isBarberSelected = Boolean(barber);
 
-  if (appMode === null) {
+  if (appMode === "admin" && !isLoggedIn) {
     return (
       <div
         style={{
@@ -628,78 +685,39 @@ Quedo atento, gracias 🙌`;
         <div
           style={{
             backgroundColor: "#fff",
-            padding: "30px",
-            borderRadius: "14px",
-            boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+            padding: "32px",
+            borderRadius: "16px",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
             border: "1px solid #e5e7eb",
             width: "100%",
-            maxWidth: "420px",
-            textAlign: "center",
+            maxWidth: "400px",
           }}
         >
-          <h1 style={{ marginTop: 0 }}>Agenda Barbería 💈</h1>
-          <p style={{ color: "#4b5563", marginBottom: "24px" }}>
-            Selecciona cómo quieres ingresar
-          </p>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            <button
+          <div style={{ marginBottom: "22px", textAlign: "center" }}>
+            <div style={{ fontSize: "34px", marginBottom: "8px" }}>💈</div>
+            <h2 style={{ margin: 0, fontSize: "24px", color: "#111827" }}>
+              Iniciar sesión
+            </h2>
+            <p
               style={{
-                ...styles.button,
-                ...styles.primaryButton,
-                width: "100%",
+                margin: "10px 0 0 0",
+                color: "#6b7280",
+                fontSize: "14px",
+                lineHeight: 1.5,
               }}
-              onClick={() => setAppMode("client")}
             >
-              Entrar como cliente
-            </button>
-
-            <button
-              style={{
-                ...styles.button,
-                ...styles.secondaryButton,
-                width: "100%",
-              }}
-              onClick={() => setAppMode("admin")}
-            >
-              Entrar como administrador
-            </button>
+              Accede al panel de administración para gestionar reservas, horarios y clientes.
+            </p>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (appMode === "admin" && !isLoggedIn) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "#f3f4f6",
-          fontFamily: "Arial, sans-serif",
-        }}
-      >
-        <div
-          style={{
-            backgroundColor: "#fff",
-            padding: "30px",
-            borderRadius: "14px",
-            boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
-            border: "1px solid #e5e7eb",
-            width: "100%",
-            maxWidth: "360px",
-          }}
-        >
-          <h2>Ingreso Agenda 💈</h2>
 
           <input
             style={styles.input}
-            placeholder="Usuario"
+            placeholder="Nombre de usuario"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleLogin();
+            }}
           />
 
           <input
@@ -708,6 +726,9 @@ Quedo atento, gracias 🙌`;
             placeholder="Contraseña"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleLogin();
+            }}
           />
 
           <button
@@ -720,7 +741,7 @@ Quedo atento, gracias 🙌`;
             onClick={handleLogin}
             disabled={loggingIn}
           >
-            {loggingIn ? "Ingresando..." : "Ingresar"}
+            {loggingIn ? "Ingresando..." : "Entrar al panel"}
           </button>
 
           <button
@@ -730,15 +751,26 @@ Quedo atento, gracias 🙌`;
               width: "100%",
               marginTop: "10px",
             }}
-            onClick={() => setAppMode(null)}
+            onClick={() => setAppMode("client")}
           >
-            Volver
+            Volver a reservas
           </button>
 
           {loginError && (
-            <p style={{ color: "#dc2626", marginTop: "10px", fontWeight: "bold" }}>
+            <div
+              style={{
+                marginTop: "14px",
+                backgroundColor: "#fef2f2",
+                border: "1px solid #fecaca",
+                color: "#b91c1c",
+                borderRadius: "10px",
+                padding: "10px 12px",
+                fontWeight: "bold",
+                fontSize: "14px",
+              }}
+            >
               {loginError}
-            </p>
+            </div>
           )}
         </div>
       </div>
@@ -765,28 +797,31 @@ Quedo atento, gracias 🙌`;
             flexWrap: "wrap",
           }}
         >
-          <h1 style={{ ...styles.title, marginBottom: 0 }}>
-            {isClientMode ? "Reserva tu hora 💈" : "Agenda Barbería 💈"}
-          </h1>
+          <h1
+  style={{
+    ...styles.title,
+    marginBottom: 0,
+    fontSize: isMobile ? "24px" : "28px",
+    lineHeight: 1.2,
+  }}
+>
+  {isClientMode ? "Reserva tu hora 💈" : "Agenda Barbería 💈"}
+</h1>
 
           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <button
-              style={{ ...styles.button, ...styles.secondaryButton }}
-              onClick={() => {
-                setAppMode(null);
-                setIsLoggedIn(false);
-                localStorage.removeItem("user");
-              }}
-            >
-              Inicio
-            </button>
-
-            {isAdminMode && (
+            {isAdminMode ? (
               <button
                 style={{ ...styles.button, ...styles.dangerButton }}
                 onClick={handleLogout}
               >
                 Cerrar sesión
+              </button>
+            ) : (
+              <button
+                style={{ ...styles.button, ...styles.secondaryButton }}
+                onClick={() => setAppMode("admin")}
+              >
+                Iniciar sesión
               </button>
             )}
           </div>
@@ -827,14 +862,17 @@ Quedo atento, gracias 🙌`;
               />
 
               <select
-  style={styles.select}
-  value={service}
-  onChange={(e) => setService(e.target.value)}
->
-  <option value="">Selecciona un servicio</option>
-  <option value="Corte de pelo">Corte de pelo</option>
-  <option value="Corte de pelo + barba">Corte de pelo + barba</option>
-</select>
+                style={styles.select}
+                value={service}
+                onChange={(e) => setService(e.target.value)}
+              >
+                <option value="">Selecciona un servicio</option>
+                {SERVICES.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
 
               <select
                 style={styles.select}
@@ -842,8 +880,11 @@ Quedo atento, gracias 🙌`;
                 onChange={(e) => setBarber(e.target.value)}
               >
                 <option value="">Selecciona un barbero</option>
-                <option value="James">James</option>
-                <option value="Jesús">Jesús</option>
+                {BARBERS.map((barberName) => (
+                  <option key={barberName} value={barberName}>
+                    {barberName}
+                  </option>
+                ))}
               </select>
 
               <div
@@ -995,26 +1036,32 @@ Quedo atento, gracias 🙌`;
                       time &&
                       time.startsWith(String(slot.hour).padStart(2, "0"));
 
+                    const isDisabled = slot.isOccupied || !isBarberSelected;
+
                     return (
                       <button
                         key={slot.hour}
                         type="button"
                         onClick={() => {
-                          if (slot.isOccupied) return;
+                          if (isDisabled) return;
                           setDate(formatDateToInput(selectedMobileDay));
                           setTime(`${String(slot.hour).padStart(2, "0")}:00`);
                           window.scrollTo({ top: 0, behavior: "smooth" });
                         }}
-                        disabled={slot.isOccupied}
+                        disabled={isDisabled}
                         style={{
                           ...styles.mobileSlotButton,
-                          ...(slot.isOccupied ? styles.mobileSlotOccupied : {}),
+                          ...(slot.isOccupied || !isBarberSelected ? styles.mobileSlotOccupied : {}),
                           ...(isSelected ? styles.mobileSlotSelected : {}),
                         }}
                       >
                         <div style={styles.mobileSlotTime}>{slot.label}</div>
                         <div style={styles.mobileSlotStatus}>
-                          {slot.isOccupied ? "Ocupado" : "Disponible"}
+                          {!isBarberSelected
+                            ? "Elige barbero"
+                            : slot.isOccupied
+                            ? "Ocupado"
+                            : "Disponible"}
                         </div>
                       </button>
                     );
@@ -1086,10 +1133,10 @@ Quedo atento, gracias 🙌`;
           </div>
         ) : (
           <div style={styles.layout}>
-            <div style={styles.card}>
-              <h2 style={styles.sectionTitle}>
-                {editingId ? "Editar cita" : "Nueva cita"}
-              </h2>
+            <div style={{ ...styles.card, maxWidth: isCompactAdmin ? "100%" : "320px" }}>
+  <h2 style={styles.sectionTitle}>
+    {editingId ? "Editar cita" : "Nueva cita"}
+  </h2>
 
               <div style={styles.formGroup}>
                 <input
@@ -1126,8 +1173,11 @@ Quedo atento, gracias 🙌`;
                   onChange={(e) => setBarber(e.target.value)}
                 >
                   <option value="">Selecciona un barbero</option>
-                  <option value="James">James</option>
-                  <option value="Jesús">Jesús</option>
+                  {BARBERS.map((barberName) => (
+                    <option key={barberName} value={barberName}>
+                      {barberName}
+                    </option>
+                  ))}
                 </select>
 
                 {editingId ? (
@@ -1188,8 +1238,11 @@ Quedo atento, gracias 🙌`;
                     onChange={(e) => setWeeklyBarberFilter(e.target.value)}
                   >
                     <option value="">Todos los barberos</option>
-                    <option value="James">James</option>
-                    <option value="Jesús">Jesús</option>
+                    {BARBERS.map((barberName) => (
+                      <option key={barberName} value={barberName}>
+                        {barberName}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -1215,10 +1268,136 @@ Quedo atento, gracias 🙌`;
                 </div>
               </div>
 
+              {isMobile && (
+                <div style={{ marginBottom: "14px", overflowX: "auto" }}>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    {weekDays.map((day) => {
+                      const isActive =
+                        selectedMobileDay &&
+                        formatDateToInput(day) === formatDateToInput(selectedMobileDay);
+
+                      return (
+                        <button
+                          key={formatDateToInput(day)}
+                          onClick={() => setSelectedMobileDay(day)}
+                          style={{
+                            ...styles.button,
+                            backgroundColor: isActive ? "#111827" : "#ffffff",
+                            color: isActive ? "#ffffff" : "#111827",
+                            border: isActive ? "1px solid #111827" : "1px solid #d1d5db",
+                            borderRadius: "10px",
+                            minWidth: "74px",
+                            padding: "10px 12px",
+                            whiteSpace: "nowrap",
+                            flexShrink: 0,
+                          }}
+                        >
+                          <div style={{ textTransform: "capitalize", fontSize: "13px" }}>
+                            {day.toLocaleDateString("es-CL", { weekday: "short" })}
+                          </div>
+                          <div style={{ fontSize: "12px", opacity: 0.9 }}>
+                            {day.getDate()}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div style={styles.calendarWrapper}>
                 {loading ? (
                   <div style={styles.spinnerBox}>
                     <div style={styles.spinner}></div>
+                  </div>
+                ) : isMobile ? (
+                  <div style={styles.mobileSlotsWrapper}>
+                    {mobileSlots.map((slot) => {
+                      const firstAppointment = slot.appointments[0];
+
+                      return slot.isOccupied ? (
+                        <div
+                          key={slot.hour}
+                          style={{
+                            ...styles.mobileSlotButton,
+                            textAlign: "left",
+                            padding: "14px",
+                            borderRadius: "14px",
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                            background: "#ffffff",
+                            color: "#111827",
+                            cursor: "default",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              color: "#6b7280",
+                              marginBottom: "6px",
+                            }}
+                          >
+                            {slot.label}
+                          </div>
+
+                          <div
+                            style={{
+                              fontSize: "15px",
+                              fontWeight: "600",
+                              marginBottom: "2px",
+                            }}
+                          >
+                            {firstAppointment?.name}
+                          </div>
+
+                          <div style={{ fontSize: "12px", marginBottom: "2px" }}>
+                            {firstAppointment?.service}
+                          </div>
+
+                          <div style={{ fontSize: "12px", marginBottom: "8px" }}>
+                            {firstAppointment?.barber}
+                          </div>
+
+                          <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+                            <button
+                              type="button"
+                              style={{
+                                ...styles.tinyButton,
+                                ...styles.editButton,
+                                flex: 1,
+                              }}
+                              onClick={() => editAppointment(firstAppointment)}
+                            >
+                              Editar
+                            </button>
+
+                            <button
+                              type="button"
+                              style={{
+                                ...styles.tinyButton,
+                                ...styles.dangerButton,
+                                flex: 1,
+                              }}
+                              onClick={() => deleteAppointment(firstAppointment.id)}
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          key={slot.hour}
+                          type="button"
+                          onClick={() => selectSlot(selectedMobileDay, slot.hour)}
+                          style={{
+                            ...styles.mobileSlotButton,
+                            textAlign: "center",
+                          }}
+                        >
+                          <div style={styles.mobileSlotTime}>{slot.label}</div>
+                          <div style={styles.mobileSlotStatus}>Disponible</div>
+                        </button>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div style={styles.calendarGrid}>
