@@ -255,8 +255,7 @@ function App() {
 📅 ${date} a las ${time}
 👨‍🔧 con ${barber}
 
-⚠️ Si no se abrió WhatsApp automáticamente,
-presiona el botón de abajo 👇`);
+📲 Confirma tu reserva por WhatsApp tocando el botón verde`);
       } else {
         setMessage(`✅ Tu hora fue agendada correctamente
 
@@ -841,7 +840,9 @@ presiona el botón de abajo 👇`);
 
             <div style={styles.topBar}>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <h2 style={{ margin: 0 }}>Disponibilidad semanal</h2>
+                <h2 style={{ marginTop: "40px", marginBottom: "12px" }}>
+  Disponibilidad semanal
+</h2>
 
                 <div
                   style={{

@@ -152,22 +152,23 @@ function ClientBookingPanel({
 
       {whatsappUrl && (
         <a
-          href={whatsappUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: "inline-block",
-            marginTop: "10px",
-            padding: "10px 14px",
-            backgroundColor: "#25D366",
-            color: "#fff",
-            borderRadius: "8px",
-            textDecoration: "none",
-            fontWeight: "bold",
-          }}
-        >
-          Abrir WhatsApp
-        </a>
+  href={whatsappUrl}
+  target="_blank"
+  rel="noopener noreferrer"
+  style={{
+    display: "inline-block",
+    marginTop: "12px",
+    marginBottom: "24px", // 👈 ESTE ES EL CAMBIO
+    padding: "12px 16px",
+    backgroundColor: "#25D366",
+    color: "#fff",
+    borderRadius: "8px",
+    textDecoration: "none",
+    fontWeight: "bold"
+  }}
+>
+  Abrir WhatsApp
+</a>
       )}
     </div>
   );
