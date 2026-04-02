@@ -4,20 +4,28 @@ import LoginScreen from "./components/LoginScreen";
 import ClientBookingPanel from "./components/ClientBookingPanel";
 import AdminBookingPanel from "./components/AdminBookingPanel";
 import WeeklyCalendar from "./components/WeeklyCalendar";
-
-const API_URL = "https://barbershop-scheduler.onrender.com";
-const SHEETS_URL =
-  "https://script.google.com/macros/s/AKfycbwYenifhbLBZXFMTL8H5Z_98ErR_WZgYSeEaVjwh5lezubvf15JN06MREfiaQ62DfcYkA/exec";
-
-const BARBER_PHONES = {
-  James: "56988287547",
-  Jesús: "56957265409",
-};
-
-const BARBERS = ["James", "Jesús"];
-const SERVICES = ["Corte de pelo", "Corte de pelo + barba"];
+import {
+  getMonday,
+  formatDateToInput,
+  formatHourLabel,
+  addDays,
+  sameDate,
+  isPastSlot,
+  isPastDayOnly,
+} from "./utils/dateUtils";
+import {
+  API_URL,
+  SHEETS_URL,
+  BARBER_PHONES,
+  BARBERS,
+  SERVICES,
+} from "./utils/constants";
+import { buildBarberWhatsappUrl } from "./utils/whatsapp";
 
 function App() {
+
+  console.log("SERVICES actuales:", SERVICES);
+
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -50,68 +58,6 @@ function App() {
     typeof window !== "undefined" ? window.innerWidth < 1180 : false
   );
   const [selectedMobileDay, setSelectedMobileDay] = useState(null);
-
-  function getMonday(d) {
-    const date = new Date(d);
-    const day = date.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    date.setDate(date.getDate() + diff);
-    date.setHours(0, 0, 0, 0);
-    return date;
-  }
-
-  function formatDateToInput(dateObj) {
-    const year = dateObj.getFullYear();
-    const month = String(dateObj.getMonth() + 1).padStart(2, "0");
-    const day = String(dateObj.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }
-
-  function formatHourLabel(hour) {
-    return `${String(hour).padStart(2, "0")}:00`;
-  }
-
-  function addDays(dateObj, days) {
-    const d = new Date(dateObj);
-    d.setDate(d.getDate() + days);
-    return d;
-  }
-
-  function sameDate(dateString, dateObj) {
-    if (!dateString || !dateObj) return false;
-    const normalizedDate = String(dateString).slice(0, 10);
-    return normalizedDate === formatDateToInput(dateObj);
-  }
-
-  function isPastSlot(day, hour) {
-    const now = new Date();
-
-    const slotDate = new Date(day);
-    slotDate.setHours(0, 0, 0, 0);
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    if (slotDate < today) {
-      return true;
-    }
-
-    if (slotDate > today) {
-      return false;
-    }
-
-    return hour < now.getHours();
-  }
-
-  function isPastDayOnly(day) {
-    const slotDate = new Date(day);
-    slotDate.setHours(0, 0, 0, 0);
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    return slotDate < today;
-  }
 
   async function syncToGoogleSheets(payload) {
     try {
@@ -219,19 +165,15 @@ function App() {
 
       const barberPhone = BARBER_PHONES[barber] || BARBER_PHONES.James;
 
-      const messageText = `Nueva cita agendada 💈
-
-👤 Cliente: ${name.trim()}
-📞 Teléfono: ${phone.trim()}
-
-📅 Fecha: ${date}
-⏰ Hora: ${time}
-
-✂️ Servicio: ${service.trim()}
-👨‍🔧 Barbero: ${barber}`;
-
-      const encodedMessage = encodeURIComponent(messageText);
-      const generatedWhatsappUrl = `https://wa.me/${barberPhone}?text=${encodedMessage}`;
+      const generatedWhatsappUrl = buildBarberWhatsappUrl({
+        barberPhone,
+        name: name.trim(),
+        phone: phone.trim(),
+        date,
+        time,
+        service: service.trim(),
+        barber,
+      });
 
       await syncToGoogleSheets({
         date,
@@ -840,9 +782,9 @@ function App() {
 
             <div style={styles.topBar}>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <h2 style={{ marginTop: "40px", marginBottom: "12px" }}>
-  Disponibilidad semanal
-</h2>
+                <h2 style={{ marginTop: "32px", marginBottom: "12px" }}>
+                  Disponibilidad semanal
+                </h2>
 
                 <div
                   style={{
