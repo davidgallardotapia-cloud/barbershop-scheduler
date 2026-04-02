@@ -18,9 +18,10 @@ function ClientBookingPanel({
   submitting,
   isClientFormComplete,
   message,
+  whatsappUrl,
 }) {
   return (
-    <div style={styles.card}>
+    <div>
       <div style={{ marginBottom: "20px" }}>
         <h2 style={{ marginTop: 0 }}>Agenda tu hora</h2>
         <p style={{ color: "#4b5563", lineHeight: 1.5, marginBottom: "8px" }}>
@@ -148,6 +149,26 @@ function ClientBookingPanel({
       </div>
 
       {message && <p style={styles.message}>{message}</p>}
+
+      {whatsappUrl && (
+        <a
+          href={whatsappUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: "inline-block",
+            marginTop: "10px",
+            padding: "10px 14px",
+            backgroundColor: "#25D366",
+            color: "#fff",
+            borderRadius: "8px",
+            textDecoration: "none",
+            fontWeight: "bold",
+          }}
+        >
+          Abrir WhatsApp
+        </a>
+      )}
     </div>
   );
 }

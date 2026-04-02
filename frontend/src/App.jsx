@@ -31,6 +31,7 @@ function App() {
   const [barber, setBarber] = useState("");
   const [message, setMessage] = useState("");
   const [editingId, setEditingId] = useState(null);
+  const [whatsappUrl, setWhatsappUrl] = useState("");
 
   const [selectedWeekStart, setSelectedWeekStart] = useState(getMonday(new Date()));
   const [weeklyBarberFilter, setWeeklyBarberFilter] = useState("");
@@ -192,6 +193,7 @@ function App() {
     setService("");
     setBarber("");
     setEditingId(null);
+    setWhatsappUrl("");
   };
 
   const createAppointment = async () => {
@@ -204,6 +206,7 @@ function App() {
 
     setSubmitting(true);
     setMessage("");
+    setWhatsappUrl("");
 
     try {
       await axios.post(`${API_URL}/appointments`, {
@@ -217,21 +220,19 @@ function App() {
 
       const barberPhone = BARBER_PHONES[barber] || BARBER_PHONES.James;
 
-      const messageText = `Hola! 👋
+      const messageText = `Nueva cita agendada 💈
 
-Quiero confirmar mi reserva:
+👤 Cliente: ${name.trim()}
+📞 Teléfono: ${phone.trim()}
 
-👤 Nombre: ${name.trim()}
-📱 Teléfono: ${phone.trim()}
-💈 Barbero: ${barber}
-✂️ Servicio: ${service.trim()}
 📅 Fecha: ${date}
 ⏰ Hora: ${time}
 
-Quedo atento, gracias 🙌`;
+✂️ Servicio: ${service.trim()}
+👨‍🔧 Barbero: ${barber}`;
 
       const encodedMessage = encodeURIComponent(messageText);
-      const whatsappUrl = `https://wa.me/${barberPhone}?text=${encodedMessage}`;
+      const generatedWhatsappUrl = `https://wa.me/${barberPhone}?text=${encodedMessage}`;
 
       await syncToGoogleSheets({
         date,
@@ -242,12 +243,29 @@ Quedo atento, gracias 🙌`;
         service: service.trim(),
       });
 
-      resetForm();
       setSelectedWeekStart(getMonday(new Date()));
-      setMessage("Cita creada correctamente ✅");
       await getAppointments();
 
-      window.open(whatsappUrl, "_blank");
+      const newWindow = window.open(generatedWhatsappUrl, "_blank");
+
+      if (!newWindow || newWindow.closed || typeof newWindow.closed === "undefined") {
+        setWhatsappUrl(generatedWhatsappUrl);
+
+        setMessage(`✅ Tu hora fue agendada correctamente
+
+📅 ${date} a las ${time}
+👨‍🔧 con ${barber}
+
+⚠️ Si no se abrió WhatsApp automáticamente,
+presiona el botón de abajo 👇`);
+      } else {
+        setMessage(`✅ Tu hora fue agendada correctamente
+
+📅 ${date} a las ${time}
+👨‍🔧 con ${barber}`);
+      }
+
+      resetForm();
     } catch (err) {
       if (err.response?.data?.message) {
         setMessage(err.response.data.message);
@@ -269,6 +287,7 @@ Quedo atento, gracias 🙌`;
 
     setSubmitting(true);
     setMessage("");
+    setWhatsappUrl("");
 
     try {
       await axios.put(`${API_URL}/appointments/${editingId}`, {
@@ -332,6 +351,7 @@ Quedo atento, gracias 🙌`;
     setBarber(appointment.barber || "");
     setEditingId(appointment.id);
     setMessage("Editando cita ✏️");
+    setWhatsappUrl("");
 
     if (appointment.date) {
       const appointmentDate = new Date(
@@ -349,6 +369,7 @@ Quedo atento, gracias 🙌`;
     setTime(`${String(hour).padStart(2, "0")}:00`);
     setEditingId(null);
     setMessage("Bloque horario seleccionado.");
+    setWhatsappUrl("");
   };
 
   const handleLogin = async () => {
@@ -576,6 +597,7 @@ Quedo atento, gracias 🙌`;
     message: {
       marginTop: "10px",
       fontWeight: "bold",
+      whiteSpace: "pre-line",
     },
     topBar: {
       display: "flex",
@@ -815,6 +837,7 @@ Quedo atento, gracias 🙌`;
               submitting={submitting}
               isClientFormComplete={isClientFormComplete}
               message={message}
+              whatsappUrl={whatsappUrl}
             />
 
             <div style={styles.topBar}>
