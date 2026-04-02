@@ -193,7 +193,6 @@ function App() {
     setService("");
     setBarber("");
     setEditingId(null);
-    setWhatsappUrl("");
   };
 
   const createAppointment = async () => {
