@@ -29,12 +29,18 @@ const createTables = async () => {
     `);
 
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        username VARCHAR(100) UNIQUE NOT NULL,
-        password VARCHAR(100) NOT NULL
-      );
-    `);
+  CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(100) NOT NULL
+  );
+`);
+
+    await pool.query(`
+        ALTER TABLE appointments
+        ADD COLUMN IF NOT EXISTS business_id VARCHAR(100);
+      `);
+    
 
     const existingAdmin = await pool.query(
       "SELECT * FROM users WHERE username = $1",
@@ -62,6 +68,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/appointments", async (req, res) => {
+  const { businessId } = req.query;
   try {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -69,12 +76,21 @@ app.get("/appointments", async (req, res) => {
     const dd = String(today.getDate()).padStart(2, "0");
     const todayStr = `${yyyy}-${mm}-${dd}`;
 
-    const result = await pool.query(
-      "SELECT * FROM appointments WHERE date >= $1 ORDER BY date ASC, time ASC",
-      [todayStr]
-    );
+    if (businessId) {
+  const result = await pool.query(
+    "SELECT * FROM appointments WHERE business_id = $1 AND date >= $2 ORDER BY date ASC, time ASC",
+    [businessId, todayStr]
+  );
+  return res.json(result.rows);
+}
 
-    res.json(result.rows);
+const result = await pool.query(
+  "SELECT * FROM appointments WHERE date >= $1 ORDER BY date ASC, time ASC",
+  [todayStr]
+);
+
+res.json(result.rows);
+
   } catch (error) {
     console.error("Error al obtener citas:", error);
     res.status(500).json({ message: "Error al obtener citas" });
@@ -82,7 +98,7 @@ app.get("/appointments", async (req, res) => {
 });
 
 app.post("/appointments", async (req, res) => {
-  const { name, phone, date, time, service, barber } = req.body;
+  const { name, phone, date, time, service, barber, businessId } = req.body;
 
   if (!name || !phone || !date || !time || !service || !barber) {
     return res.status(400).json({ message: "Faltan campos obligatorios" });
@@ -102,10 +118,10 @@ app.post("/appointments", async (req, res) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO appointments (name, phone, date, time, service, barber)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO appointments (name, phone, date, time, service, barber, business_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [name, phone, date, time, service, barber]
+      [name, phone, date, time, service, barber, businessId]
     );
 
     res.json({
@@ -120,7 +136,7 @@ app.post("/appointments", async (req, res) => {
 
 app.put("/appointments/:id", async (req, res) => {
   const { id } = req.params;
-  const { name, phone, date, time, service, barber } = req.body;
+  const { name, phone, date, time, service, barber, businessId } = req.body;
 
   if (!name || !phone || !date || !time || !service || !barber) {
     return res.status(400).json({ message: "Faltan campos obligatorios" });

@@ -16,3 +16,5 @@ export const SERVICES = [
   "Perfilado de cejas ($2.000)",
   "Servicio completo ($17.000)"
 ];
+
+export const BUSINESS_ID = "barberia-james";

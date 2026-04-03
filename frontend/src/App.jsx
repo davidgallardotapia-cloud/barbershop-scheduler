@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import api from "./services/api";
 import LoginScreen from "./components/LoginScreen";
 import ClientBookingPanel from "./components/ClientBookingPanel";
 import AdminBookingPanel from "./components/AdminBookingPanel";
@@ -19,12 +19,16 @@ import {
   BARBER_PHONES,
   BARBERS,
   SERVICES,
+  BUSINESS_ID,
 } from "./utils/constants";
 import { buildBarberWhatsappUrl } from "./utils/whatsapp";
+import { getAppointments as fetchAppointments } from "./services/appointmentsService";
+import { createAppointment as createAppointmentService } from "./services/appointmentsService";
+import { updateAppointment as updateAppointmentService } from "./services/appointmentsService";
+import { deleteAppointment as deleteAppointmentService } from "./services/appointmentsService";
+import { loginUser } from "./services/appointmentsService";
 
 function App() {
-
-  console.log("SERVICES actuales:", SERVICES);
 
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -121,7 +125,7 @@ function App() {
   const getAppointments = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API_URL}/appointments`);
+      const res = await fetchAppointments(BUSINESS_ID);
       setAppointments(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error(err);
@@ -154,13 +158,14 @@ function App() {
     setWhatsappUrl("");
 
     try {
-      await axios.post(`${API_URL}/appointments`, {
+      await createAppointmentService({
         name: name.trim(),
         phone: phone.trim(),
         date,
         time,
         service: service.trim(),
         barber,
+        businessId: BUSINESS_ID,
       });
 
       const barberPhone = BARBER_PHONES[barber] || BARBER_PHONES.James;
@@ -230,7 +235,7 @@ function App() {
     setWhatsappUrl("");
 
     try {
-      await axios.put(`${API_URL}/appointments/${editingId}`, {
+      await updateAppointmentService(editingId, {
         name: name.trim(),
         phone: phone.trim(),
         date,
@@ -271,7 +276,7 @@ function App() {
     setSubmitting(true);
 
     try {
-      await axios.delete(`${API_URL}/appointments/${id}`);
+      await deleteAppointmentService(id);
       setMessage("Cita eliminada correctamente ✅");
       await getAppointments();
     } catch (err) {
@@ -324,10 +329,10 @@ function App() {
     setLoginError("");
 
     try {
-      const res = await axios.post(`${API_URL}/login`, {
-        username: username.trim(),
-        password,
-      });
+      const res = await loginUser({
+  username: username.trim(),
+  password,
+});
 
       setIsLoggedIn(true);
       setLoginError("");
