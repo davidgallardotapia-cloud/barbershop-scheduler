@@ -242,6 +242,7 @@ function App() {
         time,
         service: service.trim(),
         barber,
+        businessId, BUSINESS_ID,
       });
 
       await syncToGoogleSheets({

@@ -100,7 +100,7 @@ res.json(result.rows);
 app.post("/appointments", async (req, res) => {
   const { name, phone, date, time, service, barber, businessId } = req.body;
 
-  if (!name || !phone || !date || !time || !service || !barber) {
+  if (!name || !phone || !date || !time || !service || !barber || !businessId) {
     return res.status(400).json({ message: "Faltan campos obligatorios" });
   }
 
@@ -158,9 +158,9 @@ app.put("/appointments/:id", async (req, res) => {
     const result = await pool.query(
       `UPDATE appointments
        SET name = $1, phone = $2, date = $3, time = $4, service = $5, barber = $6
-       WHERE id = $7
+       , business_id = $7, WHERE id = $8
        RETURNING *`,
-      [name, phone, date, time, service, barber, id]
+      [name, phone, date, time, service, barber, businessId, id]
     );
 
     res.json({
