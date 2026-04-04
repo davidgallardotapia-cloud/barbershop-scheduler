@@ -69,6 +69,9 @@ app.use(express.json());
 
 app.get("/appointments", async (req, res) => {
   const { businessId } = req.query;
+  if (!businessId) {
+  return res.status(400).json({ error: "businessId requerido" });
+  }
   try {
     const today = new Date();
     const yyyy = today.getFullYear();
@@ -76,24 +79,14 @@ app.get("/appointments", async (req, res) => {
     const dd = String(today.getDate()).padStart(2, "0");
     const todayStr = `${yyyy}-${mm}-${dd}`;
 
-    if (businessId) {
   const result = await pool.query(
     "SELECT * FROM appointments WHERE business_id = $1 AND date >= $2 ORDER BY date ASC, time ASC",
     [businessId, todayStr]
   );
   return res.json(result.rows);
-}
-
-const result = await pool.query(
-  "SELECT * FROM appointments WHERE date >= $1 ORDER BY date ASC, time ASC",
-  [todayStr]
-);
-
-res.json(result.rows);
-
   } catch (error) {
-    console.error("Error al obtener citas:", error);
-    res.status(500).json({ message: "Error al obtener citas" });
+  console.error(error);
+  return res.status(500).json({ error: "Error al obtener citas"})
   }
 });
 
