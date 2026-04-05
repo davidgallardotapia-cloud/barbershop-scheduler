@@ -85,6 +85,43 @@ if (existingAdmin.rows.length === 0) {
 app.use(cors());
 app.use(express.json());
 
+app.post("/login", async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ message: "Faltan credenciales" });
+  }
+
+  try {
+    const result = await pool.query(
+      "SELECT * FROM users WHERE username = $1",
+      [username]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ message: "Usuario no encontrado" });
+    }
+
+    const user = result.rows[0];
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Contraseña incorrecta" });
+    }
+
+    return res.json({
+      message: "Login correcto",
+      user: {
+        id: user.id,
+        username: user.username,
+      },
+    });
+  } catch (error) {
+    console.error("Error en login:", error);
+    return res.status(500).json({ message: "Error al iniciar sesión" });
+  }
+});
+
 app.get("/appointments", async (req, res) => {
   const { businessId } = req.query;
   if (!businessId) {
