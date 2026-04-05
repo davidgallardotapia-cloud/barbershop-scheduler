@@ -40,8 +40,6 @@ const createTables = async () => {
   AND column_name = 'status';
 `);
 
-console.log("STATUS COLUMN EXISTS:", statusCheck.rows);
-
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -55,21 +53,28 @@ console.log("STATUS COLUMN EXISTS:", statusCheck.rows);
       ADD COLUMN IF NOT EXISTS business_id VARCHAR(100);
     `);
 
-    const existingAdmin = await pool.query(
-      "SELECT * FROM users WHERE username = $1",
-      ["admin"]
-    );
+    const hashedPassword = await bcrypt.hash("1234", 10);
 
-    if (existingAdmin.rows.length === 0) {
-      const hashedPassword = await bcrypt.hash("1234", 10);
+const existingAdmin = await pool.query(
+  "SELECT * FROM users WHERE username = $1",
+  ["admin"]
+);
 
-      await pool.query(
-        "INSERT INTO users (username, password) VALUES ($1, $2)",
-        ["admin", hashedPassword]
-      );
+if (existingAdmin.rows.length === 0) {
+  await pool.query(
+    "INSERT INTO users (username, password) VALUES ($1, $2)",
+    ["admin", hashedPassword]
+  );
 
-      console.log("Usuario admin creado ✅");
-    }
+  console.log("Usuario admin creado ✅");
+} else {
+  await pool.query(
+    "UPDATE users SET password = $1 WHERE username = $2",
+    [hashedPassword, "admin"]
+  );
+
+  console.log("Contraseña de admin actualizada ✅");
+}
 
     console.log("Tablas creadas 🚀");
   } catch (error) {
@@ -141,7 +146,6 @@ app.post("/appointments", async (req, res) => {
 });
 
 app.put("/appointments/:id", async (req, res) => {
-  console.log("BODY UPDATE:", req.body);
   const { id } = req.params;
   const { name, phone, date, time, service, barber, businessId, status } = req.body;
 
@@ -169,8 +173,6 @@ app.put("/appointments/:id", async (req, res) => {
        RETURNING *`,
       [name, phone, date, time, service, barber, businessId, status || "reservada", id]
     );
-    
-    console.log("UPDATE RESULT", result.rows[0]);
 
     res.json({
       message: "Cita actualizada correctamente",

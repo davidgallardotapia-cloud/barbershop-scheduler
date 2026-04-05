@@ -448,6 +448,57 @@ const markAppointmentAsNoShow = async (appointment) => {
   const isClientMode = appMode === "client";
   const isAdminMode = appMode === "admin" && isLoggedIn;
 
+  const todayStr = formatDateToInput(new Date());
+
+const servicePrices = {
+  "Corte tradicional ($8.000)": 8000,
+  "Degradado premium ($10.000)": 10000,
+  "Corte + barba premium ($15.000)": 15000,
+  "Perfilado de cejas ($2.000)": 2000,
+  "Servicio completo ($17.000)": 17000,
+};
+
+const dashboardAppointments = useMemo(() => {
+  const normalizedClientSearch = clientSearch.trim().toLowerCase();
+
+  return appointments.filter((appointment) => {
+    const appointmentDate = String(appointment.date || "").slice(0, 10);
+
+    const matchesToday = appointmentDate === todayStr;
+    const matchesBarber = weeklyBarberFilter
+      ? appointment.barber === weeklyBarberFilter
+      : true;
+    const matchesClient = normalizedClientSearch
+      ? String(appointment.name || "")
+          .toLowerCase()
+          .includes(normalizedClientSearch)
+      : true;
+
+    return matchesToday && matchesBarber && matchesClient;
+  });
+}, [appointments, todayStr, weeklyBarberFilter, clientSearch]);
+
+const totalToday = dashboardAppointments.length;
+
+const attendedToday = dashboardAppointments.filter(
+  (appointment) => appointment.status === "atendida"
+).length;
+
+const noShowToday = dashboardAppointments.filter(
+  (appointment) => appointment.status === "no_asistio"
+).length;
+
+const reservedToday = dashboardAppointments.filter(
+  (appointment) =>
+    !appointment.status || appointment.status === "reservada"
+).length;
+
+const revenueToday = dashboardAppointments
+  .filter((appointment) => appointment.status === "atendida")
+  .reduce((total, appointment) => {
+    return total + (servicePrices[appointment.service] || 0);
+  }, 0);
+
   const filteredAppointments = useMemo(() => {
   const activeBarberFilter = isClientMode ? barber : weeklyBarberFilter;
   const normalizedClientSearch = clientSearch.trim().toLowerCase();
@@ -557,6 +608,52 @@ const appointmentsBySlot = useMemo(() => {
       width: "100%",
       minWidth: 0,
     },
+    dashboardGrid: {
+  display: "grid",
+  gridTemplateColumns: isMobile
+    ? "1fr 1fr"
+    : "repeat(5, minmax(140px, 1fr))",
+  gap: "12px",
+  marginBottom: "18px",
+},
+
+dashboardCard: {
+  backgroundColor: "#fff",
+  borderRadius: "12px",
+  padding: "14px",
+  border: "1px solid #e5e7eb",
+  boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
+},
+
+dashboardLabel: {
+  fontSize: "13px",
+  color: "#6b7280",
+  marginBottom: "6px",
+},
+
+dashboardValue: {
+  fontSize: "24px",
+  fontWeight: "700",
+  color: "#111827",
+},
+
+dashboardValueSuccess: {
+  fontSize: "24px",
+  fontWeight: "700",
+  color: "#166534",
+},
+
+dashboardValueDanger: {
+  fontSize: "24px",
+  fontWeight: "700",
+  color: "#991b1b",
+},
+
+dashboardValueWarning: {
+  fontSize: "24px",
+  fontWeight: "700",
+  color: "#92400e",
+},
     sectionTitle: {
       marginTop: 0,
       marginBottom: "16px",
@@ -955,6 +1052,36 @@ const appointmentsBySlot = useMemo(() => {
             />
 
             <div style={styles.card}>
+
+<div style={styles.dashboardGrid}>
+  <div style={styles.dashboardCard}>
+    <div style={styles.dashboardLabel}>Citas hoy</div>
+    <div style={styles.dashboardValue}>{totalToday}</div>
+  </div>
+
+  <div style={styles.dashboardCard}>
+    <div style={styles.dashboardLabel}>Atendidas</div>
+    <div style={styles.dashboardValueSuccess}>{attendedToday}</div>
+  </div>
+
+  <div style={styles.dashboardCard}>
+    <div style={styles.dashboardLabel}>No asistió</div>
+    <div style={styles.dashboardValueDanger}>{noShowToday}</div>
+  </div>
+
+  <div style={styles.dashboardCard}>
+    <div style={styles.dashboardLabel}>Pendientes</div>
+    <div style={styles.dashboardValueWarning}>{reservedToday}</div>
+  </div>
+
+  <div style={styles.dashboardCard}>
+    <div style={styles.dashboardLabel}>Ingreso real hoy</div>
+    <div style={styles.dashboardValue}>
+      ${revenueToday.toLocaleString("es-CL")}
+    </div>
+  </div>
+</div>
+
               <div style={styles.topBar}>
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                   <h2 style={{ margin: 0 }}>Vista semanal</h2>
