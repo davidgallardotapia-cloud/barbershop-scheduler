@@ -29,18 +29,22 @@ const createTables = async () => {
     `);
 
     await pool.query(`
-  CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(100) UNIQUE NOT NULL,
-    password VARCHAR(100) NOT NULL
-  );
-`);
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'reservada';
+    `);
 
     await pool.query(`
-        ALTER TABLE appointments
-        ADD COLUMN IF NOT EXISTS business_id VARCHAR(100);
-      `);
-    
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(100) UNIQUE NOT NULL,
+        password VARCHAR(100) NOT NULL
+      );
+    `);
+
+    await pool.query(`
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS business_id VARCHAR(100);
+    `);
 
     const existingAdmin = await pool.query(
       "SELECT * FROM users WHERE username = $1",
@@ -70,7 +74,7 @@ app.use(express.json());
 app.get("/appointments", async (req, res) => {
   const { businessId } = req.query;
   if (!businessId) {
-  return res.status(400).json({ error: "businessId requerido" });
+    return res.status(400).json({ error: "businessId requerido" });
   }
   try {
     const today = new Date();
@@ -79,19 +83,19 @@ app.get("/appointments", async (req, res) => {
     const dd = String(today.getDate()).padStart(2, "0");
     const todayStr = `${yyyy}-${mm}-${dd}`;
 
-  const result = await pool.query(
-    "SELECT * FROM appointments WHERE business_id = $1 AND date >= $2 ORDER BY date ASC, time ASC",
-    [businessId, todayStr]
-  );
-  return res.json(result.rows);
+    const result = await pool.query(
+      "SELECT * FROM appointments WHERE business_id = $1 AND date >= $2 ORDER BY date ASC, time ASC",
+      [businessId, todayStr]
+    );
+    return res.json(result.rows);
   } catch (error) {
-  console.error(error);
-  return res.status(500).json({ error: "Error al obtener citas"})
+    console.error(error);
+    return res.status(500).json({ error: "Error al obtener citas" });
   }
 });
 
 app.post("/appointments", async (req, res) => {
-  const { name, phone, date, time, service, barber, businessId } = req.body;
+  const { name, phone, date, time, service, barber, businessId, status } = req.body;
 
   if (!name || !phone || !date || !time || !service || !barber || !businessId) {
     return res.status(400).json({ message: "Faltan campos obligatorios" });
@@ -111,10 +115,10 @@ app.post("/appointments", async (req, res) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO appointments (name, phone, date, time, service, barber, business_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO appointments (name, phone, date, time, service, barber, business_id, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [name, phone, date, time, service, barber, businessId]
+      [name, phone, date, time, service, barber, businessId, status || "reservada"]
     );
 
     res.json({
@@ -129,7 +133,7 @@ app.post("/appointments", async (req, res) => {
 
 app.put("/appointments/:id", async (req, res) => {
   const { id } = req.params;
-  const { name, phone, date, time, service, barber, businessId } = req.body;
+  const { name, phone, date, time, service, barber, businessId, status } = req.body;
 
   if (!name || !phone || !date || !time || !service || !barber || !businessId) {
     return res.status(400).json({ message: "Faltan campos obligatorios" });
@@ -150,11 +154,12 @@ app.put("/appointments/:id", async (req, res) => {
 
     const result = await pool.query(
       `UPDATE appointments
-       SET name = $1, phone = $2, date = $3, time = $4, service = $5, barber = $6, business_id = $7 WHERE id = $8
+       SET name = $1, phone = $2, date = $3, time = $4, service = $5, barber = $6, business_id = $7, status = $8
+       WHERE id = $9
        RETURNING *`,
-      [name, phone, date, time, service, barber, businessId, id]
+      [name, phone, date, time, service, barber, businessId, status || "reservada", id]
     );
-
+      
     res.json({
       message: "Cita actualizada correctamente",
       data: result.rows[0],
@@ -178,52 +183,4 @@ app.delete("/appointments/:id", async (req, res) => {
     console.error(error);
     res.status(500).json({ message: "Error al eliminar cita" });
   }
-});
-
-app.post("/login", async (req, res) => {
-  const { username, password } = req.body;
-
-  try {
-    const result = await pool.query(
-      "SELECT * FROM users WHERE username = $1",
-      [username]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(401).json({
-        success: false,
-        message: "Usuario o contraseña incorrectos",
-      });
-    }
-
-    const user = result.rows[0];
-
-    const isValidPassword = await bcrypt.compare(password, user.password);
-
-    if (!isValidPassword) {
-      return res.status(401).json({
-        success: false,
-        message: "Usuario o contraseña incorrectos",
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: "Login correcto",
-      user: {
-        id: user.id,
-        username: user.username,
-      },
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Error en el servidor" });
-  }
-});
-
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, async () => {
-  console.log(`Server running on port ${PORT}`);
-  await createTables();
 });

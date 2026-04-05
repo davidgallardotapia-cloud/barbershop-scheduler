@@ -121,7 +121,7 @@ function App() {
     }
   }, [weekDays, selectedMobileDay]);
 
-  const hours = Array.from({ length: 12 }, (_, i) => i + 9);
+  const hours = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 9), []);
 
   const getAppointments = async () => {
     setLoading(true);
@@ -167,6 +167,7 @@ function App() {
         service: service.trim(),
         barber,
         businessId: BUSINESS_ID,
+        status: "reservada",
       });
 
       const barberPhone = BARBER_PHONES[barber] || BARBER_PHONES.James;
@@ -244,6 +245,7 @@ function App() {
         service: service.trim(),
         barber,
         businessId: BUSINESS_ID,
+        status: appointments.find((a) => a.id === editingId)?.status || "reservada",
       });
 
       await syncToGoogleSheets({
@@ -288,6 +290,54 @@ function App() {
       setSubmitting(false);
     }
   };
+
+  const markAppointmentAsAttended = async (appointment) => {
+  if (submitting) return;
+
+  try {
+    setSubmitting(true);
+    setMessage("");
+    setWhatsappUrl("");
+
+    await updateAppointmentService(appointment.id, {
+      ...appointment,
+      businessId: BUSINESS_ID,
+      status: "atendida",
+    });
+
+    setMessage("Cita marcada como atendida ✅");
+    await getAppointments();
+  } catch (err) {
+    console.error(err);
+    setMessage("Error al marcar cita como atendida");
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+const markAppointmentAsNoShow = async (appointment) => {
+  if (submitting) return;
+
+  try {
+    setSubmitting(true);
+    setMessage("");
+    setWhatsappUrl("");
+
+    await updateAppointmentService(appointment.id, {
+      ...appointment,
+      businessId: BUSINESS_ID,
+      status: "no_asistio",
+    });
+
+    setMessage("Cita marcada como no asistió ❌");
+    await getAppointments();
+  } catch (err) {
+    console.error(err);
+    setMessage("Error al marcar cita como no asistió");
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const editAppointment = (appointment) => {
     setName(appointment.name || "");
@@ -398,29 +448,48 @@ function App() {
   const isClientMode = appMode === "client";
   const isAdminMode = appMode === "admin" && isLoggedIn;
 
+  const filteredAppointments = useMemo(() => {
+  const activeBarberFilter = isClientMode ? barber : weeklyBarberFilter;
+  const normalizedClientSearch = clientSearch.trim().toLowerCase();
+
+  return appointments.filter((appointment) => {
+    const matchesBarber = activeBarberFilter
+      ? appointment.barber === activeBarberFilter
+      : true;
+
+    const matchesClient = normalizedClientSearch
+      ? String(appointment.name || "")
+          .toLowerCase()
+          .includes(normalizedClientSearch)
+      : true;
+
+    return matchesBarber && matchesClient;
+  });
+}, [appointments, isClientMode, barber, weeklyBarberFilter, clientSearch]);
+
+const appointmentsBySlot = useMemo(() => {
+  const map = new Map();
+
+  filteredAppointments.forEach((appointment) => {
+    const dayKey = formatDateToInput(new Date(String(appointment.date).slice(0, 10) + "T00:00:00"));
+    const rawTime = String(appointment.time || "");
+    const hourKey = Number(rawTime.slice(0, 2));
+    const key = `${dayKey}-${hourKey}`;
+
+    if (!map.has(key)) {
+      map.set(key, []);
+    }
+
+    map.get(key).push(appointment);
+  });
+
+  return map;
+}, [filteredAppointments]);
+  
   const getAppointmentsForSlot = (day, hour) => {
-    return appointments.filter((appointment) => {
-      const rawTime = String(appointment.time || "");
-      const appointmentHour = rawTime.slice(0, 2);
-
-      const matchesDay = sameDate(appointment.date, day);
-      const matchesHour = Number(appointmentHour) === hour;
-
-      const activeBarberFilter = isClientMode ? barber : weeklyBarberFilter;
-
-      const matchesBarber = activeBarberFilter
-        ? appointment.barber === activeBarberFilter
-        : true;
-
-      const matchesClient = clientSearch
-        ? String(appointment.name || "")
-            .toLowerCase()
-            .includes(clientSearch.toLowerCase())
-        : true;
-
-      return matchesDay && matchesHour && matchesBarber && matchesClient;
-    });
-  };
+  const key = `${formatDateToInput(day)}-${hour}`;
+  return appointmentsBySlot.get(key) || [];
+};
 
   const mobileSlots = useMemo(() => {
     if (!selectedMobileDay) return [];
@@ -439,10 +508,8 @@ function App() {
     });
   }, [
     selectedMobileDay,
-    appointments,
-    barber,
-    weeklyBarberFilter,
-    clientSearch,
+    hours,
+    appointmentsBySlot,
     isClientMode,
   ]);
 
@@ -960,6 +1027,8 @@ function App() {
                 barber={barber}
                 editAppointment={editAppointment}
                 deleteAppointment={deleteAppointment}
+                markAppointmentAsAttended={markAppointmentAsAttended}
+                markAppointmentAsNoShow={markAppointmentAsNoShow}
                 submitting={submitting}
                 isPastSlot={isPastSlot}
                 isPastDayOnly={isPastDayOnly}

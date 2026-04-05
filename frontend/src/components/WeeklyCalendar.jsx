@@ -24,6 +24,8 @@ function WeeklyCalendar({
   barber,
   editAppointment,
   deleteAppointment,
+  markAppointmentAsAttended,
+  markAppointmentAsNoShow,
   submitting,
   isPastSlot,
   isPastDayOnly,
@@ -80,7 +82,7 @@ function WeeklyCalendar({
           </div>
         </div>
       )}
-
+      
       <div style={styles.calendarWrapper}>
         {loading ? (
           <div style={styles.spinnerBox}>
@@ -173,19 +175,70 @@ function WeeklyCalendar({
                     {firstAppointment?.service}
                   </div>
 
-                  <div style={{ fontSize: "12px", marginBottom: "8px" }}>
+                  <div style={{ fontSize: "12px", marginBottom: "2px" }}>
                     {firstAppointment?.barber}
                   </div>
 
-                  <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+                  <div style={{ fontSize: "12px", marginBottom: "8px" }}>
+                    {!firstAppointment?.status || firstAppointment?.status === "reservada"
+                      ? "🟡 Reservada"
+                      : firstAppointment?.status === "atendida"
+                      ? "🟢 Atendida"
+                      : firstAppointment?.status === "no_asistio"
+                      ? "🔴 No asistió"
+                      : ""}
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "8px",
+                      marginTop: "10px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      style={{
+                        ...styles.tinyButton,
+                        backgroundColor: "#dcfce7",
+                        color: "#166534",
+                        border: "1px solid #bbf7d0",
+                        flex: 1,
+                        ...(submitting ? styles.disabledButton : {}),
+                      }}
+                      onClick={() => markAppointmentAsAttended(firstAppointment)}
+                      disabled={submitting}
+                    >
+                      Atendida
+                    </button>
+
+                    <button
+                      type="button"
+                      style={{
+                        ...styles.tinyButton,
+                        backgroundColor: "#fee2e2",
+                        color: "#991b1b",
+                        border: "1px solid #fecaca",
+                        flex: 1,
+                        ...(submitting ? styles.disabledButton : {}),
+                      }}
+                      onClick={() => markAppointmentAsNoShow(firstAppointment)}
+                      disabled={submitting}
+                    >
+                      No asistió
+                    </button>
+
                     <button
                       type="button"
                       style={{
                         ...styles.tinyButton,
                         ...styles.editButton,
                         flex: 1,
+                        ...(submitting ? styles.disabledButton : {}),
                       }}
                       onClick={() => editAppointment(firstAppointment)}
+                      disabled={submitting}
                     >
                       Editar
                     </button>
@@ -196,8 +249,10 @@ function WeeklyCalendar({
                         ...styles.tinyButton,
                         ...styles.dangerButton,
                         flex: 1,
+                        ...(submitting ? styles.disabledButton : {}),
                       }}
                       onClick={() => deleteAppointment(firstAppointment.id)}
+                      disabled={submitting}
                     >
                       Eliminar
                     </button>
@@ -280,15 +335,55 @@ function WeeklyCalendar({
                                   <div style={styles.appointmentMeta}>
                                     {String(appointment.time).slice(0, 5)}
                                   </div>
+                                  <div style={styles.appointmentMeta}>
+                                    {!appointment.status || appointment.status === "reservada"
+                                      ? "🟡 Reservada"
+                                      : appointment.status === "atendida"
+                                      ? "🟢 Atendida"
+                                      : appointment.status === "no_asistio"
+                                      ? "🔴 No asistió"
+                                      : ""}
+                                  </div>
 
-                                  <div style={styles.actionRow}>
+                                  <div
+                                    style={{
+                                      ...styles.actionRow,
+                                      flexWrap: "wrap",
+                                    }}
+                                  >
+                                    <button
+                                      style={{
+                                        ...styles.tinyButton,
+                                        backgroundColor: "#dcfce7",
+                                        color: "#166534",
+                                        border: "1px solid #bbf7d0",
+                                        ...(submitting ? styles.disabledButton : {}),
+                                      }}
+                                      onClick={() => markAppointmentAsAttended(appointment)}
+                                      disabled={submitting}
+                                    >
+                                      Atendida
+                                    </button>
+
+                                    <button
+                                      style={{
+                                        ...styles.tinyButton,
+                                        backgroundColor: "#fee2e2",
+                                        color: "#991b1b",
+                                        border: "1px solid #fecaca",
+                                        ...(submitting ? styles.disabledButton : {}),
+                                      }}
+                                      onClick={() => markAppointmentAsNoShow(appointment)}
+                                      disabled={submitting}
+                                    >
+                                      No asistió
+                                    </button>
+
                                     <button
                                       style={{
                                         ...styles.tinyButton,
                                         ...styles.editButton,
-                                        ...(submitting
-                                          ? styles.disabledButton
-                                          : {}),
+                                        ...(submitting ? styles.disabledButton : {}),
                                       }}
                                       onClick={() => editAppointment(appointment)}
                                       disabled={submitting}
@@ -300,13 +395,9 @@ function WeeklyCalendar({
                                       style={{
                                         ...styles.tinyButton,
                                         ...styles.dangerButton,
-                                        ...(submitting
-                                          ? styles.disabledButton
-                                          : {}),
+                                        ...(submitting ? styles.disabledButton : {}),
                                       }}
-                                      onClick={() =>
-                                        deleteAppointment(appointment.id)
-                                      }
+                                      onClick={() => deleteAppointment(appointment.id)}
                                       disabled={submitting}
                                     >
                                       Eliminar
