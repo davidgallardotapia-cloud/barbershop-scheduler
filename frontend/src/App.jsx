@@ -4,6 +4,7 @@ import LoginScreen from "./components/LoginScreen";
 import ClientBookingPanel from "./components/ClientBookingPanel";
 import AdminBookingPanel from "./components/AdminBookingPanel";
 import WeeklyCalendar from "./components/WeeklyCalendar";
+import BusinessHeader from "./components/BusinessHeader";
 import {
   getMonday,
   formatDateToInput,
@@ -764,6 +765,8 @@ function App() {
         </div>
 
         {isClientMode ? (
+          <div>
+            <BusinessHeader isMobile={isMobile} />
           <div style={styles.card}>
             <ClientBookingPanel
               styles={styles}
@@ -856,6 +859,7 @@ function App() {
               isPastSlot={isPastSlot}
               isPastDayOnly={isPastDayOnly}
             />
+              </div>
           </div>
         ) : (
           <div style={styles.layout}>
