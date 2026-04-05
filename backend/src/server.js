@@ -160,7 +160,9 @@ app.put("/appointments/:id", async (req, res) => {
        RETURNING *`,
       [name, phone, date, time, service, barber, businessId, status || "reservada", id]
     );
-      
+    console.log("STATUS COLUMN CHECK OK");
+    console.log("UPDATE RESULT", result.rows[0]);
+
     res.json({
       message: "Cita actualizada correctamente",
       data: result.rows[0],
