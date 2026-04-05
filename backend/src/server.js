@@ -132,6 +132,7 @@ app.post("/appointments", async (req, res) => {
 });
 
 app.put("/appointments/:id", async (req, res) => {
+  console.log("BODY UPDATE:", req.body);
   const { id } = req.params;
   const { name, phone, date, time, service, barber, businessId, status } = req.body;
 
