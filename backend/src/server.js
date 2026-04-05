@@ -32,6 +32,15 @@ const createTables = async () => {
       ALTER TABLE appointments
       ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'reservada';
     `);
+    
+    const statusCheck = await pool.query(`
+  SELECT column_name
+  FROM information_schema.columns
+  WHERE table_name = 'appointments'
+  AND column_name = 'status';
+`);
+
+console.log("STATUS COLUMN EXISTS:", statusCheck.rows);
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -160,7 +169,7 @@ app.put("/appointments/:id", async (req, res) => {
        RETURNING *`,
       [name, phone, date, time, service, barber, businessId, status || "reservada", id]
     );
-    console.log("STATUS COLUMN CHECK OK");
+    
     console.log("UPDATE RESULT", result.rows[0]);
 
     res.json({
@@ -186,4 +195,12 @@ app.delete("/appointments/:id", async (req, res) => {
     console.error(error);
     res.status(500).json({ message: "Error al eliminar cita" });
   }
+});
+
+const PORT = process.env.PORT || 10000;
+
+createTables().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Servidor corriendo en puerto ${PORT}`);
+  });
 });
