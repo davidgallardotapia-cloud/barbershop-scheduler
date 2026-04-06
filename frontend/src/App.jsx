@@ -159,7 +159,7 @@ function App() {
     setWhatsappUrl("");
 
     try {
-      await createAppointmentService({
+      const createdAppointment = await createAppointmentService({
         name: name.trim(),
         phone: phone.trim(),
         date,
@@ -183,6 +183,7 @@ function App() {
       });
 
       await syncToGoogleSheets({
+        id: createdAppointment.data.id,
         date,
         time,
         name: name.trim(),
