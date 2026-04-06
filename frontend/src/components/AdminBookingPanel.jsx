@@ -58,12 +58,17 @@ function AdminBookingPanel({
           onChange={(e) => setTime(e.target.value)}
         />
 
-        <input
-          style={styles.input}
-          placeholder="Servicio"
-          value={service}
-          onChange={(e) => setService(e.target.value)}
-        />
+        <select
+  style={styles.select}
+  value={service}
+  onChange={(e) => setService(e.target.value)}
+>  <option value="">Selecciona un servicio</option>
+  <option value="Corte tradicional">Corte tradicional ($8.000)</option>
+  <option value="Degradado premium">Degradado premium ($10.000)</option>
+  <option value="Corte + barba premium">Corte + barba premium ($15.000)</option>
+  <option value="Perfilado de cejas">Perfilado de cejas ($2.000)</option>
+  <option value="Servicio completo">Servicio completo ($17.000)</option>
+</select>
 
         <select
           style={styles.select}
