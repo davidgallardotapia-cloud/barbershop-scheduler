@@ -256,7 +256,7 @@ function App() {
         phone: phone.trim(),
         barber,
         service: service.trim(),
-        status,
+        status: appointments.find((a) => a.id === editingId)?.status || "reservada",
       });
 
       resetForm();
@@ -307,6 +307,16 @@ function App() {
       status: "atendida",
     });
 
+    await syncToGoogleSheets({
+      date: appointment.date,
+      time: appointment.time,
+      name: appointment.name,
+      phone: appointment.phone || "",
+      barber: appointment.barber,
+      service: appointment.service,
+      status: "atendida",
+    });
+
     setMessage("Cita marcada como atendida ✅");
     await getAppointments();
   } catch (err) {
@@ -328,6 +338,16 @@ const markAppointmentAsNoShow = async (appointment) => {
     await updateAppointmentService(appointment.id, {
       ...appointment,
       businessId: BUSINESS_ID,
+      status: "no_asistio",
+    });
+
+    await syncToGoogleSheets({
+      date: appointment.date,
+      time: appointment.time,
+      name: appointment.name,
+      phone: appointment.phone || "",
+      barber: appointment.barber,
+      service: appointment.service,
       status: "no_asistio",
     });
 
