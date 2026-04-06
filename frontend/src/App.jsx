@@ -189,6 +189,7 @@ function App() {
         phone: phone.trim(),
         barber,
         service: service.trim(),
+        status: "pendiente",
       });
 
       setSelectedWeekStart(getMonday(new Date()));
