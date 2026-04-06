@@ -251,6 +251,7 @@ function App() {
       });
 
       await syncToGoogleSheets({
+        id: editingId,
         date,
         time,
         name: name.trim(),
@@ -309,6 +310,7 @@ function App() {
     });
 
     await syncToGoogleSheets({
+      id: appointment.id,
       date: appointment.date,
       time: appointment.time,
       name: appointment.name,
@@ -343,6 +345,7 @@ const markAppointmentAsNoShow = async (appointment) => {
     });
 
     await syncToGoogleSheets({
+      id: appointment.id,
       date: appointment.date,
       time: appointment.time,
       name: appointment.name,
