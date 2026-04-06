@@ -189,7 +189,7 @@ function App() {
         phone: phone.trim(),
         barber,
         service: service.trim(),
-        status: "pendiente",
+        status: "reservada",
       });
 
       setSelectedWeekStart(getMonday(new Date()));
@@ -256,6 +256,7 @@ function App() {
         phone: phone.trim(),
         barber,
         service: service.trim(),
+        status,
       });
 
       resetForm();
