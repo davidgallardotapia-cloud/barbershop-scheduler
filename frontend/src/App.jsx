@@ -183,7 +183,7 @@ function App() {
       });
 
       await syncToGoogleSheets({
-        id: createdAppointment.id,
+        id: createdAppointment.data.data.id,
         date,
         time,
         name: name.trim(),
