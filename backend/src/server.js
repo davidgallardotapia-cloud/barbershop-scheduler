@@ -124,20 +124,17 @@ app.post("/login", async (req, res) => {
 
 app.get("/appointments", async (req, res) => {
   const { businessId } = req.query;
+
   if (!businessId) {
     return res.status(400).json({ error: "businessId requerido" });
   }
-  try {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const dd = String(today.getDate()).padStart(2, "0");
-    const todayStr = `${yyyy}-${mm}-${dd}`;
 
+  try {
     const result = await pool.query(
-      "SELECT * FROM appointments WHERE business_id = $1 AND date >= $2 ORDER BY date ASC, time ASC",
-      [businessId, todayStr]
+      "SELECT * FROM appointments WHERE business_id = $1 ORDER BY date ASC, time ASC",
+      [businessId]
     );
+
     return res.json(result.rows);
   } catch (error) {
     console.error(error);
@@ -155,8 +152,8 @@ app.post("/appointments", async (req, res) => {
   try {
     const exists = await pool.query(
       `SELECT * FROM appointments
-       WHERE date = $1 AND time = $2 AND barber = $3`,
-      [date, time, barber]
+       WHERE date = $1 AND time = $2 AND barber = $3 AND business_id = $4`,
+      [date, time, barber, businessId]
     );
 
     if (exists.rows.length > 0) {
@@ -193,8 +190,8 @@ app.put("/appointments/:id", async (req, res) => {
   try {
     const exists = await pool.query(
       `SELECT * FROM appointments
-       WHERE date = $1 AND time = $2 AND barber = $3 AND id <> $4`,
-      [date, time, barber, id]
+       WHERE date = $1 AND time = $2 AND barber = $3 AND id <> $4 AND business_id = $5`,
+      [date, time, barber, id, businessId]
     );
 
     if (exists.rows.length > 0) {
