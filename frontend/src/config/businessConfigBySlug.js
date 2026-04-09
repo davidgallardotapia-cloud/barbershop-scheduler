@@ -20,4 +20,24 @@ export const businessConfigBySlug = {
       { name: "Jesús", image: "/james-hero.jpeg" },
     ],
   },
+  "barberia-junior": {
+  id: "barberia-junior",
+  name: "Barbería Junior",
+  subtitle: "Cortes clásicos y modernos",
+  phone: "+56 9 1234 5678",
+  hours: "Próximamente",
+  location: "La Serena",
+  address: "Dirección por definir",
+  image: "/james-hero.jpeg",
+  logo: "/logo-james.jpg",
+  description:
+    "Agenda tu hora en Barbería Junior y disfruta de un servicio profesional.",
+  whatsappLabel: "Contáctanos por WhatsApp",
+  mapLink: "https://maps.google.com",
+  mapEmbedUrl:
+    "https://www.google.com/maps?q=La+Serena&output=embed",
+  professionals: [
+    { name: "Junior", image: "/james-hero.jpeg" },
+  ],
+},
 };
