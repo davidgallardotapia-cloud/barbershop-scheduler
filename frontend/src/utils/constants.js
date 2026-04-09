@@ -17,4 +17,3 @@ export const SERVICES = [
   "Servicio completo ($17.000)"
 ];
 
-export const BUSINESS_ID = "barberia-james";

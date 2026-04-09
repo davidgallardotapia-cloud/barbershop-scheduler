@@ -14,10 +14,16 @@ export const updateAppointment = (id, data) => {
   return api.put(`/appointments/${id}`, data);
 };
 
-export const deleteAppointment = (id) => {
-  return api.delete(`/appointments/${id}`);
+export const deleteAppointment = (id, businessId) => {
+  return api.delete(`/appointments/${id}`, {
+    params: { businessId },
+  });
 };
 
 export const loginUser = (credentials) => {
   return api.post("/login", credentials);
+};
+
+export const getBusinessBySlug = (slug) => {
+  return api.get(`/business/${slug}`);
 };

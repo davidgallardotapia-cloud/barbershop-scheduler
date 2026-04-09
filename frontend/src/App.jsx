@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from "react";
-import api from "./services/api";
 import LoginScreen from "./components/LoginScreen";
 import ClientBookingPanel from "./components/ClientBookingPanel";
 import AdminBookingPanel from "./components/AdminBookingPanel";
@@ -15,21 +14,36 @@ import {
   isPastDayOnly,
 } from "./utils/dateUtils";
 import {
-  API_URL,
   SHEETS_URL,
   BARBER_PHONES,
   BARBERS,
   SERVICES,
-  BUSINESS_ID,
 } from "./utils/constants";
 import { buildBarberWhatsappUrl } from "./utils/whatsapp";
-import { getAppointments as fetchAppointments } from "./services/appointmentsService";
-import { createAppointment as createAppointmentService } from "./services/appointmentsService";
-import { updateAppointment as updateAppointmentService } from "./services/appointmentsService";
-import { deleteAppointment as deleteAppointmentService } from "./services/appointmentsService";
-import { loginUser } from "./services/appointmentsService";
+import {
+  getAppointments as fetchAppointments,
+  createAppointment as createAppointmentService,
+  updateAppointment as updateAppointmentService,
+  deleteAppointment as deleteAppointmentService,
+  loginUser,
+  getBusinessBySlug,
+} from "./services/appointmentsService";
+import { businessConfigBySlug } from "./config/businessConfigBySlug";
 
 function App() {
+  const getSlugFromUrl = () => {
+    if (typeof window === "undefined") return "james";
+
+    const path = window.location.pathname.replace(/^\/+|\/+$/g, "");
+    return path || "james";
+  };
+
+  const [slug] = useState(getSlugFromUrl);
+
+  const [business, setBusiness] = useState(null);
+  const [businessId, setBusinessId] = useState("");
+  const [businessLoading, setBusinessLoading] = useState(true);
+  const [businessError, setBusinessError] = useState("");
 
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +78,19 @@ function App() {
   );
   const [selectedMobileDay, setSelectedMobileDay] = useState(null);
 
+  const currentBusinessConfig = useMemo(() => {
+    return businessConfigBySlug[slug] || null;
+  }, [slug]);
+
+  const mergedBusiness = useMemo(() => {
+    if (!business && !currentBusinessConfig) return null;
+
+    return {
+      ...(currentBusinessConfig || {}),
+      ...(business || {}),
+    };
+  }, [business, currentBusinessConfig]);
+
   async function syncToGoogleSheets(payload) {
     try {
       const response = await fetch(SHEETS_URL, {
@@ -71,7 +98,12 @@ function App() {
         headers: {
           "Content-Type": "text/plain;charset=utf-8",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          businessId,
+          businessSlug: slug,
+          businessName: mergedBusiness?.name || "",
+        }),
       });
 
       const text = await response.text();
@@ -86,6 +118,28 @@ function App() {
       console.error("Error guardando en Sheets:", error);
     }
   }
+
+  useEffect(() => {
+    const loadBusiness = async () => {
+      setBusinessLoading(true);
+      setBusinessError("");
+
+      try {
+        const res = await getBusinessBySlug(slug);
+        const businessData = res.data;
+
+        setBusiness(businessData);
+        setBusinessId(businessData.id);
+      } catch (error) {
+        console.error("Error cargando negocio:", error);
+        setBusinessError("No se pudo cargar la barbería.");
+      } finally {
+        setBusinessLoading(false);
+      }
+    };
+
+    loadBusiness();
+  }, [slug]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -124,9 +178,11 @@ function App() {
   const hours = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 9), []);
 
   const getAppointments = async () => {
+    if (!businessId) return;
+
     setLoading(true);
     try {
-      const res = await fetchAppointments(BUSINESS_ID);
+      const res = await fetchAppointments(businessId);
       setAppointments(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error(err);
@@ -135,6 +191,29 @@ function App() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!businessId) return;
+
+    const savedUser = localStorage.getItem("user");
+
+    if (savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
+
+        if (!parsedUser.business_id || parsedUser.business_id === businessId) {
+          setIsLoggedIn(true);
+          setAppMode("admin");
+        } else {
+          localStorage.removeItem("user");
+        }
+      } catch {
+        localStorage.removeItem("user");
+      }
+    }
+
+    getAppointments();
+  }, [businessId]);
 
   const resetForm = () => {
     setName("");
@@ -147,7 +226,7 @@ function App() {
   };
 
   const createAppointment = async () => {
-    if (submitting) return;
+    if (submitting || !businessId) return;
 
     if (!name.trim() || !phone.trim() || !date || !time || !service.trim() || !barber) {
       setMessage("Completa todos los campos para agendar.");
@@ -166,7 +245,7 @@ function App() {
         time,
         service: service.trim(),
         barber,
-        businessId: BUSINESS_ID,
+        businessId,
         status: "reservada",
       });
 
@@ -227,7 +306,7 @@ function App() {
   };
 
   const updateAppointment = async () => {
-    if (submitting || !editingId) return;
+    if (submitting || !editingId || !businessId) return;
 
     if (!name.trim() || !phone.trim() || !date || !time || !service.trim() || !barber) {
       setMessage("Completa todos los campos para actualizar.");
@@ -246,7 +325,7 @@ function App() {
         time,
         service: service.trim(),
         barber,
-        businessId: BUSINESS_ID,
+        businessId,
         status: appointments.find((a) => a.id === editingId)?.status || "reservada",
       });
 
@@ -276,7 +355,7 @@ function App() {
   };
 
   const deleteAppointment = async (id) => {
-    if (submitting) return;
+    if (submitting || !businessId) return;
 
     const confirmed = window.confirm("¿Seguro que quieres eliminar esta cita?");
     if (!confirmed) return;
@@ -284,86 +363,90 @@ function App() {
     setSubmitting(true);
 
     try {
-      await deleteAppointmentService(id);
+      await deleteAppointmentService(id, businessId);
       setMessage("Cita eliminada correctamente ✅");
       await getAppointments();
     } catch (err) {
       console.error(err);
-      setMessage("Error al eliminar cita");
+      if (err.response?.data?.message) {
+        setMessage(err.response.data.message);
+      } else {
+        setMessage("Error al eliminar cita");
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
   const markAppointmentAsAttended = async (appointment) => {
-  if (submitting) return;
+    if (submitting || !businessId) return;
 
-  try {
-    setSubmitting(true);
-    setMessage("");
-    setWhatsappUrl("");
+    try {
+      setSubmitting(true);
+      setMessage("");
+      setWhatsappUrl("");
 
-    await updateAppointmentService(appointment.id, {
-      ...appointment,
-      businessId: BUSINESS_ID,
-      status: "atendida",
-    });
+      await updateAppointmentService(appointment.id, {
+        ...appointment,
+        businessId,
+        status: "atendida",
+      });
 
-    await syncToGoogleSheets({
-      id: appointment.id,
-      date: appointment.date,
-      time: appointment.time,
-      name: appointment.name,
-      phone: appointment.phone || "",
-      barber: appointment.barber,
-      service: appointment.service,
-      status: "atendida",
-    });
+      await syncToGoogleSheets({
+        id: appointment.id,
+        date: appointment.date,
+        time: appointment.time,
+        name: appointment.name,
+        phone: appointment.phone || "",
+        barber: appointment.barber,
+        service: appointment.service,
+        status: "atendida",
+      });
 
-    setMessage("Cita marcada como atendida ✅");
-    await getAppointments();
-  } catch (err) {
-    console.error(err);
-    setMessage("Error al marcar cita como atendida");
-  } finally {
-    setSubmitting(false);
-  }
-};
+      setMessage("Cita marcada como atendida ✅");
+      await getAppointments();
+    } catch (err) {
+      console.error(err);
+      setMessage("Error al marcar cita como atendida");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-const markAppointmentAsNoShow = async (appointment) => {
-  if (submitting) return;
+  const markAppointmentAsNoShow = async (appointment) => {
+    if (submitting || !businessId) return;
 
-  try {
-    setSubmitting(true);
-    setMessage("");
-    setWhatsappUrl("");
+    try {
+      setSubmitting(true);
+      setMessage("");
+      setWhatsappUrl("");
 
-    await updateAppointmentService(appointment.id, {
-      ...appointment,
-      businessId: BUSINESS_ID,
-      status: "no_asistio",
-    });
+      await updateAppointmentService(appointment.id, {
+        ...appointment,
+        businessId,
+        status: "no_asistio",
+      });
 
-    await syncToGoogleSheets({
-      id: appointment.id,
-      date: appointment.date,
-      time: appointment.time,
-      name: appointment.name,
-      phone: appointment.phone || "",
-      barber: appointment.barber,
-      service: appointment.service,
-      status: "no_asistio",
-    });
+      await syncToGoogleSheets({
+        id: appointment.id,
+        date: appointment.date,
+        time: appointment.time,
+        name: appointment.name,
+        phone: appointment.phone || "",
+        barber: appointment.barber,
+        service: appointment.service,
+        status: "no_asistio",
+      });
 
-    setMessage("Cita marcada como no asistió ❌");
-    await getAppointments();
-  } catch (err) {
-    console.error(err);
-    setMessage("Error al marcar cita como no asistió");
-  } finally {
-    setSubmitting(false);
-  }
-};
+      setMessage("Cita marcada como no asistió ❌");
+      await getAppointments();
+    } catch (err) {
+      console.error(err);
+      setMessage("Error al marcar cita como no asistió");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const editAppointment = (appointment) => {
     setName(appointment.name || "");
@@ -396,7 +479,7 @@ const markAppointmentAsNoShow = async (appointment) => {
   };
 
   const handleLogin = async () => {
-    if (loggingIn) return;
+    if (loggingIn || !businessId) return;
 
     if (!username.trim() || !password.trim()) {
       setLoginError("Ingresa usuario y contraseña");
@@ -408,14 +491,22 @@ const markAppointmentAsNoShow = async (appointment) => {
 
     try {
       const res = await loginUser({
-  username: username.trim(),
-  password,
-});
+        username: username.trim(),
+        password,
+      });
+
+      const loggedUser = res.data.user;
+
+      if (loggedUser.business_id && loggedUser.business_id !== businessId) {
+        setLoginError("Este usuario no pertenece a esta barbería");
+        setLoggingIn(false);
+        return;
+      }
 
       setIsLoggedIn(true);
       setLoginError("");
       setAppMode("admin");
-      localStorage.setItem("user", JSON.stringify(res.data.user));
+      localStorage.setItem("user", JSON.stringify(loggedUser));
     } catch (err) {
       if (err.response?.data?.message) {
         setLoginError(err.response.data.message);
@@ -476,97 +567,99 @@ const markAppointmentAsNoShow = async (appointment) => {
 
   const todayStr = formatDateToInput(new Date());
 
-const servicePrices = {
-  "Corte tradicional ($8.000)": 8000,
-  "Degradado premium ($10.000)": 10000,
-  "Corte + barba premium ($15.000)": 15000,
-  "Perfilado de cejas ($2.000)": 2000,
-  "Servicio completo ($17.000)": 17000,
-};
+  const servicePrices = {
+    "Corte tradicional ($8.000)": 8000,
+    "Degradado premium ($10.000)": 10000,
+    "Corte + barba premium ($15.000)": 15000,
+    "Perfilado de cejas ($2.000)": 2000,
+    "Servicio completo ($17.000)": 17000,
+  };
 
-const dashboardAppointments = useMemo(() => {
-  const normalizedClientSearch = clientSearch.trim().toLowerCase();
+  const dashboardAppointments = useMemo(() => {
+    const normalizedClientSearch = clientSearch.trim().toLowerCase();
 
-  return appointments.filter((appointment) => {
-    const appointmentDate = String(appointment.date || "").slice(0, 10);
+    return appointments.filter((appointment) => {
+      const appointmentDate = String(appointment.date || "").slice(0, 10);
 
-    const matchesToday = appointmentDate === todayStr;
-    const matchesBarber = weeklyBarberFilter
-      ? appointment.barber === weeklyBarberFilter
-      : true;
-    const matchesClient = normalizedClientSearch
-      ? String(appointment.name || "")
-          .toLowerCase()
-          .includes(normalizedClientSearch)
-      : true;
+      const matchesToday = appointmentDate === todayStr;
+      const matchesBarber = weeklyBarberFilter
+        ? appointment.barber === weeklyBarberFilter
+        : true;
+      const matchesClient = normalizedClientSearch
+        ? String(appointment.name || "")
+            .toLowerCase()
+            .includes(normalizedClientSearch)
+        : true;
 
-    return matchesToday && matchesBarber && matchesClient;
-  });
-}, [appointments, todayStr, weeklyBarberFilter, clientSearch]);
+      return matchesToday && matchesBarber && matchesClient;
+    });
+  }, [appointments, todayStr, weeklyBarberFilter, clientSearch]);
 
-const totalToday = dashboardAppointments.length;
+  const totalToday = dashboardAppointments.length;
 
-const attendedToday = dashboardAppointments.filter(
-  (appointment) => appointment.status === "atendida"
-).length;
+  const attendedToday = dashboardAppointments.filter(
+    (appointment) => appointment.status === "atendida"
+  ).length;
 
-const noShowToday = dashboardAppointments.filter(
-  (appointment) => appointment.status === "no_asistio"
-).length;
+  const noShowToday = dashboardAppointments.filter(
+    (appointment) => appointment.status === "no_asistio"
+  ).length;
 
-const reservedToday = dashboardAppointments.filter(
-  (appointment) =>
-    !appointment.status || appointment.status === "reservada"
-).length;
+  const reservedToday = dashboardAppointments.filter(
+    (appointment) =>
+      !appointment.status || appointment.status === "reservada"
+  ).length;
 
-const revenueToday = dashboardAppointments
-  .filter((appointment) => appointment.status === "atendida")
-  .reduce((total, appointment) => {
-    return total + (servicePrices[appointment.service] || 0);
-  }, 0);
+  const revenueToday = dashboardAppointments
+    .filter((appointment) => appointment.status === "atendida")
+    .reduce((total, appointment) => {
+      return total + (servicePrices[appointment.service] || 0);
+    }, 0);
 
   const filteredAppointments = useMemo(() => {
-  const activeBarberFilter = isClientMode ? barber : weeklyBarberFilter;
-  const normalizedClientSearch = clientSearch.trim().toLowerCase();
+    const activeBarberFilter = isClientMode ? barber : weeklyBarberFilter;
+    const normalizedClientSearch = clientSearch.trim().toLowerCase();
 
-  return appointments.filter((appointment) => {
-    const matchesBarber = activeBarberFilter
-      ? appointment.barber === activeBarberFilter
-      : true;
+    return appointments.filter((appointment) => {
+      const matchesBarber = activeBarberFilter
+        ? appointment.barber === activeBarberFilter
+        : true;
 
-    const matchesClient = normalizedClientSearch
-      ? String(appointment.name || "")
-          .toLowerCase()
-          .includes(normalizedClientSearch)
-      : true;
+      const matchesClient = normalizedClientSearch
+        ? String(appointment.name || "")
+            .toLowerCase()
+            .includes(normalizedClientSearch)
+        : true;
 
-    return matchesBarber && matchesClient;
-  });
-}, [appointments, isClientMode, barber, weeklyBarberFilter, clientSearch]);
+      return matchesBarber && matchesClient;
+    });
+  }, [appointments, isClientMode, barber, weeklyBarberFilter, clientSearch]);
 
-const appointmentsBySlot = useMemo(() => {
-  const map = new Map();
+  const appointmentsBySlot = useMemo(() => {
+    const map = new Map();
 
-  filteredAppointments.forEach((appointment) => {
-    const dayKey = formatDateToInput(new Date(String(appointment.date).slice(0, 10) + "T00:00:00"));
-    const rawTime = String(appointment.time || "");
-    const hourKey = Number(rawTime.slice(0, 2));
-    const key = `${dayKey}-${hourKey}`;
+    filteredAppointments.forEach((appointment) => {
+      const dayKey = formatDateToInput(
+        new Date(String(appointment.date).slice(0, 10) + "T00:00:00")
+      );
+      const rawTime = String(appointment.time || "");
+      const hourKey = Number(rawTime.slice(0, 2));
+      const key = `${dayKey}-${hourKey}`;
 
-    if (!map.has(key)) {
-      map.set(key, []);
-    }
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
 
-    map.get(key).push(appointment);
-  });
+      map.get(key).push(appointment);
+    });
 
-  return map;
-}, [filteredAppointments]);
-  
+    return map;
+  }, [filteredAppointments]);
+
   const getAppointmentsForSlot = (day, hour) => {
-  const key = `${formatDateToInput(day)}-${hour}`;
-  return appointmentsBySlot.get(key) || [];
-};
+    const key = `${formatDateToInput(day)}-${hour}`;
+    return appointmentsBySlot.get(key) || [];
+  };
 
   const mobileSlots = useMemo(() => {
     if (!selectedMobileDay) return [];
@@ -589,17 +682,6 @@ const appointmentsBySlot = useMemo(() => {
     appointmentsBySlot,
     isClientMode,
   ]);
-
-  useEffect(() => {
-    const savedUser = localStorage.getItem("user");
-
-    if (savedUser) {
-      setIsLoggedIn(true);
-      setAppMode("admin");
-    }
-
-    getAppointments();
-  }, []);
 
   const styles = {
     page: {
@@ -635,51 +717,45 @@ const appointmentsBySlot = useMemo(() => {
       minWidth: 0,
     },
     dashboardGrid: {
-  display: "grid",
-  gridTemplateColumns: isMobile
-    ? "1fr 1fr"
-    : "repeat(5, minmax(140px, 1fr))",
-  gap: "12px",
-  marginBottom: "18px",
-},
-
-dashboardCard: {
-  backgroundColor: "#fff",
-  borderRadius: "12px",
-  padding: "14px",
-  border: "1px solid #e5e7eb",
-  boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
-},
-
-dashboardLabel: {
-  fontSize: "13px",
-  color: "#6b7280",
-  marginBottom: "6px",
-},
-
-dashboardValue: {
-  fontSize: "24px",
-  fontWeight: "700",
-  color: "#111827",
-},
-
-dashboardValueSuccess: {
-  fontSize: "24px",
-  fontWeight: "700",
-  color: "#166534",
-},
-
-dashboardValueDanger: {
-  fontSize: "24px",
-  fontWeight: "700",
-  color: "#991b1b",
-},
-
-dashboardValueWarning: {
-  fontSize: "24px",
-  fontWeight: "700",
-  color: "#92400e",
-},
+      display: "grid",
+      gridTemplateColumns: isMobile
+        ? "1fr 1fr"
+        : "repeat(5, minmax(140px, 1fr))",
+      gap: "12px",
+      marginBottom: "18px",
+    },
+    dashboardCard: {
+      backgroundColor: "#fff",
+      borderRadius: "12px",
+      padding: "14px",
+      border: "1px solid #e5e7eb",
+      boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
+    },
+    dashboardLabel: {
+      fontSize: "13px",
+      color: "#6b7280",
+      marginBottom: "6px",
+    },
+    dashboardValue: {
+      fontSize: "24px",
+      fontWeight: "700",
+      color: "#111827",
+    },
+    dashboardValueSuccess: {
+      fontSize: "24px",
+      fontWeight: "700",
+      color: "#166534",
+    },
+    dashboardValueDanger: {
+      fontSize: "24px",
+      fontWeight: "700",
+      color: "#991b1b",
+    },
+    dashboardValueWarning: {
+      fontSize: "24px",
+      fontWeight: "700",
+      color: "#92400e",
+    },
     sectionTitle: {
       marginTop: 0,
       marginBottom: "16px",
@@ -888,6 +964,24 @@ dashboardValueWarning: {
 
   const isBarberSelected = Boolean(barber);
 
+  if (businessLoading) {
+    return (
+      <div style={styles.page}>
+        <div style={styles.card}>Cargando barbería...</div>
+      </div>
+    );
+  }
+
+  if (businessError || !businessId) {
+    return (
+      <div style={styles.page}>
+        <div style={styles.card}>
+          {businessError || "No se encontró la barbería solicitada."}
+        </div>
+      </div>
+    );
+  }
+
   if (appMode === "admin" && !isLoggedIn) {
     return (
       <LoginScreen
@@ -956,100 +1050,101 @@ dashboardValueWarning: {
 
         {isClientMode ? (
           <div>
-            <BusinessHeader isMobile={isMobile} />
-          <div style={styles.card}>
-            <ClientBookingPanel
-              styles={styles}
-              name={name}
-              setName={setName}
-              phone={phone}
-              setPhone={setPhone}
-              service={service}
-              setService={setService}
-              barber={barber}
-              setBarber={setBarber}
-              date={date}
-              time={time}
-              SERVICES={SERVICES}
-              BARBERS={BARBERS}
-              createAppointment={createAppointment}
-              submitting={submitting}
-              isClientFormComplete={isClientFormComplete}
-              message={message}
-              whatsappUrl={whatsappUrl}
-            />
+            <BusinessHeader isMobile={isMobile} business={mergedBusiness} />
 
-            <div style={styles.topBar}>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <h2 style={{ marginTop: "32px", marginBottom: "12px" }}>
-                  Disponibilidad semanal
-                </h2>
+            <div style={styles.card}>
+              <ClientBookingPanel
+                styles={styles}
+                name={name}
+                setName={setName}
+                phone={phone}
+                setPhone={setPhone}
+                service={service}
+                setService={setService}
+                barber={barber}
+                setBarber={setBarber}
+                date={date}
+                time={time}
+                SERVICES={SERVICES}
+                BARBERS={BARBERS}
+                createAppointment={createAppointment}
+                submitting={submitting}
+                isClientFormComplete={isClientFormComplete}
+                message={message}
+                whatsappUrl={whatsappUrl}
+              />
 
-                <div
-                  style={{
-                    ...styles.select,
-                    minWidth: "220px",
-                    backgroundColor: "#f9fafb",
-                    display: "flex",
-                    alignItems: "center",
-                    color: barber ? "#111827" : "#6b7280",
-                  }}
-                >
-                  {barber ? `Barbero seleccionado: ${barber}` : "Selecciona un barbero arriba"}
+              <div style={styles.topBar}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <h2 style={{ marginTop: "32px", marginBottom: "12px" }}>
+                    Disponibilidad semanal
+                  </h2>
+
+                  <div
+                    style={{
+                      ...styles.select,
+                      minWidth: "220px",
+                      backgroundColor: "#f9fafb",
+                      display: "flex",
+                      alignItems: "center",
+                      color: barber ? "#111827" : "#6b7280",
+                    }}
+                  >
+                    {barber ? `Barbero seleccionado: ${barber}` : "Selecciona un barbero arriba"}
+                  </div>
+                </div>
+
+                <div style={styles.weekActions}>
+                  <button
+                    style={{ ...styles.button, ...styles.secondaryButton }}
+                    onClick={goToPreviousWeek}
+                  >
+                    ← Semana anterior
+                  </button>
+                  <button
+                    style={{ ...styles.button, ...styles.primaryButton }}
+                    onClick={goToCurrentWeek}
+                  >
+                    Semana actual
+                  </button>
+                  <button
+                    style={{ ...styles.button, ...styles.secondaryButton }}
+                    onClick={goToNextWeek}
+                  >
+                    Semana siguiente →
+                  </button>
                 </div>
               </div>
 
-              <div style={styles.weekActions}>
-                <button
-                  style={{ ...styles.button, ...styles.secondaryButton }}
-                  onClick={goToPreviousWeek}
-                >
-                  ← Semana anterior
-                </button>
-                <button
-                  style={{ ...styles.button, ...styles.primaryButton }}
-                  onClick={goToCurrentWeek}
-                >
-                  Semana actual
-                </button>
-                <button
-                  style={{ ...styles.button, ...styles.secondaryButton }}
-                  onClick={goToNextWeek}
-                >
-                  Semana siguiente →
-                </button>
-              </div>
+              <WeeklyCalendar
+                styles={styles}
+                loading={loading}
+                isMobile={isMobile}
+                weekDays={weekDays}
+                selectedMobileDay={selectedMobileDay}
+                setSelectedMobileDay={setSelectedMobileDay}
+                formatDateToInput={formatDateToInput}
+                formatHourLabel={formatHourLabel}
+                sameDate={sameDate}
+                date={date}
+                time={time}
+                hours={hours}
+                mobileSlots={mobileSlots}
+                isBarberSelected={isBarberSelected}
+                selectSlot={selectSlot}
+                setDate={setDate}
+                setTime={setTime}
+                getAppointmentsForSlot={getAppointmentsForSlot}
+                getBarberColors={getBarberColors}
+                isClientMode={true}
+                barber={barber}
+                editAppointment={editAppointment}
+                deleteAppointment={deleteAppointment}
+                submitting={submitting}
+                isPastSlot={isPastSlot}
+                isPastDayOnly={isPastDayOnly}
+              />
             </div>
-
-            <WeeklyCalendar
-              styles={styles}
-              loading={loading}
-              isMobile={isMobile}
-              weekDays={weekDays}
-              selectedMobileDay={selectedMobileDay}
-              setSelectedMobileDay={setSelectedMobileDay}
-              formatDateToInput={formatDateToInput}
-              formatHourLabel={formatHourLabel}
-              sameDate={sameDate}
-              date={date}
-              time={time}
-              hours={hours}
-              mobileSlots={mobileSlots}
-              isBarberSelected={isBarberSelected}
-              selectSlot={selectSlot}
-              setDate={setDate}
-              setTime={setTime}
-              getAppointmentsForSlot={getAppointmentsForSlot}
-              getBarberColors={getBarberColors}
-              isClientMode={true}
-              barber={barber}
-              editAppointment={editAppointment}
-              deleteAppointment={deleteAppointment}
-              submitting={submitting}
-              isPastSlot={isPastSlot}
-              isPastDayOnly={isPastDayOnly}
-            />
-              </div>
           </div>
         ) : (
           <div style={styles.layout}>
@@ -1078,35 +1173,34 @@ dashboardValueWarning: {
             />
 
             <div style={styles.card}>
+              <div style={styles.dashboardGrid}>
+                <div style={styles.dashboardCard}>
+                  <div style={styles.dashboardLabel}>Citas hoy</div>
+                  <div style={styles.dashboardValue}>{totalToday}</div>
+                </div>
 
-<div style={styles.dashboardGrid}>
-  <div style={styles.dashboardCard}>
-    <div style={styles.dashboardLabel}>Citas hoy</div>
-    <div style={styles.dashboardValue}>{totalToday}</div>
-  </div>
+                <div style={styles.dashboardCard}>
+                  <div style={styles.dashboardLabel}>Atendidas</div>
+                  <div style={styles.dashboardValueSuccess}>{attendedToday}</div>
+                </div>
 
-  <div style={styles.dashboardCard}>
-    <div style={styles.dashboardLabel}>Atendidas</div>
-    <div style={styles.dashboardValueSuccess}>{attendedToday}</div>
-  </div>
+                <div style={styles.dashboardCard}>
+                  <div style={styles.dashboardLabel}>No asistió</div>
+                  <div style={styles.dashboardValueDanger}>{noShowToday}</div>
+                </div>
 
-  <div style={styles.dashboardCard}>
-    <div style={styles.dashboardLabel}>No asistió</div>
-    <div style={styles.dashboardValueDanger}>{noShowToday}</div>
-  </div>
+                <div style={styles.dashboardCard}>
+                  <div style={styles.dashboardLabel}>Pendientes</div>
+                  <div style={styles.dashboardValueWarning}>{reservedToday}</div>
+                </div>
 
-  <div style={styles.dashboardCard}>
-    <div style={styles.dashboardLabel}>Pendientes</div>
-    <div style={styles.dashboardValueWarning}>{reservedToday}</div>
-  </div>
-
-  <div style={styles.dashboardCard}>
-    <div style={styles.dashboardLabel}>Ingreso real hoy</div>
-    <div style={styles.dashboardValue}>
-      ${revenueToday.toLocaleString("es-CL")}
-    </div>
-  </div>
-</div>
+                <div style={styles.dashboardCard}>
+                  <div style={styles.dashboardLabel}>Ingreso real hoy</div>
+                  <div style={styles.dashboardValue}>
+                    ${revenueToday.toLocaleString("es-CL")}
+                  </div>
+                </div>
+              </div>
 
               <div style={styles.topBar}>
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>

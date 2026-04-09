@@ -1,16 +1,19 @@
 import React from "react";
-import { businessConfig } from "../config/business";
 
-function BusinessHeader({ isMobile }) {
+function BusinessHeader({ isMobile, business }) {
+  if (!business) return null;
+
   return (
-      <div
+    <div
       style={{
-  display: "grid",
-  gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1.8fr) minmax(320px, 1fr)",
-  gap: isMobile ? "16px" : "24px",
-  marginBottom: "24px",
-  alignItems: "stretch",
-}}
+        display: "grid",
+        gridTemplateColumns: isMobile
+          ? "1fr"
+          : "minmax(0, 1.8fr) minmax(320px, 1fr)",
+        gap: isMobile ? "16px" : "24px",
+        marginBottom: "24px",
+        alignItems: "stretch",
+      }}
     >
       <div
         style={{
@@ -30,8 +33,8 @@ function BusinessHeader({ isMobile }) {
           }}
         >
           <img
-            src={businessConfig.image}
-            alt={businessConfig.name}
+            src={business.image}
+            alt={business.name}
             style={{
               width: "100%",
               height: "100%",
@@ -43,7 +46,7 @@ function BusinessHeader({ isMobile }) {
 
         <div
           style={{
-            display: "grid", 
+            display: "grid",
             gridTemplateColumns: isMobile ? "1fr" : "140px 1fr",
             gap: isMobile ? "16px" : "24px",
             alignItems: "start",
@@ -61,8 +64,8 @@ function BusinessHeader({ isMobile }) {
             }}
           >
             <img
-              src={businessConfig.logo}
-              alt={`${businessConfig.name} logo`}
+              src={business.logo}
+              alt={`${business.name} logo`}
               style={{
                 width: "100%",
                 height: "100%",
@@ -81,7 +84,7 @@ function BusinessHeader({ isMobile }) {
                 color: "#172554",
               }}
             >
-              {businessConfig.name}
+              {business.name}
             </h2>
 
             <p
@@ -92,7 +95,7 @@ function BusinessHeader({ isMobile }) {
                 color: "#1f2937",
               }}
             >
-              {businessConfig.description}
+              {business.description}
             </p>
           </div>
         </div>
@@ -112,53 +115,51 @@ function BusinessHeader({ isMobile }) {
       >
         <div>
           <p style={{ margin: "0 0 14px", fontSize: "18px", color: "#374151" }}>
-            📍 {businessConfig.location}
+            📍 {business.location}
           </p>
 
           <div style={{ margin: "0 0 14px" }}>
-  <iframe
-    src="https://www.google.com/maps?q=Anibal+Pinto+1601+Coquimbo&output=embed"
-    width="100%"
-    height="180"
-    style={{
-      border: 0,
-      borderRadius: "12px",
-    }}
-    loading="lazy"
-  ></iframe>
+            <iframe
+              src={business.mapEmbedUrl}
+              width="100%"
+              height="180"
+              style={{
+                border: 0,
+                borderRadius: "12px",
+              }}
+              loading="lazy"
+              title={`Mapa de ${business.name}`}
+            ></iframe>
 
-  <a
-    href={businessConfig.mapLink}
-    target="_blank"
-    rel="noreferrer"
-    style={{
-      display: "block",
-      marginTop: "8px",
-      fontSize: "14px",
-      color: "#2563eb",
-      textDecoration: "none",
-    }}
-  >
-    📍 Aníbal Pinto 1601, Coquimbo
-  </a>
-</div>
+            <a
+              href={business.mapLink}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: "block",
+                marginTop: "8px",
+                fontSize: "14px",
+                color: "#2563eb",
+                textDecoration: "none",
+              }}
+            >
+              📍 {business.address}
+            </a>
+          </div>
 
           <p style={{ margin: "0 0 14px", fontSize: "18px", color: "#374151" }}>
-            📞 {businessConfig.phone}
+            📞 {business.phone}
           </p>
 
           <p style={{ margin: "0 0 14px", fontSize: "18px", color: "#374151" }}>
-            💬 {businessConfig.whatsappLabel}
+            💬 {business.whatsappLabel}
           </p>
 
           <div style={{ margin: "0 0 24px" }}>
-  <p style={{ margin: "0 0 6px", fontSize: "18px", color: "#374151" }}>
-    🕒 Abierto hoy hasta las 21:00
-  </p>
-  <p style={{ margin: 0, fontSize: "14px", color: "#6b7280" }}>
-    Lunes a Sábado: 10:30 – 21:00
-  </p>
-</div>
+            <p style={{ margin: "0 0 6px", fontSize: "18px", color: "#374151" }}>
+              🕒 {business.hours || "Horario por confirmar"}
+            </p>
+          </div>
         </div>
 
         <div
@@ -179,7 +180,7 @@ function BusinessHeader({ isMobile }) {
               textAlign: "center",
             }}
           >
-            {businessConfig.professionals.map((pro) => (
+            {(business.professionals || []).map((pro) => (
               <div key={pro.name}>
                 <div
                   style={{
@@ -202,7 +203,9 @@ function BusinessHeader({ isMobile }) {
                     }}
                   />
                 </div>
-                <div style={{ fontSize: "14px", color: "#374151" }}>{pro.name}</div>
+                <div style={{ fontSize: "14px", color: "#374151" }}>
+                  {pro.name}
+                </div>
               </div>
             ))}
           </div>
