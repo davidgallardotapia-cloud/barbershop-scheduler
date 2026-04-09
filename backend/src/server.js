@@ -77,6 +77,18 @@ const createTables = async () => {
   WHERE id = 'barberia-james';
 `);
 
+await pool.query(`
+  INSERT INTO businesses (id, name, slug)
+  VALUES ('barberia-junior', 'Barbería Junior', 'barberia-junior')
+  ON CONFLICT (id) DO NOTHING;
+`);
+
+await pool.query(`
+  UPDATE businesses
+  SET name = 'Barbería Junior', slug = 'barberia-junior'
+  WHERE id = 'barberia-junior';
+`);
+
     const hashedPassword = await bcrypt.hash("1234", 10);
 
     const existingAdmin = await pool.query(
