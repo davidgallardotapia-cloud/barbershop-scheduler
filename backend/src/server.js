@@ -82,7 +82,24 @@ if (existingAdmin.rows.length === 0) {
   }
 };
 
-app.use(cors());
+const allowedOrigins = [
+  "https://barbershop-scheduler-two.vercel.app",
+  "http://localhost:5173",
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error("Origen no permitido por CORS"));
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json());
 
 app.post("/login", async (req, res) => {
