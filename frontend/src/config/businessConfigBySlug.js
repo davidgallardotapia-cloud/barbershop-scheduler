@@ -1,5 +1,5 @@
 export const businessConfigBySlug = {
-  james: {
+  "urban-district-barber": {
     id: "barberia-james",
     name: "Urban District Barber",
     subtitle: "Cortes de cabello y barba profesionales",
