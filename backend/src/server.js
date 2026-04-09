@@ -32,13 +32,11 @@ const createTables = async () => {
       ALTER TABLE appointments
       ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'reservada';
     `);
-    
-    const statusCheck = await pool.query(`
-  SELECT column_name
-  FROM information_schema.columns
-  WHERE table_name = 'appointments'
-  AND column_name = 'status';
-`);
+
+    await pool.query(`
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS business_id VARCHAR(100);
+    `);
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -49,32 +47,46 @@ const createTables = async () => {
     `);
 
     await pool.query(`
-      ALTER TABLE appointments
+      ALTER TABLE users
       ADD COLUMN IF NOT EXISTS business_id VARCHAR(100);
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS businesses (
+        id VARCHAR(100) PRIMARY KEY,
+        name VARCHAR(255),
+        slug VARCHAR(255) UNIQUE
+      );
+    `);
+
+    await pool.query(`
+      INSERT INTO businesses (id, name, slug)
+      VALUES ('barberia-james', 'Urban District Barber', 'james')
+      ON CONFLICT (id) DO NOTHING;
     `);
 
     const hashedPassword = await bcrypt.hash("1234", 10);
 
-const existingAdmin = await pool.query(
-  "SELECT * FROM users WHERE username = $1",
-  ["admin"]
-);
+    const existingAdmin = await pool.query(
+      "SELECT * FROM users WHERE username = $1",
+      ["admin"]
+    );
 
-if (existingAdmin.rows.length === 0) {
-  await pool.query(
-    "INSERT INTO users (username, password) VALUES ($1, $2)",
-    ["admin", hashedPassword]
-  );
+    if (existingAdmin.rows.length === 0) {
+      await pool.query(
+        "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
+        ["admin", hashedPassword, "barberia-james"]
+      );
 
-  console.log("Usuario admin creado ✅");
-} else {
-  await pool.query(
-    "UPDATE users SET password = $1 WHERE username = $2",
-    [hashedPassword, "admin"]
-  );
+      console.log("Usuario admin creado ✅");
+    } else {
+      await pool.query(
+        "UPDATE users SET password = $1, business_id = $2 WHERE username = $3",
+        [hashedPassword, "barberia-james", "admin"]
+      );
 
-  console.log("Contraseña de admin actualizada ✅");
-}
+      console.log("Contraseña de admin actualizada ✅");
+    }
 
     console.log("Tablas creadas 🚀");
   } catch (error) {
@@ -131,11 +143,32 @@ app.post("/login", async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
+        business_id: user.business_id,
       },
     });
   } catch (error) {
     console.error("Error en login:", error);
     return res.status(500).json({ message: "Error al iniciar sesión" });
+  }
+});
+
+app.get("/business/:slug", async (req, res) => {
+  const { slug } = req.params;
+
+  try {
+    const result = await pool.query(
+      "SELECT * FROM businesses WHERE slug = $1",
+      [slug]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Negocio no encontrado" });
+    }
+
+    return res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error al obtener negocio:", error);
+    return res.status(500).json({ error: "Error del servidor" });
   }
 });
 
@@ -186,33 +219,13 @@ app.post("/appointments", async (req, res) => {
       [name, phone, date, time, service, barber, businessId, status || "reservada"]
     );
 
-    res.json({
+    return res.json({
       message: "Cita creada",
       data: result.rows[0],
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Error al crear cita" });
-  }
-});
-
-app.get("/business/:slug", async (req, res) => {
-  const { slug } = req.params;
-
-  try {
-    const result = await pool.query(
-      "SELECT * FROM businesses WHERE slug = $1",
-      [slug]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Negocio no encontrado" });
-    }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error del servidor" });
+    return res.status(500).json({ message: "Error al crear cita" });
   }
 });
 
@@ -240,33 +253,53 @@ app.put("/appointments/:id", async (req, res) => {
     const result = await pool.query(
       `UPDATE appointments
        SET name = $1, phone = $2, date = $3, time = $4, service = $5, barber = $6, business_id = $7, status = $8
-       WHERE id = $9
+       WHERE id = $9 AND business_id = $7
        RETURNING *`,
       [name, phone, date, time, service, barber, businessId, status || "reservada", id]
     );
 
-    res.json({
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: "Cita no encontrada o no pertenece a este negocio",
+      });
+    }
+
+    return res.json({
       message: "Cita actualizada correctamente",
       data: result.rows[0],
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Error al actualizar cita" });
+    return res.status(500).json({ message: "Error al actualizar cita" });
   }
 });
 
 app.delete("/appointments/:id", async (req, res) => {
   const { id } = req.params;
+  const { businessId } = req.query;
+
+  if (!businessId) {
+    return res.status(400).json({ message: "businessId requerido" });
+  }
 
   try {
-    await pool.query("DELETE FROM appointments WHERE id = $1", [id]);
+    const result = await pool.query(
+      "DELETE FROM appointments WHERE id = $1 AND business_id = $2 RETURNING *",
+      [id, businessId]
+    );
 
-    res.json({
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: "Cita no encontrada o no pertenece a este negocio",
+      });
+    }
+
+    return res.json({
       message: "Cita eliminada correctamente",
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Error al eliminar cita" });
+    return res.status(500).json({ message: "Error al eliminar cita" });
   }
 });
 
