@@ -61,9 +61,21 @@ const createTables = async () => {
 
     await pool.query(`
       INSERT INTO businesses (id, name, slug)
-      VALUES ('barberia-james', 'Urban District Barber', 'james')
+      VALUES ('barberia-james', 'Urban District Barber', 'urban-district-barber')
       ON CONFLICT (id) DO NOTHING;
     `);
+
+    await pool.query(`
+  INSERT INTO businesses (id, name, slug)
+  VALUES ('barberia-james', 'Urban District Barber', 'urban-district-barber')
+  ON CONFLICT (id) DO NOTHING;
+`);
+
+    await pool.query(`
+  UPDATE businesses
+  SET name = 'Urban District Barber', slug = 'urban-district-barber'
+  WHERE id = 'barberia-james';
+`);
 
     const hashedPassword = await bcrypt.hash("1234", 10);
 
