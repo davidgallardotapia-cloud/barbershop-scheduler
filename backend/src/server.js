@@ -196,6 +196,26 @@ app.post("/appointments", async (req, res) => {
   }
 });
 
+app.get("/business/:slug", async (req, res) => {
+  const { slug } = req.params;
+
+  try {
+    const result = await pool.query(
+      "SELECT * FROM businesses WHERE slug = $1",
+      [slug]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Negocio no encontrado" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error del servidor" });
+  }
+});
+
 app.put("/appointments/:id", async (req, res) => {
   const { id } = req.params;
   const { name, phone, date, time, service, barber, businessId, status } = req.body;
