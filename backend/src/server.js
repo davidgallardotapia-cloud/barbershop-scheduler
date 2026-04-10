@@ -116,6 +116,27 @@ await pool.query(`
   } catch (error) {
     console.error("Error creando tablas:", error);
   }
+
+  const existingJuniorAdmin = await pool.query(
+  "SELECT * FROM users WHERE username = $1",
+  ["admin_junior"]
+);
+
+if (existingJuniorAdmin.rows.length === 0) {
+  await pool.query(
+    "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
+    ["admin_junior", hashedPassword, "barberia-junior"]
+  );
+
+  console.log("Usuario admin_junior creado ✅");
+} else {
+  await pool.query(
+    "UPDATE users SET password = $1, business_id = $2 WHERE username = $3",
+    [hashedPassword, "barberia-junior", "admin_junior"]
+  );
+
+  console.log("Contraseña de admin_junior actualizada ✅");
+}
 };
 
 const allowedOrigins = [
@@ -139,16 +160,16 @@ app.options("*", cors(corsOptions));
 app.use(express.json());
 
 app.post("/login", async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, businessId } = req.body;
 
-  if (!username || !password) {
+  if (!username || !password || !businessId) {
     return res.status(400).json({ message: "Faltan credenciales" });
   }
 
   try {
     const result = await pool.query(
-      "SELECT * FROM users WHERE username = $1",
-      [username]
+      "SELECT * FROM users WHERE username = $1 AND business_id = $2",
+      [username, businessId]
     );
 
     if (result.rows.length === 0) {

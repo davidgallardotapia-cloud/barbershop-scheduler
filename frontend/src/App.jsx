@@ -13,12 +13,7 @@ import {
   isPastSlot,
   isPastDayOnly,
 } from "./utils/dateUtils";
-import {
-  SHEETS_URL,
-  BARBER_PHONES,
-  BARBERS,
-  SERVICES,
-} from "./utils/constants";
+import {  SHEETS_URL } from "./utils/constants";
 import { buildBarberWhatsappUrl } from "./utils/whatsapp";
 import {
   getAppointments as fetchAppointments,
@@ -81,6 +76,10 @@ function App() {
   const currentBusinessConfig = useMemo(() => {
     return businessConfigBySlug[slug] || null;
   }, [slug]);
+
+  const BARBERS = currentBusinessConfig?.barbers || [];
+  const SERVICES = currentBusinessConfig?.services || [];
+  const BARBER_PHONES = currentBusinessConfig?.phones || {};
 
   const mergedBusiness = useMemo(() => {
     if (!business && !currentBusinessConfig) return null;
@@ -493,6 +492,7 @@ function App() {
       const res = await loginUser({
         username: username.trim(),
         password,
+        businessId,
       });
 
       const loggedUser = res.data.user;
