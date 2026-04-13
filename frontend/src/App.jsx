@@ -100,8 +100,6 @@ function App() {
         body: JSON.stringify({
           ...payload,
           businessId,
-          businessSlug: slug,
-          businessName: mergedBusiness?.name || "",
         }),
       });
 
