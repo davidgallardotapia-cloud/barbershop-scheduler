@@ -66,28 +66,22 @@ const createTables = async () => {
     `);
 
     await pool.query(`
-  INSERT INTO businesses (id, name, slug)
-  VALUES ('barberia-james', 'Urban District Barber', 'urban-district-barber')
-  ON CONFLICT (id) DO NOTHING;
-`);
+      UPDATE businesses
+      SET name = 'Urban District Barber', slug = 'urban-district-barber'
+      WHERE id = 'barberia-james';
+    `);
 
     await pool.query(`
-  UPDATE businesses
-  SET name = 'Urban District Barber', slug = 'urban-district-barber'
-  WHERE id = 'barberia-james';
-`);
+      INSERT INTO businesses (id, name, slug)
+      VALUES ('barberia-junior', 'Barbería Junior', 'barberia-junior')
+      ON CONFLICT (id) DO NOTHING;
+    `);
 
-await pool.query(`
-  INSERT INTO businesses (id, name, slug)
-  VALUES ('barberia-junior', 'Barbería Junior', 'barberia-junior')
-  ON CONFLICT (id) DO NOTHING;
-`);
-
-await pool.query(`
-  UPDATE businesses
-  SET name = 'Barbería Junior', slug = 'barberia-junior'
-  WHERE id = 'barberia-junior';
-`);
+    await pool.query(`
+      UPDATE businesses
+      SET name = 'Barbería Junior', slug = 'barberia-junior'
+      WHERE id = 'barberia-junior';
+    `);
 
     const hashedPassword = await bcrypt.hash("1234", 10);
 
@@ -112,31 +106,31 @@ await pool.query(`
       console.log("Contraseña de admin actualizada ✅");
     }
 
+    const existingJuniorAdmin = await pool.query(
+      "SELECT * FROM users WHERE username = $1",
+      ["admin_junior"]
+    );
+
+    if (existingJuniorAdmin.rows.length === 0) {
+      await pool.query(
+        "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
+        ["admin_junior", hashedPassword, "barberia-junior"]
+      );
+
+      console.log("Usuario admin_junior creado ✅");
+    } else {
+      await pool.query(
+        "UPDATE users SET password = $1, business_id = $2 WHERE username = $3",
+        [hashedPassword, "barberia-junior", "admin_junior"]
+      );
+
+      console.log("Contraseña de admin_junior actualizada ✅");
+    }
+
     console.log("Tablas creadas 🚀");
   } catch (error) {
     console.error("Error creando tablas:", error);
   }
-
-  const existingJuniorAdmin = await pool.query(
-  "SELECT * FROM users WHERE username = $1",
-  ["admin_junior"]
-);
-
-if (existingJuniorAdmin.rows.length === 0) {
-  await pool.query(
-    "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
-    ["admin_junior", hashedPassword, "barberia-junior"]
-  );
-
-  console.log("Usuario admin_junior creado ✅");
-} else {
-  await pool.query(
-    "UPDATE users SET password = $1, business_id = $2 WHERE username = $3",
-    [hashedPassword, "barberia-junior", "admin_junior"]
-  );
-
-  console.log("Contraseña de admin_junior actualizada ✅");
-}
 };
 
 const allowedOrigins = [
