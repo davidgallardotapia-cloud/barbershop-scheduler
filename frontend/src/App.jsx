@@ -565,13 +565,14 @@ function App() {
 
   const todayStr = formatDateToInput(new Date());
 
-  const servicePrices = {
-    "Corte tradicional ($8.000)": 8000,
-    "Degradado premium ($10.000)": 10000,
-    "Corte + barba premium ($15.000)": 15000,
-    "Perfilado de cejas ($2.000)": 2000,
-    "Servicio completo ($17.000)": 17000,
-  };
+  const getServicePrice = (serviceName) => {
+  if (!serviceName) return 0;
+
+  const match = String(serviceName).match(/\$([\d\.]+)/);
+  if (!match) return 0;
+
+  return Number(match[1].replace(/\./g, ""));
+};
 
   const dashboardAppointments = useMemo(() => {
     const normalizedClientSearch = clientSearch.trim().toLowerCase();
@@ -609,10 +610,10 @@ function App() {
   ).length;
 
   const revenueToday = dashboardAppointments
-    .filter((appointment) => appointment.status === "atendida")
-    .reduce((total, appointment) => {
-      return total + (servicePrices[appointment.service] || 0);
-    }, 0);
+  .filter((appointment) => appointment.status === "atendida")
+  .reduce((total, appointment) => {
+    return total + getServicePrice(appointment.service);
+  }, 0);
 
   const filteredAppointments = useMemo(() => {
     const activeBarberFilter = isClientMode ? barber : weeklyBarberFilter;
