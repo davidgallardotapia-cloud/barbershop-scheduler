@@ -25,24 +25,27 @@ function BusinessHeader({ isMobile, business }) {
         }}
       >
         <div
-          style={{
-            width: "100%",
-            height: isMobile ? "220px" : "420px",
-            overflow: "hidden",
-            backgroundColor: "#ddd",
-          }}
-        >
-          <img
-            src={business.image}
-            alt={business.name}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              display: "block",
-            }}
-          />
-        </div>
+  style={{
+    width: "100%",
+    height: isMobile ? "220px" : "420px",
+    overflow: "hidden",
+    backgroundColor: "#111",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  }}
+>
+  <img
+    src={business.image}
+    alt={business.name}
+    style={{
+      width: "100%",
+      height: "100%",
+      objectFit: "contain",
+      display: "block",
+    }}
+  />
+</div>
 
         <div
           style={{

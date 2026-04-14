@@ -32,22 +32,16 @@ export function sameDate(dateString, dateObj) {
 
 export function isPastSlot(day, hour) {
   const now = new Date();
-
   const slotDate = new Date(day);
-  slotDate.setHours(0, 0, 0, 0);
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  if (slotDate < today) {
-    return true;
+  if (typeof hour === "string") {
+    const [h, m] = hour.split(":").map(Number);
+    slotDate.setHours(h, m || 0, 0, 0);
+  } else {
+    slotDate.setHours(hour, 0, 0, 0);
   }
 
-  if (slotDate > today) {
-    return false;
-  }
-
-  return hour < now.getHours();
+  return slotDate < now;
 }
 
 export function isPastDayOnly(day) {

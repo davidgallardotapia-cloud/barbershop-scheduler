@@ -27,10 +27,10 @@ import { businessConfigBySlug } from "./config/businessConfigBySlug";
 
 function App() {
   const getSlugFromUrl = () => {
-    if (typeof window === "undefined") return "james";
+    if (typeof window === "undefined") return "urban-district-barber";
 
     const path = window.location.pathname.replace(/^\/+|\/+$/g, "");
-    return path || "james";
+    return path || "urban-district-barber";
   };
 
   const [slug] = useState(getSlugFromUrl);
@@ -172,7 +172,13 @@ function App() {
     }
   }, [weekDays, selectedMobileDay]);
 
-  const hours = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 9), []);
+  const hours = useMemo(() => {
+  if (slug === "urban-district-barber") {
+    return ["10:30", "11:30", "12:30", "13:30", "14:30", "16:00", "17:00", "18:00", "19:00", "20:00"];
+  }
+
+  return Array.from({ length: 12 }, (_, i) => i + 9);
+}, [slug]);
 
   const getAppointments = async () => {
     if (!businessId) return;
@@ -468,12 +474,18 @@ function App() {
   };
 
   const selectSlot = (day, hour) => {
-    setDate(formatDateToInput(day));
+  setDate(formatDateToInput(day));
+
+  if (typeof hour === "string") {
+    setTime(hour);
+  } else {
     setTime(`${String(hour).padStart(2, "0")}:00`);
-    setEditingId(null);
-    setMessage("Bloque horario seleccionado.");
-    setWhatsappUrl("");
-  };
+  }
+
+  setEditingId(null);
+  setMessage("Bloque horario seleccionado.");
+  setWhatsappUrl("");
+};
 
   const handleLogin = async () => {
     if (loggingIn || !businessId) return;
@@ -641,9 +653,14 @@ function App() {
       const dayKey = formatDateToInput(
         new Date(String(appointment.date).slice(0, 10) + "T00:00:00")
       );
-      const rawTime = String(appointment.time || "");
-      const hourKey = Number(rawTime.slice(0, 2));
-      const key = `${dayKey}-${hourKey}`;
+      const rawTime = String(appointment.time || "").slice(0, 5);
+
+const hourKey =
+  slug === "urban-district-barber"
+    ? rawTime
+    : Number(rawTime.slice(0, 2));
+
+const key = `${dayKey}-${hourKey}`;
 
       if (!map.has(key)) {
         map.set(key, []);
@@ -661,26 +678,32 @@ function App() {
   };
 
   const mobileSlots = useMemo(() => {
-    if (!selectedMobileDay) return [];
+  if (!selectedMobileDay) return [];
 
-    return hours.map((hour) => {
-      const slotAppointments = getAppointmentsForSlot(selectedMobileDay, hour);
-      const isPast = isClientMode ? isPastSlot(selectedMobileDay, hour) : false;
+  return hours.map((hour) => {
+    const slotAppointments = getAppointmentsForSlot(selectedMobileDay, hour);
 
-      return {
-        hour,
-        label: formatHourLabel(hour),
-        appointments: slotAppointments,
-        isOccupied: slotAppointments.length > 0,
-        isPast,
-      };
-    });
-  }, [
-    selectedMobileDay,
-    hours,
-    appointmentsBySlot,
-    isClientMode,
-  ]);
+    const isPast = isClientMode
+      ? isPastSlot(
+          selectedMobileDay,
+          typeof hour === "string" ? hour : `${String(hour).padStart(2, "0")}:00`
+        )
+      : false;
+
+    return {
+      hour,
+      label: typeof hour === "string" ? hour : formatHourLabel(hour),
+      appointments: slotAppointments,
+      isOccupied: slotAppointments.length > 0,
+      isPast
+    };
+  });
+}, [
+  selectedMobileDay,
+  hours,
+  appointmentsBySlot,
+  isClientMode,
+]);
 
   const styles = {
     page: {
@@ -1123,7 +1146,7 @@ function App() {
                 selectedMobileDay={selectedMobileDay}
                 setSelectedMobileDay={setSelectedMobileDay}
                 formatDateToInput={formatDateToInput}
-                formatHourLabel={formatHourLabel}
+                formatHourLabel={(hour) => (typeof hour === "string" ? hour : formatHourLabel(hour))}
                 sameDate={sameDate}
                 date={date}
                 time={time}
@@ -1257,7 +1280,7 @@ function App() {
                 selectedMobileDay={selectedMobileDay}
                 setSelectedMobileDay={setSelectedMobileDay}
                 formatDateToInput={formatDateToInput}
-                formatHourLabel={formatHourLabel}
+                formatHourLabel={(hour) => (typeof hour === "string" ? hour : formatHourLabel(hour))}
                 sameDate={sameDate}
                 date={date}
                 time={time}

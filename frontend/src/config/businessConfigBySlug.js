@@ -4,8 +4,8 @@ export const businessConfigBySlug = {
     name: "Urban District Barber",
     subtitle: "Cortes de cabello y barba profesionales",
 
-    phone: "+56 3216 7325",
-    hours: "Próximamente",
+    phone: "+569 3216 7325",
+    hours: "Lunes a sábado: 10:30 a 15:00 y 16:00 a 21:00",
     location: "Coquimbo",
     address: "Aníbal Pinto 1601, Coquimbo",
 
@@ -71,6 +71,60 @@ export const businessConfigBySlug = {
 
   professionals: [
     { name: "Junior", image: "/james-hero.jpeg" },
+  ],
+},
+
+"giocata": {
+  id: "giocata",
+  name: "Canchas Giocata",
+  subtitle: "Arriendo de canchas de fútbol",
+  phone: "Por definir",
+  hours: "Lun a Dom, 20:00 a 22:00",
+  location: "La Serena",
+  address: "Hortensia Bustamante 52",
+  image: "/giocata-hero.jpg",
+  logo: "/giocata-logo.jpg",
+  description:
+    "Reserva tu cancha online en La Serena de forma rápida y simple. Elige la cancha, selecciona el horario disponible y confirma tu reserva fácilmente por WhatsApp.",
+  whatsappLabel: "Confirma tu reserva por WhatsApp",
+  mapLink: "https://maps.google.com/?q=Hortensia+Bustamante+52,+La+Serena",
+  mapEmbedUrl:
+    "https://www.google.com/maps?q=Hortensia+Bustamante+52+La+Serena&output=embed",
+
+  barbers: [
+    "Cancha 1",
+    "Cancha 2",
+    "Cancha 3",
+    "Cancha 4",
+    "Cancha 5",
+    "Cancha 6",
+  ],
+
+  phones: {
+    "Cancha 1": "",
+    "Cancha 2": "",
+    "Cancha 3": "",
+    "Cancha 4": "",
+    "Cancha 5": "",
+    "Cancha 6": "",
+  },
+
+  services: [
+    "Fútbol 6 - Cancha 1 ($22.000)",
+    "Fútbol 6 - Cancha 2 ($22.000)",
+    "Fútbol 7 - Cancha 3 ($26.000)",
+    "Fútbol 7 - Cancha 4 ($26.000)",
+    "Fútbol 8 - Cancha 5 ($30.000)",
+    "Fútbol 8 - Cancha 6 ($30.000)",
+  ],
+
+  professionals: [
+    { name: "Cancha 1", image: "/giocata-cancha.jpg" },
+    { name: "Cancha 2", image: "/giocata-cancha.jpg" },
+    { name: "Cancha 3", image: "/giocata-cancha.jpg" },
+    { name: "Cancha 4", image: "/giocata-cancha.jpg" },
+    { name: "Cancha 5", image: "/giocata-cancha.jpg" },
+    { name: "Cancha 6", image: "/giocata-cancha.jpg" },
   ],
 },
 };
