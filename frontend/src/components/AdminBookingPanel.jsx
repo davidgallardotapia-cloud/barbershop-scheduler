@@ -2,6 +2,7 @@ import React from "react";
 
 function AdminBookingPanel({
   styles,
+  business,
   isCompactAdmin,
   editingId,
   name,
@@ -17,6 +18,7 @@ function AdminBookingPanel({
   barber,
   setBarber,
   BARBERS,
+  SERVICES,
   updateAppointment,
   createAppointment,
   resetForm,
@@ -26,20 +28,22 @@ function AdminBookingPanel({
   return (
     <div style={{ ...styles.card, maxWidth: isCompactAdmin ? "100%" : "320px" }}>
       <h2 style={styles.sectionTitle}>
-        {editingId ? "Editar cita" : "Nueva cita"}
+        {editingId
+          ? business?.editItemTitle || "Editar reserva"
+          : business?.newItemTitle || "Nueva reserva"}
       </h2>
 
       <div style={styles.formGroup}>
         <input
           style={styles.input}
-          placeholder="Nombre cliente"
+          placeholder={business?.clientNamePlaceholder || "Nombre cliente"}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
 
         <input
           style={styles.input}
-          placeholder="Teléfono cliente"
+          placeholder={business?.clientPhonePlaceholder || "Teléfono cliente"}
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
         />
@@ -59,23 +63,28 @@ function AdminBookingPanel({
         />
 
         <select
-  style={styles.select}
-  value={service}
-  onChange={(e) => setService(e.target.value)}
->  <option value="">Selecciona un servicio</option>
-<option value="Corte tradicional ($8.000)">Corte tradicional ($8.000)</option>
-<option value="Degradado premium ($10.000)">Degradado premium ($10.000)</option>
-<option value="Corte + barba premium ($15.000)">Corte + barba premium ($15.000)</option>
-<option value="Perfilado de cejas ($2.000)">Perfilado de cejas ($2.000)</option>
-<option value="Servicio completo ($17.000)">Servicio completo ($17.000)</option>
-</select>
+          style={styles.select}
+          value={service}
+          onChange={(e) => setService(e.target.value)}
+        >
+          <option value="">
+            {business?.serviceSelectOption || "Selecciona un servicio"}
+          </option>
+          {SERVICES.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
 
         <select
           style={styles.select}
           value={barber}
           onChange={(e) => setBarber(e.target.value)}
         >
-          <option value="">Selecciona un barbero</option>
+          <option value="">
+            {business?.resourceSelectOption || "Selecciona un recurso"}
+          </option>
           {BARBERS.map((barberName) => (
             <option key={barberName} value={barberName}>
               {barberName}
@@ -94,14 +103,16 @@ function AdminBookingPanel({
               onClick={updateAppointment}
               disabled={submitting}
             >
-              {submitting ? "Actualizando..." : "Actualizar cita"}
+              {submitting
+                ? business?.updatingLabel || "Actualizando..."
+                : business?.updateButtonLabel || "Actualizar reserva"}
             </button>
 
             <button
               style={{ ...styles.button, ...styles.secondaryButton }}
               onClick={resetForm}
             >
-              Cancelar edición
+              {business?.cancelEditLabel || "Cancelar edición"}
             </button>
           </>
         ) : (
@@ -114,7 +125,9 @@ function AdminBookingPanel({
             onClick={createAppointment}
             disabled={submitting}
           >
-            {submitting ? "Creando..." : "Crear cita"}
+            {submitting
+              ? business?.creatingLabel || "Creando..."
+              : business?.createButtonLabel || "Crear reserva"}
           </button>
         )}
 

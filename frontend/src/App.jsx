@@ -13,7 +13,7 @@ import {
   isPastSlot,
   isPastDayOnly,
 } from "./utils/dateUtils";
-import {  SHEETS_URL } from "./utils/constants";
+import { SHEETS_URL } from "./utils/constants";
 import { buildBarberWhatsappUrl } from "./utils/whatsapp";
 import {
   getAppointments as fetchAppointments,
@@ -173,8 +173,8 @@ function App() {
   }, [weekDays, selectedMobileDay]);
 
   const hours = useMemo(() => {
-  return currentBusinessConfig?.scheduleSlots || Array.from({ length: 12 }, (_, i) => i + 9);
-}, [currentBusinessConfig]);
+    return currentBusinessConfig?.scheduleSlots || Array.from({ length: 12 }, (_, i) => i + 9);
+  }, [currentBusinessConfig]);
 
   const getAppointments = async () => {
     if (!businessId) return;
@@ -185,7 +185,7 @@ function App() {
       setAppointments(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error(err);
-      setMessage("Error al cargar citas");
+      setMessage("Error al cargar reservas");
     } finally {
       setLoading(false);
     }
@@ -224,13 +224,25 @@ function App() {
     setEditingId(null);
   };
 
+  const getResourceFromService = (serviceName) => {
+  if (!serviceName) return "";
+
+  const match = String(serviceName).match(/Cancha\s+\d+/i);
+  return match ? match[0] : "";
+};
+
   const createAppointment = async () => {
     if (submitting || !businessId) return;
 
-    if (!name.trim() || !phone.trim() || !date || !time || !service.trim() || !barber) {
-      setMessage("Completa todos los campos para agendar.");
-      return;
-    }
+    const resolvedBarber =
+  mergedBusiness?.hideResourceSelector
+    ? getResourceFromService(service)
+    : barber;
+
+if (!name.trim() || !phone.trim() || !date || !time || !service.trim() || !resolvedBarber) {
+  setMessage("Completa todos los campos para reservar.");
+  return;
+}
 
     setSubmitting(true);
     setMessage("");
@@ -243,22 +255,24 @@ function App() {
         date,
         time,
         service: service.trim(),
-        barber,
+        barber: resolvedBarber,
         businessId,
         status: "reservada",
       });
 
-      const barberPhone = BARBER_PHONES[barber] || BARBER_PHONES.James;
+      const barberPhone = BARBER_PHONES[resolvedBarber] || "";
 
-      const generatedWhatsappUrl = buildBarberWhatsappUrl({
-        barberPhone,
-        name: name.trim(),
-        phone: phone.trim(),
-        date,
-        time,
-        service: service.trim(),
-        barber,
-      });
+      const generatedWhatsappUrl = barberPhone
+        ? buildBarberWhatsappUrl({
+            barberPhone,
+            name: name.trim(),
+            phone: phone.trim(),
+            date,
+            time,
+            service: service.trim(),
+            barber,
+          })
+        : "";
 
       await syncToGoogleSheets({
         id: createdAppointment.data.data.id,
@@ -274,22 +288,29 @@ function App() {
       setSelectedWeekStart(getMonday(new Date()));
       await getAppointments();
 
-      const newWindow = window.open(generatedWhatsappUrl, "_blank");
+      if (generatedWhatsappUrl) {
+        const newWindow = window.open(generatedWhatsappUrl, "_blank");
 
-      if (!newWindow || newWindow.closed || typeof newWindow.closed === "undefined") {
-        setWhatsappUrl(generatedWhatsappUrl);
+        if (!newWindow || newWindow.closed || typeof newWindow.closed === "undefined") {
+          setWhatsappUrl(generatedWhatsappUrl);
 
-        setMessage(`✅ Tu hora fue agendada correctamente
+          setMessage(`✅ ${mergedBusiness?.submitButtonLabel || "Reserva"} registrada correctamente
 
 📅 ${date} a las ${time}
-👨‍🔧 con ${barber}
+${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${barber}
 
-📲 Confirma tu reserva por WhatsApp tocando el botón verde`);
+📲 ${mergedBusiness?.whatsappLabel || "Confirma por WhatsApp"}`);
+        } else {
+          setMessage(`✅ ${mergedBusiness?.submitButtonLabel || "Reserva"} registrada correctamente
+
+📅 ${date} a las ${time}
+${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${barber}`);
+        }
       } else {
-        setMessage(`✅ Tu hora fue agendada correctamente
+        setMessage(`✅ ${mergedBusiness?.submitButtonLabel || "Reserva"} registrada correctamente
 
 📅 ${date} a las ${time}
-👨‍🔧 con ${barber}`);
+${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${barber}`);
       }
 
       resetForm();
@@ -297,7 +318,7 @@ function App() {
       if (err.response?.data?.message) {
         setMessage(err.response.data.message);
       } else {
-        setMessage("Error al crear cita");
+        setMessage("Error al crear reserva");
       }
     } finally {
       setSubmitting(false);
@@ -340,13 +361,13 @@ function App() {
       });
 
       resetForm();
-      setMessage("Cita actualizada correctamente ✅");
+      setMessage("Reserva actualizada correctamente ✅");
       await getAppointments();
     } catch (err) {
       if (err.response?.data?.message) {
         setMessage(err.response.data.message);
       } else {
-        setMessage("Error al actualizar cita");
+        setMessage("Error al actualizar reserva");
       }
     } finally {
       setSubmitting(false);
@@ -356,21 +377,21 @@ function App() {
   const deleteAppointment = async (id) => {
     if (submitting || !businessId) return;
 
-    const confirmed = window.confirm("¿Seguro que quieres eliminar esta cita?");
+    const confirmed = window.confirm("¿Seguro que quieres eliminar esta reserva?");
     if (!confirmed) return;
 
     setSubmitting(true);
 
     try {
       await deleteAppointmentService(id, businessId);
-      setMessage("Cita eliminada correctamente ✅");
+      setMessage("Reserva eliminada correctamente ✅");
       await getAppointments();
     } catch (err) {
       console.error(err);
       if (err.response?.data?.message) {
         setMessage(err.response.data.message);
       } else {
-        setMessage("Error al eliminar cita");
+        setMessage("Error al eliminar reserva");
       }
     } finally {
       setSubmitting(false);
@@ -402,11 +423,11 @@ function App() {
         status: "atendida",
       });
 
-      setMessage("Cita marcada como atendida ✅");
+      setMessage("Reserva marcada como atendida ✅");
       await getAppointments();
     } catch (err) {
       console.error(err);
-      setMessage("Error al marcar cita como atendida");
+      setMessage("Error al marcar reserva como atendida");
     } finally {
       setSubmitting(false);
     }
@@ -437,11 +458,11 @@ function App() {
         status: "no_asistio",
       });
 
-      setMessage("Cita marcada como no asistió ❌");
+      setMessage("Reserva marcada como no asistió ❌");
       await getAppointments();
     } catch (err) {
       console.error(err);
-      setMessage("Error al marcar cita como no asistió");
+      setMessage("Error al marcar reserva como no asistió");
     } finally {
       setSubmitting(false);
     }
@@ -455,7 +476,7 @@ function App() {
     setService(appointment.service || "");
     setBarber(appointment.barber || "");
     setEditingId(appointment.id);
-    setMessage("Editando cita ✏️");
+    setMessage("Editando reserva ✏️");
     setWhatsappUrl("");
 
     if (appointment.date) {
@@ -470,18 +491,18 @@ function App() {
   };
 
   const selectSlot = (day, hour) => {
-  setDate(formatDateToInput(day));
+    setDate(formatDateToInput(day));
 
-  if (typeof hour === "string") {
-    setTime(hour);
-  } else {
-    setTime(`${String(hour).padStart(2, "0")}:00`);
-  }
+    if (typeof hour === "string") {
+      setTime(hour);
+    } else {
+      setTime(`${String(hour).padStart(2, "0")}:00`);
+    }
 
-  setEditingId(null);
-  setMessage("Bloque horario seleccionado.");
-  setWhatsappUrl("");
-};
+    setEditingId(null);
+    setMessage("Bloque horario seleccionado.");
+    setWhatsappUrl("");
+  };
 
   const handleLogin = async () => {
     if (loggingIn || !businessId) return;
@@ -504,7 +525,7 @@ function App() {
       const loggedUser = res.data.user;
 
       if (loggedUser.business_id && loggedUser.business_id !== businessId) {
-        setLoginError("Este usuario no pertenece a esta barbería");
+        setLoginError("Este usuario no pertenece a este negocio");
         setLoggingIn(false);
         return;
       }
@@ -574,13 +595,13 @@ function App() {
   const todayStr = formatDateToInput(new Date());
 
   const getServicePrice = (serviceName) => {
-  if (!serviceName) return 0;
+    if (!serviceName) return 0;
 
-  const match = String(serviceName).match(/\$([\d\.]+)/);
-  if (!match) return 0;
+    const match = String(serviceName).match(/\$([\d\.]+)/);
+    if (!match) return 0;
 
-  return Number(match[1].replace(/\./g, ""));
-};
+    return Number(match[1].replace(/\./g, ""));
+  };
 
   const dashboardAppointments = useMemo(() => {
     const normalizedClientSearch = clientSearch.trim().toLowerCase();
@@ -618,10 +639,10 @@ function App() {
   ).length;
 
   const revenueToday = dashboardAppointments
-  .filter((appointment) => appointment.status === "atendida")
-  .reduce((total, appointment) => {
-    return total + getServicePrice(appointment.service);
-  }, 0);
+    .filter((appointment) => appointment.status === "atendida")
+    .reduce((total, appointment) => {
+      return total + getServicePrice(appointment.service);
+    }, 0);
 
   const filteredAppointments = useMemo(() => {
     const activeBarberFilter = isClientMode ? barber : weeklyBarberFilter;
@@ -651,12 +672,12 @@ function App() {
       );
       const rawTime = String(appointment.time || "").slice(0, 5);
 
-const hourKey =
-  slug === "urban-district-barber"
-    ? rawTime
-    : Number(rawTime.slice(0, 2));
+      const hourKey =
+        typeof hours[0] === "string"
+          ? rawTime
+          : Number(rawTime.slice(0, 2));
 
-const key = `${dayKey}-${hourKey}`;
+      const key = `${dayKey}-${hourKey}`;
 
       if (!map.has(key)) {
         map.set(key, []);
@@ -666,7 +687,7 @@ const key = `${dayKey}-${hourKey}`;
     });
 
     return map;
-  }, [filteredAppointments]);
+  }, [filteredAppointments, hours]);
 
   const getAppointmentsForSlot = (day, hour) => {
     const key = `${formatDateToInput(day)}-${hour}`;
@@ -674,32 +695,34 @@ const key = `${dayKey}-${hourKey}`;
   };
 
   const mobileSlots = useMemo(() => {
-  if (!selectedMobileDay) return [];
+    if (!selectedMobileDay) return [];
 
-  return hours.map((hour) => {
-    const slotAppointments = getAppointmentsForSlot(selectedMobileDay, hour);
+    return hours.map((hour) => {
+      const slotAppointments = getAppointmentsForSlot(selectedMobileDay, hour);
 
-    const isPast = isClientMode
-      ? isPastSlot(
-          selectedMobileDay,
-          typeof hour === "string" ? hour : `${String(hour).padStart(2, "0")}:00`
-        )
-      : false;
+      const normalizedHour =
+        typeof hour === "string"
+          ? hour
+          : `${String(hour).padStart(2, "0")}:00`;
 
-    return {
-      hour,
-      label: typeof hour === "string" ? hour : formatHourLabel(hour),
-      appointments: slotAppointments,
-      isOccupied: slotAppointments.length > 0,
-      isPast
-    };
-  });
-}, [
-  selectedMobileDay,
-  hours,
-  appointmentsBySlot,
-  isClientMode,
-]);
+      const isPast = isClientMode
+        ? isPastSlot(selectedMobileDay, normalizedHour)
+        : false;
+
+      return {
+        hour,
+        label: typeof hour === "string" ? hour : formatHourLabel(hour),
+        appointments: slotAppointments,
+        isOccupied: slotAppointments.length > 0,
+        isPast,
+      };
+    });
+  }, [
+    selectedMobileDay,
+    hours,
+    appointmentsBySlot,
+    isClientMode,
+  ]);
 
   const styles = {
     page: {
@@ -978,7 +1001,12 @@ const key = `${dayKey}-${hourKey}`;
   };
 
   const isClientFormComplete =
-    name.trim() && phone.trim() && date && time && service.trim() && barber;
+  name.trim() &&
+  phone.trim() &&
+  date &&
+  time &&
+  service.trim() &&
+  (mergedBusiness?.hideResourceSelector ? true : barber);
 
   const isBarberSelected = Boolean(barber);
 
@@ -994,7 +1022,7 @@ const key = `${dayKey}-${hourKey}`;
     return (
       <div style={styles.page}>
         <div style={styles.card}>
-          {businessError || "No se encontró la barbería solicitada."}
+          {businessError || "No se encontró el negocio solicitado."}
         </div>
       </div>
     );
@@ -1044,7 +1072,9 @@ const key = `${dayKey}-${hourKey}`;
               lineHeight: 1.2,
             }}
           >
-            {isClientMode ? "Reserva tu hora 💈" : "Agenda Barbería 💈"}
+            {isClientMode
+              ? mergedBusiness?.bookingTitle || "Reserva online"
+              : mergedBusiness?.adminTitle || "Panel de reservas"}
           </h1>
 
           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
@@ -1073,6 +1103,7 @@ const key = `${dayKey}-${hourKey}`;
             <div style={styles.card}>
               <ClientBookingPanel
                 styles={styles}
+                business={mergedBusiness}
                 name={name}
                 setName={setName}
                 phone={phone}
@@ -1108,7 +1139,9 @@ const key = `${dayKey}-${hourKey}`;
                       color: barber ? "#111827" : "#6b7280",
                     }}
                   >
-                    {barber ? `Barbero seleccionado: ${barber}` : "Selecciona un barbero arriba"}
+                    {barber
+                      ? `${mergedBusiness?.resourceSelectedLabel || "Recurso seleccionado"}: ${barber}`
+                      : mergedBusiness?.resourceSelectPrompt || "Selecciona un recurso arriba"}
                   </div>
                 </div>
 
@@ -1136,13 +1169,16 @@ const key = `${dayKey}-${hourKey}`;
 
               <WeeklyCalendar
                 styles={styles}
+                business={mergedBusiness}
                 loading={loading}
                 isMobile={isMobile}
                 weekDays={weekDays}
                 selectedMobileDay={selectedMobileDay}
                 setSelectedMobileDay={setSelectedMobileDay}
                 formatDateToInput={formatDateToInput}
-                formatHourLabel={(hour) => (typeof hour === "string" ? hour : formatHourLabel(hour))}
+                formatHourLabel={(hour) =>
+                  typeof hour === "string" ? hour : formatHourLabel(hour)
+                }
                 sameDate={sameDate}
                 date={date}
                 time={time}
@@ -1168,6 +1204,7 @@ const key = `${dayKey}-${hourKey}`;
           <div style={styles.layout}>
             <AdminBookingPanel
               styles={styles}
+              business={mergedBusiness}
               isCompactAdmin={isCompactAdmin}
               editingId={editingId}
               name={name}
@@ -1183,6 +1220,7 @@ const key = `${dayKey}-${hourKey}`;
               barber={barber}
               setBarber={setBarber}
               BARBERS={BARBERS}
+              SERVICES={SERVICES}
               updateAppointment={updateAppointment}
               createAppointment={createAppointment}
               resetForm={resetForm}
@@ -1237,7 +1275,11 @@ const key = `${dayKey}-${hourKey}`;
                     value={weeklyBarberFilter}
                     onChange={(e) => setWeeklyBarberFilter(e.target.value)}
                   >
-                    <option value="">Todos los barberos</option>
+                    <option value="">
+                      {`Todos los ${(
+                        mergedBusiness?.resourceLabelPlural || "recursos"
+                      ).toLowerCase()}`}
+                    </option>
                     {BARBERS.map((barberName) => (
                       <option key={barberName} value={barberName}>
                         {barberName}
@@ -1270,13 +1312,16 @@ const key = `${dayKey}-${hourKey}`;
 
               <WeeklyCalendar
                 styles={styles}
+                business={mergedBusiness}
                 loading={loading}
                 isMobile={isMobile}
                 weekDays={weekDays}
                 selectedMobileDay={selectedMobileDay}
                 setSelectedMobileDay={setSelectedMobileDay}
                 formatDateToInput={formatDateToInput}
-                formatHourLabel={(hour) => (typeof hour === "string" ? hour : formatHourLabel(hour))}
+                formatHourLabel={(hour) =>
+                  typeof hour === "string" ? hour : formatHourLabel(hour)
+                }
                 sameDate={sameDate}
                 date={date}
                 time={time}

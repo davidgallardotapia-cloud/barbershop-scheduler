@@ -2,6 +2,7 @@ import React from "react";
 
 function WeeklyCalendar({
   styles,
+  business,
   loading,
   isMobile,
   weekDays,
@@ -30,6 +31,9 @@ function WeeklyCalendar({
   isPastSlot,
   isPastDayOnly,
 }) {
+  const resourcePrompt =
+    business?.resourceSelectPrompt || "Selecciona un recurso arriba";
+
   return (
     <>
       {isMobile && (
@@ -82,7 +86,7 @@ function WeeklyCalendar({
           </div>
         </div>
       )}
-      
+
       <div style={styles.calendarWrapper}>
         {loading ? (
           <div style={styles.spinnerBox}>
@@ -94,12 +98,18 @@ function WeeklyCalendar({
               const firstAppointment = slot.appointments[0];
 
               if (isClientMode) {
+                const normalizedSlotTime =
+                  typeof slot.hour === "string"
+                    ? slot.hour
+                    : `${String(slot.hour).padStart(2, "0")}:00`;
+
                 const isSelected =
                   selectedMobileDay &&
                   date &&
                   sameDate(date, selectedMobileDay) &&
                   time &&
-                  time.startsWith(String(slot.hour).padStart(2, "0"));
+                  time.startsWith(normalizedSlotTime.slice(0, 2)) &&
+                  time.slice(0, 5) === normalizedSlotTime;
 
                 const isDisabled =
                   slot.isOccupied || slot.isPast || !isBarberSelected;
@@ -111,7 +121,7 @@ function WeeklyCalendar({
                     onClick={() => {
                       if (isDisabled) return;
                       setDate(formatDateToInput(selectedMobileDay));
-                      setTime(`${String(slot.hour).padStart(2, "0")}:00`);
+                      setTime(normalizedSlotTime);
                       window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
                     disabled={isDisabled}
@@ -126,7 +136,7 @@ function WeeklyCalendar({
                     <div style={styles.mobileSlotTime}>{slot.label}</div>
                     <div style={styles.mobileSlotStatus}>
                       {!isBarberSelected
-                        ? "Elige barbero"
+                        ? resourcePrompt
                         : slot.isPast
                         ? "No disponible"
                         : slot.isOccupied
@@ -291,7 +301,11 @@ function WeeklyCalendar({
 
                 {weekDays.map((day, index) => {
                   const slotAppointments = getAppointmentsForSlot(day, hour);
-                  const isPast = isClientMode ? isPastSlot(day, hour) : false;
+                  const normalizedHour =
+                    typeof hour === "string"
+                      ? hour
+                      : `${String(hour).padStart(2, "0")}:00`;
+                  const isPast = isClientMode ? isPastSlot(day, normalizedHour) : false;
 
                   return (
                     <div key={`${hour}-${index}`} style={styles.slotCell}>
@@ -432,7 +446,7 @@ function WeeklyCalendar({
                           disabled={!isBarberSelected || isPast}
                         >
                           {!isBarberSelected
-                            ? "Elige barbero"
+                            ? resourcePrompt
                             : isPast
                             ? "No disponible"
                             : "Disponible"}

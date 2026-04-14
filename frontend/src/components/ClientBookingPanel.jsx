@@ -2,6 +2,7 @@ import React from "react";
 
 function ClientBookingPanel({
   styles,
+  business,
   name,
   setName,
   phone,
@@ -23,11 +24,15 @@ function ClientBookingPanel({
   return (
     <div>
       <div style={{ marginBottom: "20px" }}>
-        <h2 style={{ marginTop: 0 }}>Agenda tu hora</h2>
+        <h2 style={{ marginTop: 0 }}>
+          {business?.bookingPanelTitle || "Reserva online"}
+        </h2>
+
         <p style={{ color: "#4b5563", lineHeight: 1.5, marginBottom: "8px" }}>
-          Elige tu barbero, selecciona un bloque disponible y confirma tu
-          reserva en segundos.
+          {business?.bookingPanelDescription ||
+            "Selecciona un bloque disponible y confirma tu reserva en segundos."}
         </p>
+
         <p
           style={{
             color: "#2563eb",
@@ -36,8 +41,8 @@ function ClientBookingPanel({
             fontSize: "14px",
           }}
         >
-          Para reservar, primero selecciona un bloque disponible en el
-          calendario.
+          {business?.calendarHelpText ||
+            "Para reservar, primero selecciona un bloque disponible en el calendario."}
         </p>
       </div>
 
@@ -51,14 +56,14 @@ function ClientBookingPanel({
       >
         <input
           style={styles.input}
-          placeholder="Tu nombre"
+          placeholder={business?.clientNamePlaceholder || "Tu nombre"}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
 
         <input
           style={styles.input}
-          placeholder="Tu teléfono"
+          placeholder={business?.clientPhonePlaceholder || "Tu teléfono"}
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
         />
@@ -68,7 +73,9 @@ function ClientBookingPanel({
           value={service}
           onChange={(e) => setService(e.target.value)}
         >
-          <option value="">Selecciona un servicio</option>
+          <option value="">
+            {business?.serviceSelectOption || "Selecciona un servicio"}
+          </option>
           {SERVICES.map((item) => (
             <option key={item} value={item}>
               {item}
@@ -76,18 +83,22 @@ function ClientBookingPanel({
           ))}
         </select>
 
-        <select
-          style={styles.select}
-          value={barber}
-          onChange={(e) => setBarber(e.target.value)}
-        >
-          <option value="">Selecciona un barbero</option>
-          {BARBERS.map((barberName) => (
-            <option key={barberName} value={barberName}>
-              {barberName}
-            </option>
-          ))}
-        </select>
+        {!business?.hideResourceSelector && (
+  <select
+    style={styles.select}
+    value={barber}
+    onChange={(e) => setBarber(e.target.value)}
+  >
+    <option value="">
+      {business?.resourceSelectOption || "Selecciona un recurso"}
+    </option>
+    {BARBERS.map((barberName) => (
+      <option key={barberName} value={barberName}>
+        {barberName}
+      </option>
+    ))}
+  </select>
+)}
 
         <div
           style={{
@@ -144,7 +155,9 @@ function ClientBookingPanel({
           onClick={createAppointment}
           disabled={submitting || !isClientFormComplete}
         >
-          {submitting ? "Reservando..." : "Confirmar reserva"}
+          {submitting
+            ? business?.submittingLabel || "Procesando..."
+            : business?.submitButtonLabel || "Confirmar reserva"}
         </button>
       </div>
 
@@ -152,23 +165,23 @@ function ClientBookingPanel({
 
       {whatsappUrl && (
         <a
-  href={whatsappUrl}
-  target="_blank"
-  rel="noopener noreferrer"
-  style={{
-    display: "inline-block",
-    marginTop: "12px",
-    marginBottom: "24px", // 👈 ESTE ES EL CAMBIO
-    padding: "12px 16px",
-    backgroundColor: "#25D366",
-    color: "#fff",
-    borderRadius: "8px",
-    textDecoration: "none",
-    fontWeight: "bold"
-  }}
->
-  Abrir WhatsApp
-</a>
+          href={whatsappUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: "inline-block",
+            marginTop: "12px",
+            marginBottom: "24px",
+            padding: "12px 16px",
+            backgroundColor: "#25D366",
+            color: "#fff",
+            borderRadius: "8px",
+            textDecoration: "none",
+            fontWeight: "bold",
+          }}
+        >
+          {business?.whatsappButtonLabel || "Abrir WhatsApp"}
+        </a>
       )}
     </div>
   );
