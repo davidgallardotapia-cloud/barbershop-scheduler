@@ -129,7 +129,7 @@ function App() {
         setBusinessId(businessData.id);
       } catch (error) {
         console.error("Error cargando negocio:", error);
-        setBusinessError("No se pudo cargar la barbería.");
+        setBusinessError("No se pudo cargar el negocio.");
       } finally {
         setBusinessLoading(false);
       }
@@ -173,12 +173,8 @@ function App() {
   }, [weekDays, selectedMobileDay]);
 
   const hours = useMemo(() => {
-  if (slug === "urban-district-barber") {
-    return ["10:30", "11:30", "12:30", "13:30", "14:30", "16:00", "17:00", "18:00", "19:00", "20:00"];
-  }
-
-  return Array.from({ length: 12 }, (_, i) => i + 9);
-}, [slug]);
+  return currentBusinessConfig?.scheduleSlots || Array.from({ length: 12 }, (_, i) => i + 9);
+}, [currentBusinessConfig]);
 
   const getAppointments = async () => {
     if (!businessId) return;
@@ -989,7 +985,7 @@ const key = `${dayKey}-${hourKey}`;
   if (businessLoading) {
     return (
       <div style={styles.page}>
-        <div style={styles.card}>Cargando barbería...</div>
+        <div style={styles.card}>Cargando negocio...</div>
       </div>
     );
   }

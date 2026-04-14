@@ -35,9 +35,11 @@ export const businessConfigBySlug = {
       "Servicio completo ($17.000)",
     ],
 
+    scheduleSlots: ["10:30", "11:30", "12:30", "13:30", "14:30", "16:00", "17:00", "18:00", "19:00", "20:00"],
+
     professionals: [
-      { name: "James", image: "/james-hero.jpeg" },
-      { name: "Jesús", image: "/james-hero.jpeg" },
+      { name: "James", image: "/James.jpeg" },
+      { name: "Jesús", image: "/Jesus.jpeg" },
     ],
   },
 
@@ -68,6 +70,8 @@ export const businessConfigBySlug = {
     "Corte básico ($6.000)",
     "Corte + barba ($10.000)",
   ],
+
+  scheduleSlots: [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
 
   professionals: [
     { name: "Junior", image: "/james-hero.jpeg" },
@@ -117,6 +121,8 @@ export const businessConfigBySlug = {
     "Fútbol 8 - Cancha 5 ($30.000)",
     "Fútbol 8 - Cancha 6 ($30.000)",
   ],
+
+  scheduleSlots: ["20:00", "21:00", "22:00"],
 
   professionals: [
     { name: "Cancha 1", image: "/giocata-cancha.jpg" },
