@@ -84,37 +84,16 @@ const createTables = async () => {
     `);
 
     await pool.query(`
-  INSERT INTO businesses (id, name, slug)
-  VALUES ('giocata', 'Canchas Giocata', 'giocata')
-  ON CONFLICT (id) DO NOTHING;
-`);
+      INSERT INTO businesses (id, name, slug)
+      VALUES ('giocata', 'Canchas Giocata', 'giocata')
+      ON CONFLICT (id) DO NOTHING;
+    `);
 
-await pool.query(`
-  UPDATE businesses
-  SET name = 'Canchas Giocata', slug = 'giocata'
-  WHERE id = 'giocata';
-`);
-
-const existingGiocataAdmin = await pool.query(
-  "SELECT * FROM users WHERE username = $1",
-  ["admin_giocata"]
-);
-
-if (existingGiocataAdmin.rows.length === 0) {
-  await pool.query(
-    "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
-    ["admin_giocata", hashedPassword, "giocata"]
-  );
-
-  console.log("Usuario admin_giocata creado ✅");
-} else {
-  await pool.query(
-    "UPDATE users SET password = $1, business_id = $2 WHERE username = $3",
-    [hashedPassword, "giocata", "admin_giocata"]
-  );
-
-  console.log("Contraseña de admin_giocata actualizada ✅");
-}
+    await pool.query(`
+      UPDATE businesses
+      SET name = 'Canchas Giocata', slug = 'giocata'
+      WHERE id = 'giocata';
+    `);
 
     const hashedPassword = await bcrypt.hash("1234", 10);
 
@@ -158,6 +137,27 @@ if (existingGiocataAdmin.rows.length === 0) {
       );
 
       console.log("Contraseña de admin_junior actualizada ✅");
+    }
+
+    const existingGiocataAdmin = await pool.query(
+      "SELECT * FROM users WHERE username = $1",
+      ["admin_giocata"]
+    );
+
+    if (existingGiocataAdmin.rows.length === 0) {
+      await pool.query(
+        "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
+        ["admin_giocata", hashedPassword, "giocata"]
+      );
+
+      console.log("Usuario admin_giocata creado ✅");
+    } else {
+      await pool.query(
+        "UPDATE users SET password = $1, business_id = $2 WHERE username = $3",
+        [hashedPassword, "giocata", "admin_giocata"]
+      );
+
+      console.log("Contraseña de admin_giocata actualizada ✅");
     }
 
     console.log("Tablas creadas 🚀");

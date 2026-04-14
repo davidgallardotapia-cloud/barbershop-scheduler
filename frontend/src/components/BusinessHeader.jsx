@@ -172,8 +172,8 @@ function BusinessHeader({ isMobile, business }) {
           }}
         >
           <h3 style={{ margin: "0 0 16px", fontSize: "18px", color: "#111827" }}>
-            Barberos
-          </h3>
+  {business.resourceLabelPlural || "Recursos"}
+</h3>
 
           <div
             style={{

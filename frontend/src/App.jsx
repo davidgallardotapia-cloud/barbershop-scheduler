@@ -90,6 +90,8 @@ function App() {
     };
   }, [business, currentBusinessConfig]);
 
+  const theme = mergedBusiness?.theme || {};
+
   async function syncToGoogleSheets(payload) {
     try {
       const response = await fetch(SHEETS_URL, {
@@ -270,7 +272,7 @@ if (!name.trim() || !phone.trim() || !date || !time || !service.trim() || !resol
             date,
             time,
             service: service.trim(),
-            barber,
+            barber: resolvedBarber,
           })
         : "";
 
@@ -280,7 +282,7 @@ if (!name.trim() || !phone.trim() || !date || !time || !service.trim() || !resol
         time,
         name: name.trim(),
         phone: phone.trim(),
-        barber,
+        barber: resolvedBarber,
         service: service.trim(),
         status: "reservada",
       });
@@ -297,20 +299,20 @@ if (!name.trim() || !phone.trim() || !date || !time || !service.trim() || !resol
           setMessage(`✅ ${mergedBusiness?.submitButtonLabel || "Reserva"} registrada correctamente
 
 📅 ${date} a las ${time}
-${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${barber}
+${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}
 
 📲 ${mergedBusiness?.whatsappLabel || "Confirma por WhatsApp"}`);
         } else {
           setMessage(`✅ ${mergedBusiness?.submitButtonLabel || "Reserva"} registrada correctamente
 
 📅 ${date} a las ${time}
-${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${barber}`);
+${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
         }
       } else {
         setMessage(`✅ ${mergedBusiness?.submitButtonLabel || "Reserva"} registrada correctamente
 
 📅 ${date} a las ${time}
-${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${barber}`);
+${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
       }
 
       resetForm();
@@ -727,7 +729,7 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${barber}`);
   const styles = {
     page: {
       minHeight: "100vh",
-      backgroundColor: "#f3f4f6",
+      backgroundColor: theme.pageBackground || "#f3f4f6",
       padding: isMobile ? "12px" : "24px",
       fontFamily: "Arial, sans-serif",
       color: "#111827",
@@ -748,11 +750,11 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${barber}`);
       width: "100%",
     },
     card: {
-      backgroundColor: "#fff",
+      backgroundColor: theme.cardBackground || "#fff",
       borderRadius: "14px",
       padding: isMobile ? "16px" : "20px",
       boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
-      border: "1px solid #e5e7eb",
+      border: `1px solid ${theme.border || "#e5e7eb"}`,
       boxSizing: "border-box",
       width: "100%",
       minWidth: 0,
@@ -766,10 +768,10 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${barber}`);
       marginBottom: "18px",
     },
     dashboardCard: {
-      backgroundColor: "#fff",
+      backgroundColor: theme.cardBackground || "#fff",
       borderRadius: "12px",
       padding: "14px",
-      border: "1px solid #e5e7eb",
+      border: `1px solid ${theme.border || "#e5e7eb"}`,
       boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
     },
     dashboardLabel: {
@@ -833,8 +835,8 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${barber}`);
       fontWeight: "bold",
     },
     primaryButton: {
-      backgroundColor: "#111827",
-      color: "#fff",
+      backgroundColor: theme.primary || "#111827",
+color: "#fff",
     },
     secondaryButton: {
       backgroundColor: "#e5e7eb",
@@ -986,9 +988,9 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${barber}`);
       border: "1px solid #d1d5db",
     },
     mobileSlotSelected: {
-      backgroundColor: "#111827",
-      color: "#ffffff",
-      border: "1px solid #111827",
+      backgroundColor: theme.primaryDark || "#111827",
+color: "#ffffff",
+border: `1px solid ${theme.primaryDark || "#111827"}`,
     },
     mobileSlotTime: {
       fontSize: "15px",
@@ -1008,7 +1010,7 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${barber}`);
   service.trim() &&
   (mergedBusiness?.hideResourceSelector ? true : barber);
 
-  const isBarberSelected = Boolean(barber);
+  const isBarberSelected = mergedBusiness?.hideResourceSelector ? true : Boolean(barber);
 
   if (businessLoading) {
     return (
@@ -1129,20 +1131,22 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${barber}`);
                     Disponibilidad semanal
                   </h2>
 
-                  <div
-                    style={{
-                      ...styles.select,
-                      minWidth: "220px",
-                      backgroundColor: "#f9fafb",
-                      display: "flex",
-                      alignItems: "center",
-                      color: barber ? "#111827" : "#6b7280",
-                    }}
-                  >
-                    {barber
-                      ? `${mergedBusiness?.resourceSelectedLabel || "Recurso seleccionado"}: ${barber}`
-                      : mergedBusiness?.resourceSelectPrompt || "Selecciona un recurso arriba"}
-                  </div>
+                  {!mergedBusiness?.hideResourceSelector && (
+  <div
+    style={{
+      ...styles.select,
+      minWidth: "220px",
+      backgroundColor: "#f9fafb",
+      display: "flex",
+      alignItems: "center",
+      color: barber ? "#111827" : "#6b7280",
+    }}
+  >
+    {barber
+      ? `${mergedBusiness?.resourceSelectedLabel || "Recurso seleccionado"}: ${barber}`
+      : mergedBusiness?.resourceSelectPrompt || "Selecciona un recurso arriba"}
+  </div>
+)}
                 </div>
 
                 <div style={styles.weekActions}>

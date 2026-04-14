@@ -140,8 +140,8 @@ export const businessConfigBySlug = {
     hours: "Lun a Dom, 20:00 a 22:00",
     location: "La Serena",
     address: "Hortensia Bustamante 52",
-    image: "/giocata-hero.jpg",
-    logo: "/giocata-logo.jpg",
+    image: "/giocata-hero.png",
+    logo: "/giocata-logo.png",
     description:
       "Reserva tu cancha online en La Serena de forma rápida y simple. Elige la cancha, selecciona el horario disponible y confirma tu reserva fácilmente por WhatsApp.",
     whatsappLabel: "Confirma tu reserva por WhatsApp",
@@ -149,8 +149,20 @@ export const businessConfigBySlug = {
     mapEmbedUrl:
       "https://www.google.com/maps?q=Hortensia+Bustamante+52+La+Serena&output=embed",
 
-    bookingTitle: "Reserva tu cancha",
+    bookingTitle: "Reserva tu cancha ⚽",
     adminTitle: "Panel de reservas",
+
+    theme: {
+  pageBackground: "#f0fdf4",
+  cardBackground: "#ffffff",
+  primary: "#166534",
+  primaryDark: "#14532d",
+  primarySoft: "#dcfce7",
+  border: "#bbf7d0",
+  text: "#111827",
+  mutedText: "#374151",
+},
+
     bookingPanelTitle: "Reserva tu cancha",
     bookingPanelDescription:
       "Elige la cancha, selecciona un bloque disponible y confirma tu reserva en segundos.",
@@ -207,12 +219,12 @@ export const businessConfigBySlug = {
     scheduleSlots: ["20:00", "21:00", "22:00"],
 
     professionals: [
-      { name: "Cancha 1", image: "/giocata-cancha.jpg" },
-      { name: "Cancha 2", image: "/giocata-cancha.jpg" },
-      { name: "Cancha 3", image: "/giocata-cancha.jpg" },
-      { name: "Cancha 4", image: "/giocata-cancha.jpg" },
-      { name: "Cancha 5", image: "/giocata-cancha.jpg" },
-      { name: "Cancha 6", image: "/giocata-cancha.jpg" },
+      { name: "Cancha 1", image: "/giocata-logo.png" },
+      { name: "Cancha 2", image: "/giocata-logo.png" },
+      { name: "Cancha 3", image: "/giocata-logo.png" },
+      { name: "Cancha 4", image: "/giocata-logo.png" },
+      { name: "Cancha 5", image: "/giocata-logo.png" },
+      { name: "Cancha 6", image: "/giocata-logo.png" },
     ],
   },
 };

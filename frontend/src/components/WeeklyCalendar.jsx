@@ -31,8 +31,9 @@ function WeeklyCalendar({
   isPastSlot,
   isPastDayOnly,
 }) {
-  const resourcePrompt =
-    business?.resourceSelectPrompt || "Selecciona un recurso arriba";
+  const resourcePrompt = business?.hideResourceSelector
+  ? "Disponible"
+  : business?.resourceSelectPrompt || "Selecciona un recurso arriba";
 
   return (
     <>
