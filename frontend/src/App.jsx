@@ -233,6 +233,35 @@ function App() {
   return match ? match[0] : "";
 };
 
+  const normalizeChilePhone = (rawPhone) => {
+  const digits = String(rawPhone || "").replace(/\D/g, "");
+
+  if (!digits) return "";
+
+  if (digits.startsWith("569") && digits.length === 11) {
+    return digits;
+  }
+
+  if (digits.startsWith("56") && digits.length === 11) {
+    return digits;
+  }
+
+  if (digits.startsWith("9") && digits.length === 9) {
+    return `56${digits}`;
+  }
+
+  if (digits.length === 8) {
+    return `569${digits}`;
+  }
+
+  return digits;
+};
+
+const isValidChileMobilePhone = (rawPhone) => {
+  const normalized = normalizeChilePhone(rawPhone);
+  return /^569\d{8}$/.test(normalized);
+};
+
   const createAppointment = async () => {
     if (submitting || !businessId) return;
 
@@ -246,14 +275,21 @@ if (!name.trim() || !phone.trim() || !date || !time || !service.trim() || !resol
   return;
 }
 
+if (!isValidChileMobilePhone(phone)) {
+  setMessage("Ingresa un celular chileno válido. Ejemplo: 912345678");
+  return;
+}
+
     setSubmitting(true);
     setMessage("");
     setWhatsappUrl("");
 
+    const normalizedPhone = normalizeChilePhone(phone);
+
     try {
       const createdAppointment = await createAppointmentService({
         name: name.trim(),
-        phone: phone.trim(),
+        phone: normalizedPhone,
         date,
         time,
         service: service.trim(),
@@ -331,18 +367,25 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
     if (submitting || !editingId || !businessId) return;
 
     if (!name.trim() || !phone.trim() || !date || !time || !service.trim() || !barber) {
-      setMessage("Completa todos los campos para actualizar.");
-      return;
-    }
+  setMessage("Completa todos los campos para actualizar.");
+  return;
+}
+
+if (!isValidChileMobilePhone(phone)) {
+  setMessage("Ingresa un celular chileno válido. Ejemplo: 912345678");
+  return;
+}
 
     setSubmitting(true);
     setMessage("");
     setWhatsappUrl("");
 
+    const normalizedPhone = normalizeChilePhone(phone);
+
     try {
       await updateAppointmentService(editingId, {
         name: name.trim(),
-        phone: phone.trim(),
+        phone: normalizedPhone,
         date,
         time,
         service: service.trim(),

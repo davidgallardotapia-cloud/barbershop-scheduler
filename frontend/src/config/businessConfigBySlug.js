@@ -31,7 +31,7 @@ export const businessConfigBySlug = {
     resourceLabelPlural: "Barberos",
     serviceLabel: "servicio",
     clientNamePlaceholder: "Nombre cliente",
-    clientPhonePlaceholder: "Teléfono cliente",
+    clientPhonePlaceholder: "Celular cliente (ej: 912345678)",
     submitButtonLabel: "Confirmar reserva",
     submittingLabel: "Reservando...",
     updateButtonLabel: "Actualizar cita",
@@ -50,8 +50,8 @@ export const businessConfigBySlug = {
     barbers: ["James", "Jesús"],
 
     phones: {
-      James: "56988287547",
-      Jesús: "56957265409",
+      James: "56932167325",
+      Jesús: "56932100003",
     },
 
     services: [
@@ -98,7 +98,7 @@ export const businessConfigBySlug = {
     resourceLabelPlural: "Barberos",
     serviceLabel: "servicio",
     clientNamePlaceholder: "Nombre cliente",
-    clientPhonePlaceholder: "Teléfono cliente",
+    clientPhonePlaceholder: "Celular cliente (ej: 912345678)",
     submitButtonLabel: "Confirmar reserva",
     submittingLabel: "Reservando...",
     updateButtonLabel: "Actualizar cita",
@@ -175,7 +175,7 @@ export const businessConfigBySlug = {
     hideResourceSelector: true,
     serviceLabel: "tipo de cancha",
     clientNamePlaceholder: "Nombre cliente",
-    clientPhonePlaceholder: "Teléfono cliente",
+    clientPhonePlaceholder: "Celular cliente (ej: 912345678)",
     submitButtonLabel: "Confirmar reserva",
     submittingLabel: "Reservando...",
     updateButtonLabel: "Actualizar reserva",

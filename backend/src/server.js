@@ -8,6 +8,35 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const pool = require("./config/database");
 
+const normalizeChilePhone = (rawPhone) => {
+  const digits = String(rawPhone || "").replace(/\D/g, "");
+
+  if (!digits) return "";
+
+  if (digits.startsWith("569") && digits.length === 11) {
+    return digits;
+  }
+
+  if (digits.startsWith("56") && digits.length === 11) {
+    return digits;
+  }
+
+  if (digits.startsWith("9") && digits.length === 9) {
+    return `56${digits}`;
+  }
+
+  if (digits.length === 8) {
+    return `569${digits}`;
+  }
+
+  return digits;
+};
+
+const isValidChileMobilePhone = (rawPhone) => {
+  const normalized = normalizeChilePhone(rawPhone);
+  return /^569\d{8}$/.test(normalized);
+};
+
 const app = express();
 
 const createTables = async () => {
@@ -271,6 +300,14 @@ app.post("/appointments", async (req, res) => {
     return res.status(400).json({ message: "Faltan campos obligatorios" });
   }
 
+  if (!isValidChileMobilePhone(phone)) {
+  return res.status(400).json({
+    message: "Ingresa un celular chileno válido",
+  });
+}
+
+const normalizedPhone = normalizeChilePhone(phone);
+
   try {
     const exists = await pool.query(
       `SELECT * FROM appointments
@@ -288,7 +325,7 @@ app.post("/appointments", async (req, res) => {
       `INSERT INTO appointments (name, phone, date, time, service, barber, business_id, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [name, phone, date, time, service, barber, businessId, status || "reservada"]
+      [name, normalizedPhone, date, time, service, barber, businessId, status || "reservada"]
     );
 
     return res.json({
@@ -305,9 +342,17 @@ app.put("/appointments/:id", async (req, res) => {
   const { id } = req.params;
   const { name, phone, date, time, service, barber, businessId, status } = req.body;
 
-  if (!name || !phone || !date || !time || !service || !barber || !businessId) {
-    return res.status(400).json({ message: "Faltan campos obligatorios" });
-  }
+if (!name || !phone || !date || !time || !service || !barber || !businessId) {
+  return res.status(400).json({ message: "Faltan campos obligatorios" });
+}
+
+if (!isValidChileMobilePhone(phone)) {
+  return res.status(400).json({
+    message: "Ingresa un celular chileno válido",
+  });
+}
+
+const normalizedPhone = normalizeChilePhone(phone);
 
   try {
     const exists = await pool.query(
@@ -327,7 +372,7 @@ app.put("/appointments/:id", async (req, res) => {
        SET name = $1, phone = $2, date = $3, time = $4, service = $5, barber = $6, business_id = $7, status = $8
        WHERE id = $9 AND business_id = $7
        RETURNING *`,
-      [name, phone, date, time, service, barber, businessId, status || "reservada", id]
+      [name, normalizedPhone, date, time, service, barber, businessId, status || "reservada", id]
     );
 
     if (result.rows.length === 0) {
