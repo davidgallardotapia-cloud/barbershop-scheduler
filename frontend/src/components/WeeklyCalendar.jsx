@@ -328,11 +328,30 @@ function WeeklyCalendar({
                             >
                               {isClientMode ? (
                                 <>
-                                  <div style={{ ...styles.appointmentTitle, color: "#ffffff" }}>Ocupado</div>
-<div style={{ ...styles.appointmentMeta, color: "#ffffff" }}>
+                                <div
+  style={{
+    ...styles.appointmentTitle,
+    color: business?.id === "giocata" ? "#ffffff" : "#111827",
+  }}
+>
+  Ocupado
+</div>
+
+<div
+  style={{
+    ...styles.appointmentMeta,
+    color: business?.id === "giocata" ? "#ffffff" : "#374151",
+  }}
+>
   {appointment.barber}
 </div>
-<div style={{ ...styles.appointmentMeta, color: "#ffffff" }}>
+
+<div
+  style={{
+    ...styles.appointmentMeta,
+    color: business?.id === "giocata" ? "#ffffff" : "#374151",
+  }}
+>
   {String(appointment.time).slice(0, 5)}
 </div>
                                 </>
