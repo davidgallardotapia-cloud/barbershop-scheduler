@@ -557,24 +557,31 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
   };
 
   const getBarberColors = (barberName) => {
-    switch (barberName) {
-      case "James":
-        return {
-          backgroundColor: "#dbeafe",
-          border: "1px solid #60a5fa",
-        };
-      case "Jesús":
-        return {
-          backgroundColor: "#dcfce7",
-          border: "1px solid #4ade80",
-        };
-      default:
-        return {
-          backgroundColor: "#e5e7eb",
-          border: "1px solid #d1d5db",
-        };
-    }
+  if (mergedBusiness?.id === "giocata") {
+  return {
+    backgroundColor: theme.primary || "#166534",
+    border: `1px solid ${theme.primaryDark || "#14532d"}`,
   };
+}
+
+  switch (barberName) {
+    case "James":
+      return {
+        backgroundColor: "#dbeafe",
+        border: "1px solid #60a5fa",
+      };
+    case "Jesús":
+      return {
+        backgroundColor: "#dcfce7",
+        border: "1px solid #4ade80",
+      };
+    default:
+      return {
+        backgroundColor: "#e5e7eb",
+        border: "1px solid #d1d5db",
+      };
+  }
+};
 
   const goToPreviousWeek = () => {
     setSelectedWeekStart((prev) => addDays(prev, -7));
@@ -885,7 +892,7 @@ color: "#fff",
       minWidth: isMobile ? "100%" : "1070px",
     },
     headerCell: {
-      backgroundColor: "#111827",
+      backgroundColor: theme.primaryDark || "#111827",
       color: "#fff",
       padding: "12px",
       fontWeight: "bold",
@@ -894,7 +901,7 @@ color: "#fff",
       textTransform: "capitalize",
     },
     timeHeaderCell: {
-      backgroundColor: "#1f2937",
+      backgroundColor: theme.primary || "#1f2937",
       color: "#fff",
       padding: "12px",
       fontWeight: "bold",
@@ -905,7 +912,7 @@ color: "#fff",
       padding: "12px",
       borderRight: "1px solid #e5e7eb",
       borderTop: "1px solid #e5e7eb",
-      backgroundColor: "#f9fafb",
+      backgroundColor: theme.primarySoft || "#f9fafb",
       fontWeight: "bold",
       fontSize: "14px",
       minHeight: "90px",
@@ -1089,11 +1096,16 @@ border: `1px solid ${theme.primaryDark || "#111827"}`,
               </button>
             ) : (
               <button
-                style={{ ...styles.button, ...styles.secondaryButton }}
-                onClick={() => setAppMode("admin")}
-              >
-                Iniciar sesión
-              </button>
+  style={{
+    ...styles.button,
+    backgroundColor: theme.primarySoft || "#e5e7eb",
+    color: theme.primaryDark || "#111827",
+    border: `1px solid ${theme.border || "#d1d5db"}`,
+  }}
+  onClick={() => setAppMode("admin")}
+>
+  Iniciar sesión
+</button>
             )}
           </div>
         </div>

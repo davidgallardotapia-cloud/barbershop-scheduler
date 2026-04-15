@@ -136,6 +136,8 @@ export const businessConfigBySlug = {
     id: "giocata",
     name: "Canchas Giocata",
     subtitle: "Arriendo de canchas de fútbol",
+    logoWidth: "150px",
+    logoHeight: "150px",
     phone: "Por definir",
     hours: "Lun a Dom, 20:00 a 22:00",
     location: "La Serena",
@@ -149,7 +151,7 @@ export const businessConfigBySlug = {
     mapEmbedUrl:
       "https://www.google.com/maps?q=Hortensia+Bustamante+52+La+Serena&output=embed",
 
-    bookingTitle: "Reserva tu cancha ⚽",
+    bookingTitle: "Reserva tu cancha",
     adminTitle: "Panel de reservas",
 
     theme: {
@@ -181,6 +183,8 @@ export const businessConfigBySlug = {
     cancelEditLabel: "Cancelar edición",
     createButtonLabel: "Crear reserva",
     creatingLabel: "Creando...",
+    headerProfessionalsLimit: 3,
+    headerResourceSectionTitle: "Tipos de cancha",
     newItemTitle: "Nueva reserva",
     editItemTitle: "Editar reserva",
     whatsappButtonLabel: "Abrir WhatsApp",
@@ -219,12 +223,9 @@ export const businessConfigBySlug = {
     scheduleSlots: ["20:00", "21:00", "22:00"],
 
     professionals: [
-      { name: "Cancha 1", image: "/giocata-logo.png" },
-      { name: "Cancha 2", image: "/giocata-logo.png" },
-      { name: "Cancha 3", image: "/giocata-logo.png" },
-      { name: "Cancha 4", image: "/giocata-logo.png" },
-      { name: "Cancha 5", image: "/giocata-logo.png" },
-      { name: "Cancha 6", image: "/giocata-logo.png" },
+      { name: "Fútbol 6", image: "/giocata-logo.png" },
+      { name: "Fútbol 7", image: "/giocata-logo.png" },
+      { name: "Fútbol 8", image: "/giocata-logo.png" },
     ],
   },
 };

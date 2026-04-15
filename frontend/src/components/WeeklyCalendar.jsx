@@ -328,13 +328,13 @@ function WeeklyCalendar({
                             >
                               {isClientMode ? (
                                 <>
-                                  <div style={styles.appointmentTitle}>Ocupado</div>
-                                  <div style={styles.appointmentMeta}>
-                                    {appointment.barber}
-                                  </div>
-                                  <div style={styles.appointmentMeta}>
-                                    {String(appointment.time).slice(0, 5)}
-                                  </div>
+                                  <div style={{ ...styles.appointmentTitle, color: "#ffffff" }}>Ocupado</div>
+<div style={{ ...styles.appointmentMeta, color: "#ffffff" }}>
+  {appointment.barber}
+</div>
+<div style={{ ...styles.appointmentMeta, color: "#ffffff" }}>
+  {String(appointment.time).slice(0, 5)}
+</div>
                                 </>
                               ) : (
                                 <>
@@ -427,7 +427,9 @@ function WeeklyCalendar({
                         <button
                           style={{
                             ...styles.tinyButton,
-                            ...styles.secondaryButton,
+                            backgroundColor: business?.theme?.primarySoft || "#e5e7eb",
+                            color: business?.theme?.primaryDark || "#111827",
+                            border: `1px solid ${business?.theme?.border || "#d1d5db"}`,
                             width: "100%",
                             ...((!isBarberSelected || isPast)
                               ? styles.disabledButton

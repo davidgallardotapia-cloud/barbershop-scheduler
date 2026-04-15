@@ -20,7 +20,7 @@ function BusinessHeader({ isMobile, business }) {
           backgroundColor: "#fff",
           borderRadius: "24px",
           overflow: "hidden",
-          border: "1px solid #e5e7eb",
+          border: `1px solid ${business?.theme?.border || "#e5e7eb"}`,
           boxShadow: "0 6px 20px rgba(0,0,0,0.06)",
         }}
       >
@@ -57,15 +57,15 @@ function BusinessHeader({ isMobile, business }) {
           }}
         >
           <div
-            style={{
-              width: "140px",
-              height: "110px",
-              borderRadius: "12px",
-              overflow: "hidden",
-              backgroundColor: "#111",
-              margin: isMobile ? "0 auto" : "0",
-            }}
-          >
+  style={{
+    width: business?.logoWidth || "140px",
+    height: business?.logoHeight || "110px",
+    borderRadius: "12px",
+    overflow: "hidden",
+    backgroundColor: "#111",
+    margin: isMobile ? "0 auto" : "0",
+  }}
+>
             <img
               src={business.logo}
               alt={`${business.name} logo`}
@@ -84,7 +84,7 @@ function BusinessHeader({ isMobile, business }) {
                 margin: "0 0 10px",
                 fontSize: isMobile ? "22px" : "28px",
                 lineHeight: 1.15,
-                color: "#172554",
+                color: business?.theme?.primaryDark || "#172554",
               }}
             >
               {business.name}
@@ -108,7 +108,7 @@ function BusinessHeader({ isMobile, business }) {
         style={{
           backgroundColor: "#fff",
           borderRadius: "24px",
-          border: "1px solid #e5e7eb",
+          border: `1px solid ${business?.theme?.border || "#e5e7eb"}`,
           boxShadow: "0 6px 20px rgba(0,0,0,0.06)",
           padding: "22px",
           display: "flex",
@@ -172,7 +172,7 @@ function BusinessHeader({ isMobile, business }) {
           }}
         >
           <h3 style={{ margin: "0 0 16px", fontSize: "18px", color: "#111827" }}>
-  {business.resourceLabelPlural || "Recursos"}
+  {business.headerResourceSectionTitle || business.resourceLabelPlural || "Recursos"}
 </h3>
 
           <div
@@ -183,7 +183,9 @@ function BusinessHeader({ isMobile, business }) {
               textAlign: "center",
             }}
           >
-            {(business.professionals || []).map((pro) => (
+            {(business.professionals || [])
+  .slice(0, business?.headerProfessionalsLimit || business?.professionals?.length || 0)
+  .map((pro) => (
               <div key={pro.name}>
                 <div
                   style={{
