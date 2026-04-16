@@ -47,11 +47,10 @@ export const businessConfigBySlug = {
     resourceSelectOption: "Selecciona un barbero",
     serviceSelectOption: "Selecciona un servicio",
 
-    barbers: ["James", "Jesús"],
+    barbers: ["James"],
 
     phones: {
       James: "56932167325",
-      Jesús: "56932100003",
     },
 
     services: [
@@ -86,7 +85,6 @@ export const businessConfigBySlug = {
 
     professionals: [
       { name: "James", image: "/James.jpeg" },
-      { name: "Jesús", image: "/Jesus.jpeg" },
     ],
   },
 
