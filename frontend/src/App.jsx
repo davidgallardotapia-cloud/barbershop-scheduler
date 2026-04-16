@@ -12,6 +12,7 @@ import {
   sameDate,
   isPastSlot,
   isPastDayOnly,
+  isSunday,
 } from "./utils/dateUtils";
 import { SHEETS_URL } from "./utils/constants";
 import { buildBarberWhatsappUrl } from "./utils/whatsapp";
@@ -50,6 +51,8 @@ function App() {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [service, setService] = useState("");
+  const [customServiceName, setCustomServiceName] = useState("");
+  const [customServicePrice, setCustomServicePrice] = useState("");
   const [barber, setBarber] = useState("");
   const [message, setMessage] = useState("");
   const [editingId, setEditingId] = useState(null);
@@ -223,6 +226,8 @@ function App() {
     setTime("");
     setService("");
     setBarber("");
+    setCustomServiceName("");
+    setCustomServicePrice("");
     setEditingId(null);
   };
 
@@ -304,7 +309,7 @@ if (!isValidChileMobilePhone(phone)) {
         ? buildBarberWhatsappUrl({
             barberPhone,
             name: name.trim(),
-            phone: phone.trim(),
+            phone: normalizedPhone,
             date,
             time,
             service: service.trim(),
@@ -317,7 +322,7 @@ if (!isValidChileMobilePhone(phone)) {
         date,
         time,
         name: name.trim(),
-        phone: phone.trim(),
+        phone: normalizedPhone,
         barber: resolvedBarber,
         service: service.trim(),
         status: "reservada",
@@ -399,7 +404,7 @@ if (!isValidChileMobilePhone(phone)) {
         date,
         time,
         name: name.trim(),
-        phone: phone.trim(),
+        phone: normalizedPhone,
         barber,
         service: service.trim(),
         status: appointments.find((a) => a.id === editingId)?.status || "reservada",
@@ -1280,6 +1285,10 @@ border: `1px solid ${theme.primaryDark || "#111827"}`,
               setBarber={setBarber}
               BARBERS={BARBERS}
               SERVICES={SERVICES}
+              customServiceName={customServiceName}
+              setCustomServiceName={setCustomServiceName}
+              customServicePrice={customServicePrice}
+              setCustomServicePrice={setCustomServicePrice}
               updateAppointment={updateAppointment}
               createAppointment={createAppointment}
               resetForm={resetForm}

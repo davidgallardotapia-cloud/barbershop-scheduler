@@ -1,4 +1,5 @@
 import React from "react";
+import { isSunday } from "../utils/dateUtils";
 
 function WeeklyCalendar({
   styles,
@@ -45,7 +46,7 @@ function WeeklyCalendar({
                 selectedMobileDay &&
                 formatDateToInput(day) === formatDateToInput(selectedMobileDay);
 
-              const isPastDay = isClientMode ? isPastDayOnly(day) : false;
+              const isPastDay = isClientMode ? isPastDayOnly(day) || isSunday(day) : false;
 
               return (
                 <button
@@ -306,7 +307,7 @@ function WeeklyCalendar({
                     typeof hour === "string"
                       ? hour
                       : `${String(hour).padStart(2, "0")}:00`;
-                  const isPast = isClientMode ? isPastSlot(day, normalizedHour) : false;
+                  const isPast = isClientMode ? isPastSlot(day, normalizedHour) || isSunday(day) : false;
 
                   return (
                     <div key={`${hour}-${index}`} style={styles.slotCell}>

@@ -19,6 +19,10 @@ function AdminBookingPanel({
   setBarber,
   BARBERS,
   SERVICES,
+  customServiceName,
+  setCustomServiceName,
+  customServicePrice,
+  setCustomServicePrice,
   updateAppointment,
   createAppointment,
   resetForm,
@@ -76,6 +80,49 @@ function AdminBookingPanel({
             </option>
           ))}
         </select>
+        
+        <div
+  style={{
+    border: "1px solid #d1d5db",
+    borderRadius: "10px",
+    padding: "12px",
+    backgroundColor: "#f9fafb",
+  }}
+>
+  <div style={{ fontWeight: "bold", marginBottom: "8px" }}>
+    Servicio personalizado
+  </div>
+
+  <input
+    style={styles.input}
+    placeholder="Nombre del servicio especial"
+    value={customServiceName}
+    onChange={(e) => setCustomServiceName(e.target.value)}
+  />
+
+  <input
+    style={styles.input}
+    placeholder="Precio ejemplo: 18000"
+    value={customServicePrice}
+    onChange={(e) =>
+      setCustomServicePrice(e.target.value.replace(/\D/g, ""))
+    }
+  />
+
+  <button
+    type="button"
+    style={{ ...styles.button, ...styles.secondaryButton, width: "100%" }}
+    onClick={() => {
+      if (!customServiceName.trim() || !customServicePrice.trim()) return;
+
+      setService(
+        `${customServiceName.trim()} ($${Number(customServicePrice).toLocaleString("es-CL")})`
+      );
+    }}
+  >
+    Usar servicio personalizado
+  </button>
+</div>
 
         <select
           style={styles.select}

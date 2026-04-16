@@ -53,3 +53,8 @@ export function isPastDayOnly(day) {
 
   return slotDate < today;
 }
+
+export function isSunday(day) {
+  const dateObj = day instanceof Date ? day : new Date(day);
+  return dateObj.getDay() === 0;
+}
