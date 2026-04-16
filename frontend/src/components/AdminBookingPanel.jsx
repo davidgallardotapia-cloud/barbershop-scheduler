@@ -122,6 +122,24 @@ function AdminBookingPanel({
   >
     Usar servicio personalizado
   </button>
+
+  {service && (
+  <div
+    style={{
+      marginTop: "10px",
+      backgroundColor: "#ecfdf5",
+      border: "1px solid #86efac",
+      color: "#166534",
+      borderRadius: "8px",
+      padding: "10px 12px",
+      fontWeight: "bold",
+      fontSize: "14px",
+    }}
+  >
+    Servicio seleccionado: {service}
+  </div>
+)}
+
 </div>
 
         <select
