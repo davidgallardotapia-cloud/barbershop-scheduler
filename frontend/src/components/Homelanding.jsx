@@ -292,7 +292,7 @@ function HomeLanding() {
                         fontSize: "13px",
                       }}
                     >
-                      Urban District Barber
+                      Barber
                     </div>
 
                     <div
