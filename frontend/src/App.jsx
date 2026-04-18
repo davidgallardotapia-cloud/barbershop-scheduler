@@ -4,6 +4,7 @@ import ClientBookingPanel from "./components/ClientBookingPanel";
 import AdminBookingPanel from "./components/AdminBookingPanel";
 import WeeklyCalendar from "./components/WeeklyCalendar";
 import BusinessHeader from "./components/BusinessHeader";
+import HomeLanding from "./components/HomeLanding";
 import {
   getMonday,
   formatDateToInput,
@@ -31,7 +32,7 @@ function App() {
     if (typeof window === "undefined") return "urban-district-barber";
 
     const path = window.location.pathname.replace(/^\/+|\/+$/g, "");
-    return path || "urban-district-barber";
+    return path || "";
   };
 
   const [slug] = useState(getSlugFromUrl);
@@ -1066,6 +1067,12 @@ border: `1px solid ${theme.primaryDark || "#111827"}`,
   (mergedBusiness?.hideResourceSelector ? true : barber);
 
   const isBarberSelected = mergedBusiness?.hideResourceSelector ? true : Boolean(barber);
+
+  const isHomePage = !slug;
+
+  if (isHomePage) {
+  return <HomeLanding />;
+}
 
   if (businessLoading) {
     return (
