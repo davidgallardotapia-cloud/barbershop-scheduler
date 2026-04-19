@@ -197,6 +197,8 @@ const createTables = async () => {
 
 const allowedOrigins = [
   "https://barbershop-scheduler-two.vercel.app",
+  "https://agendasmart.cl",
+  "https://www.agendasmart.cl",
   "http://localhost:5173",
 ];
 
