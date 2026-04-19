@@ -1,6 +1,8 @@
 export const businessConfigBySlug = {
   "urban-district-barber": {
     id: "barberia-james",
+    tabTitle: "Urban District Barber | AgendaSmart",
+    favicon: "/logo-james.jpg",
     name: "Urban District Barber",
     subtitle: "Cortes de cabello y barba profesionales",
 
@@ -152,6 +154,8 @@ export const businessConfigBySlug = {
 
   "giocata": {
     id: "giocata",
+    tabTitle: "Canchas Giocata | AgendaSmart",
+    favicon: "/giocata-logo.jpg",
     name: "Canchas Giocata",
     subtitle: "Arriendo de canchas de fútbol",
     logoWidth: "150px",

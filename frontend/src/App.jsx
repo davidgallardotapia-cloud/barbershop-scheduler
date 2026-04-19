@@ -145,6 +145,28 @@ function App() {
   }, [slug]);
 
   useEffect(() => {
+  if (!slug) {
+    document.title = "AgendaSmart";
+
+    const favicon = document.querySelector("link[rel='icon']");
+    if (favicon) {
+      favicon.href = "/agendasmart-favicon.png";
+    }
+
+    return;
+  }
+
+  if (mergedBusiness) {
+    document.title = mergedBusiness.tabTitle || mergedBusiness.name || "AgendaSmart";
+
+    const favicon = document.querySelector("link[rel='icon']");
+    if (favicon && mergedBusiness.favicon) {
+      favicon.href = mergedBusiness.favicon;
+    }
+  }
+}, [slug, mergedBusiness]);
+
+  useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
       setIsCompactAdmin(window.innerWidth < 1180);
