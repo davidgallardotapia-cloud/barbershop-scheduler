@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import LoginScreen from "./components/LoginScreen";
-import ClientBookingPanel from "./components/ClientBookingPanel";
 import AdminBookingPanel from "./components/AdminBookingPanel";
 import WeeklyCalendar from "./components/WeeklyCalendar";
 import BusinessHeader from "./components/BusinessHeader";
@@ -14,7 +13,6 @@ import {
   sameDate,
   isPastSlot,
   isPastDayOnly,
-  isSunday,
 } from "./utils/dateUtils";
 import { SHEETS_URL } from "./utils/constants";
 import { buildBarberWhatsappUrl } from "./utils/whatsapp";
@@ -884,37 +882,37 @@ const availableTimes = useMemo(() => {
 
   const styles = {
     page: {
-      minHeight: "100vh",
-      backgroundColor: theme.pageBackground || "#f3f4f6",
-      padding: isMobile ? "12px" : "24px",
-      fontFamily: "Arial, sans-serif",
-      color: "#111827",
-      boxSizing: "border-box",
-      width: "100%",
-      overflowX: "hidden",
-    },
+  minHeight: "100vh",
+  backgroundColor: theme.pageBackground || "#f3f4f6",
+  padding: isMobile ? "12px" : "24px",
+  fontFamily: "Arial, sans-serif",
+  color: "#111827",
+  boxSizing: "border-box",
+  width: "100%",
+  overflowX: "hidden",
+},
     title: {
       marginBottom: "20px",
       fontSize: "28px",
       fontWeight: "bold",
     },
     layout: {
-      display: "grid",
-      gridTemplateColumns: isCompactAdmin ? "1fr" : "320px minmax(0, 1fr)",
-      gap: "20px",
-      alignItems: "start",
-      width: "100%",
-    },
+  display: "grid",
+  gridTemplateColumns: isCompactAdmin ? "1fr" : "320px minmax(0, 1fr)",
+  gap: "20px",
+  alignItems: "start",
+  width: "100%",
+},
     card: {
-      backgroundColor: theme.cardBackground || "#fff",
-      borderRadius: "14px",
-      padding: isMobile ? "16px" : "20px",
-      boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
-      border: `1px solid ${theme.border || "#e5e7eb"}`,
-      boxSizing: "border-box",
-      width: "100%",
-      minWidth: 0,
-    },
+  backgroundColor: theme.cardBackground || "#fff",
+  borderRadius: "14px",
+  padding: isMobile ? "16px" : "20px",
+  boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+  border: `1px solid ${theme.border || "#e5e7eb"}`,
+  boxSizing: "border-box",
+  width: "100%",
+  minWidth: 0,
+},
     dashboardGrid: {
       display: "grid",
       gridTemplateColumns: isMobile
@@ -1266,11 +1264,11 @@ border: `1px solid ${theme.primaryDark || "#111827"}`,
         </div>
 
         {isClientMode ? (
-          <div>
-            <BusinessHeader isMobile={isMobile} business={mergedBusiness} />
+  <div>
+    <BusinessHeader isMobile={isMobile} business={mergedBusiness} />
 
-            <div style={styles.card}>
-              <ClientBookingWizard
+    <div style={styles.card}>
+      <ClientBookingWizard
   styles={styles}
   business={mergedBusiness}
   SERVICES={SERVICES}
