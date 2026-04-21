@@ -21,7 +21,7 @@ const containerStyle = {
 };
 
 const titleStyle = {
-  fontSize: "44px",
+  fontSize: "40px",
   lineHeight: 1.08,
   margin: "0 0 18px 0",
   color: "#111827",
@@ -590,7 +590,7 @@ function PhoneMockup() {
   return (
     <div
       style={{
-        width: "280px",
+        width: "250px",
         maxWidth: "100%",
         backgroundColor: "#111827",
         borderRadius: "34px",
@@ -604,7 +604,7 @@ function PhoneMockup() {
           backgroundColor: "#ffffff",
           borderRadius: "26px",
           padding: "16px 14px",
-          minHeight: "540px",
+          minHeight: "500px",
         }}
       >
         <div
@@ -620,7 +620,7 @@ function PhoneMockup() {
         <div
           style={{
             fontWeight: "bold",
-            fontSize: "22px",
+            fontSize: "18px",
             marginBottom: "12px",
             color: "#111827",
             display: "flex",
@@ -781,6 +781,128 @@ function AnalyticsCard({ title, text, value }) {
   );
 }
 
+function FixedHeader() {
+  const scrollToSection = (sectionId) => (event) => {
+    event.preventDefault();
+    const section = document.getElementById(sectionId);
+
+    if (section) {
+      section.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  };
+
+  return (
+    <header
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100%",
+        zIndex: 999,
+        background: "rgba(255,255,255,0.82)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
+        borderBottom: "1px solid rgba(229,231,235,0.9)",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "1200px",
+          margin: "0 auto",
+          padding: "14px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "16px",
+          flexWrap: "wrap",
+        }}
+      >
+        <a
+          href="/"
+          style={{
+            textDecoration: "none",
+            color: "#111827",
+            fontWeight: "bold",
+            fontSize: "22px",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+          }}
+        >
+          <FaCalendarAlt color="#22c55e" />
+          AgendaSmart
+        </a>
+
+        <nav
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "18px",
+            flexWrap: "wrap",
+          }}
+        >
+          <a
+            href="#clientes"
+            onClick={scrollToSection("clientes")}
+            style={{
+              textDecoration: "none",
+              color: "#4b5563",
+              fontWeight: 600,
+              fontSize: "15px",
+            }}
+          >
+            Clientes
+          </a>
+
+          <a
+            href="#admin"
+            onClick={scrollToSection("admin")}
+            style={{
+              textDecoration: "none",
+              color: "#4b5563",
+              fontWeight: 600,
+              fontSize: "15px",
+            }}
+          >
+            Admin
+          </a>
+
+          <a
+            href="#reportes"
+            onClick={scrollToSection("reportes")}
+            style={{
+              textDecoration: "none",
+              color: "#4b5563",
+              fontWeight: 600,
+              fontSize: "15px",
+            }}
+          >
+            Reportes
+          </a>
+
+          <a
+            href="/urban-district-barber"
+            style={{
+              backgroundColor: "#22c55e",
+              color: "#ffffff",
+              textDecoration: "none",
+              padding: "10px 16px",
+              borderRadius: "10px",
+              fontWeight: "bold",
+              boxShadow: "0 8px 18px rgba(34,197,94,0.18)",
+            }}
+          >
+            Ver demo
+          </a>
+        </nav>
+      </div>
+    </header>
+  );
+}
+
 function HomeLanding() {
   return (
     <div
@@ -792,11 +914,13 @@ function HomeLanding() {
         color: "#111827",
       }}
     >
+      <FixedHeader />
+
       <section
         style={{
           ...containerStyle,
-          paddingTop: "68px",
-          paddingBottom: "70px",
+          paddingTop: "118px",
+          paddingBottom: "56px",
         }}
       >
         <div
@@ -817,8 +941,8 @@ function HomeLanding() {
             <p
               style={{
                 ...textStyle,
-                maxWidth: "580px",
-                marginBottom: "26px",
+                maxWidth: "560px",
+                marginBottom: "22px",
               }}
             >
               Administra reservas, horarios, clientes y servicios desde una
@@ -866,10 +990,12 @@ function HomeLanding() {
       </section>
 
       <section
+        id="clientes"
         style={{
           ...containerStyle,
           paddingTop: "20px",
           paddingBottom: "80px",
+          scrollMarginTop: "110px",
         }}
       >
         <div
@@ -912,7 +1038,7 @@ function HomeLanding() {
           <div
             style={{
               position: "relative",
-              minHeight: "620px",
+              minHeight: "500px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -923,7 +1049,7 @@ function HomeLanding() {
                 position: "absolute",
                 width: "100%",
                 maxWidth: "520px",
-                height: "420px",
+                height: "320px",
                 borderRadius: "40px",
                 background:
                   "radial-gradient(circle at center, rgba(34,197,94,0.10) 0%, rgba(255,255,255,0) 70%)",
@@ -933,11 +1059,11 @@ function HomeLanding() {
             <div
               style={{
                 position: "absolute",
-                left: "8%",
-                bottom: "18%",
-                width: "120px",
-                height: "120px",
-                borderRadius: "24px",
+                left: "12%",
+                bottom: "16%",
+                width: "92px",
+                height: "92px",
+                borderRadius: "20px",
                 backgroundColor: "#ffffff",
                 border: "1px solid #e5e7eb",
                 boxShadow: "0 18px 40px rgba(15,23,42,0.08)",
@@ -945,7 +1071,7 @@ function HomeLanding() {
                 alignItems: "center",
                 justifyContent: "center",
                 color: "#6b7280",
-                fontSize: "34px",
+                fontSize: "28px",
               }}
             >
               <FaClock />
@@ -954,11 +1080,11 @@ function HomeLanding() {
             <div
               style={{
                 position: "absolute",
-                right: "5%",
-                bottom: "12%",
-                width: "140px",
-                height: "140px",
-                borderRadius: "28px",
+                right: "10%",
+                bottom: "14%",
+                width: "104px",
+                height: "104px",
+                borderRadius: "22px",
                 backgroundColor: "#ffffff",
                 border: "1px solid #e5e7eb",
                 boxShadow: "0 18px 40px rgba(15,23,42,0.08)",
@@ -966,7 +1092,7 @@ function HomeLanding() {
                 alignItems: "center",
                 justifyContent: "center",
                 color: "#22c55e",
-                fontSize: "40px",
+                fontSize: "30px",
               }}
             >
               <FaCalendarAlt />
@@ -978,10 +1104,12 @@ function HomeLanding() {
       </section>
 
       <section
+        id="admin"
         style={{
           ...containerStyle,
           paddingTop: "20px",
           paddingBottom: "80px",
+          scrollMarginTop: "110px",
         }}
       >
         <div
@@ -1040,10 +1168,12 @@ function HomeLanding() {
       </section>
 
       <section
+        id="reportes"
         style={{
           ...containerStyle,
           paddingTop: "10px",
           paddingBottom: "80px",
+          scrollMarginTop: "110px",
         }}
       >
         <div
@@ -1329,10 +1459,10 @@ function HomeLanding() {
           >
             <div
               style={{
-                fontSize: "40px",
+                fontSize: "34px",
                 fontWeight: "bold",
-                lineHeight: 1.15,
-                marginBottom: "16px",
+                lineHeight: 1.18,
+                marginBottom: "14px",
               }}
             >
               Lleva tu negocio a una experiencia de reservas más profesional
@@ -1340,8 +1470,8 @@ function HomeLanding() {
 
             <div
               style={{
-                fontSize: "18px",
-                lineHeight: 1.7,
+                fontSize: "17px",
+                lineHeight: 1.6,
                 color: "rgba(255,255,255,0.82)",
                 marginBottom: "24px",
               }}

@@ -5,6 +5,7 @@ import AdminBookingPanel from "./components/AdminBookingPanel";
 import WeeklyCalendar from "./components/WeeklyCalendar";
 import BusinessHeader from "./components/BusinessHeader";
 import HomeLanding from "./components/HomeLanding";
+import ClientBookingWizard from "./components/ClientBookingWizard";
 import {
   getMonday,
   formatDateToInput,
@@ -203,6 +204,8 @@ function App() {
   const hours = useMemo(() => {
     return currentBusinessConfig?.scheduleSlots || Array.from({ length: 12 }, (_, i) => i + 9);
   }, [currentBusinessConfig]);
+  
+  const blockedWeekdays = mergedBusiness?.blockedWeekdays || [];
 
   const getAppointments = async () => {
     if (!businessId) return;
@@ -259,6 +262,14 @@ function App() {
 
   const match = String(serviceName).match(/Cancha\s+\d+/i);
   return match ? match[0] : "";
+};
+
+const getResolvedClientResource = () => {
+  if (mergedBusiness?.hideResourceSelector) {
+    return getResourceFromService(service);
+  }
+
+  return barber;
 };
 
   const normalizeChilePhone = (rawPhone) => {
@@ -804,6 +815,73 @@ if (!isValidChileMobilePhone(phone)) {
     isClientMode,
   ]);
 
+  const resolvedClientResource = getResolvedClientResource();
+
+const availableDays = useMemo(() => {
+  const days = [];
+  const today = new Date();
+
+  for (let i = 0; i < 14; i += 1) {
+    const day = addDays(today, i);
+    const dateValue = formatDateToInput(day);
+
+    if (blockedWeekdays.includes(day.getDay())) continue;
+    if (isPastDayOnly(day)) continue;
+
+    days.push({
+      value: dateValue,
+      label: day.toLocaleDateString("es-CL", {
+        weekday: "short",
+        day: "2-digit",
+        month: "2-digit",
+      }),
+    });
+  }
+
+  return days;
+}, [blockedWeekdays]);
+
+const availableTimes = useMemo(() => {
+  if (!date) return [];
+
+  const selectedDay = new Date(`${date}T00:00:00`);
+
+  if (blockedWeekdays.includes(selectedDay.getDay())) return [];
+
+  return hours.map((hour) => {
+    const formattedHour =
+      typeof hour === "string"
+        ? hour
+        : formatHourLabel(hour);
+
+    const normalizedHour =
+      typeof hour === "string"
+        ? hour
+        : `${String(hour).padStart(2, "0")}:00`;
+
+    const isPast = isPastSlot(selectedDay, normalizedHour);
+    const slotAppointments = getAppointmentsForSlot(selectedDay, hour);
+
+    let isTaken = false;
+
+    if (!resolvedClientResource) {
+      isTaken = slotAppointments.length > 0;
+    } else {
+      isTaken = slotAppointments.some(
+        (appointment) => appointment.barber === resolvedClientResource
+      );
+    }
+
+    return {
+      value: formattedHour,
+      isPast,
+      isTaken,
+      disabled: isPast || isTaken,
+      status: isPast ? "past" : isTaken ? "taken" : "available",
+    };
+  });
+}, [date, hours, resolvedClientResource, appointmentsBySlot, blockedWeekdays]);
+
   const styles = {
     page: {
       minHeight: "100vh",
@@ -1192,28 +1270,34 @@ border: `1px solid ${theme.primaryDark || "#111827"}`,
             <BusinessHeader isMobile={isMobile} business={mergedBusiness} />
 
             <div style={styles.card}>
-              <ClientBookingPanel
-                styles={styles}
-                business={mergedBusiness}
-                name={name}
-                setName={setName}
-                phone={phone}
-                setPhone={setPhone}
-                service={service}
-                setService={setService}
-                barber={barber}
-                setBarber={setBarber}
-                date={date}
-                time={time}
-                SERVICES={SERVICES}
-                BARBERS={BARBERS}
-                createAppointment={createAppointment}
-                submitting={submitting}
-                isClientFormComplete={isClientFormComplete}
-                message={message}
-                whatsappUrl={whatsappUrl}
-              />
-
+              <ClientBookingWizard
+  styles={styles}
+  business={mergedBusiness}
+  SERVICES={SERVICES}
+  BARBERS={BARBERS}
+  service={service}
+  setService={setService}
+  barber={barber}
+  setBarber={setBarber}
+  date={date}
+  setDate={setDate}
+  time={time}
+  setTime={setTime}
+  name={name}
+  setName={setName}
+  phone={phone}
+  setPhone={setPhone}
+  availableDays={availableDays}
+  availableTimes={availableTimes}
+  blockedWeekdays={blockedWeekdays}
+  createAppointment={createAppointment}
+  submitting={submitting}
+  isClientFormComplete={isClientFormComplete}
+  message={message}
+  whatsappUrl={whatsappUrl}
+/>
+              {false && (
+                <>
               <div style={styles.topBar}>
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                   <h2 style={{ marginTop: "32px", marginBottom: "12px" }}>
@@ -1291,6 +1375,8 @@ border: `1px solid ${theme.primaryDark || "#111827"}`,
                 isPastSlot={isPastSlot}
                 isPastDayOnly={isPastDayOnly}
               />
+              </>
+              )}
             </div>
           </div>
         ) : (

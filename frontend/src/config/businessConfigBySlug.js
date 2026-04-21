@@ -48,6 +48,10 @@ export const businessConfigBySlug = {
     resourceSelectPrompt: "Selecciona un barbero arriba",
     resourceSelectOption: "Selecciona un barbero",
     serviceSelectOption: "Selecciona un servicio",
+    blockedWeekdays: [0],
+    takenSlotLabel: "Ocupado",
+    pastSlotLabel: "Pasó",
+    availableSlotLabel: "Disponible",
 
     barbers: ["James"],
 
@@ -133,6 +137,8 @@ export const businessConfigBySlug = {
     resourceSelectPrompt: "Selecciona un barbero arriba",
     resourceSelectOption: "Selecciona un barbero",
     serviceSelectOption: "Selecciona un servicio",
+    blockedWeekdays: [0],
+    
 
     barbers: ["Junior"],
 
@@ -214,6 +220,10 @@ export const businessConfigBySlug = {
     resourceSelectPrompt: "Selecciona una cancha arriba",
     resourceSelectOption: "Selecciona una cancha",
     serviceSelectOption: "Selecciona un tipo de cancha",
+    blockedWeekdays: [],
+    takenSlotLabel: "Reservado",
+    pastSlotLabel: "Pasó",
+    availableSlotLabel: "Disponible",
 
     barbers: [
       "Cancha 1",
@@ -242,7 +252,7 @@ export const businessConfigBySlug = {
       "Fútbol 8 - Cancha 6 ($30.000)",
     ],
 
-    scheduleSlots: ["20:00", "21:00", "22:00"],
+    scheduleSlots: ["19:00", "20:00", "21:00", "22:00"],
 
     professionals: [
       { name: "Fútbol 6", image: "/giocata-logo.png" },
