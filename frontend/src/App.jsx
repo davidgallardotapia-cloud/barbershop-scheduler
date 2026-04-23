@@ -324,36 +324,57 @@ function App() {
   };
 
   const handleAddPayment = async () => {
-    if (!paymentAppointment?.id || !businessId) return;
+  if (!paymentAppointment?.id || !businessId) return;
 
-    if (!paymentAmount || Number(paymentAmount) <= 0) {
-      setMessage("Ingresa un monto válido para el pago");
-      return;
-    }
+  if (!paymentAmount || Number(paymentAmount) <= 0) {
+    setMessage("Ingresa un monto válido para el pago");
+    return;
+  }
 
-    try {
-      await addAppointmentPayment(paymentAppointment.id, {
-        amount: Number(paymentAmount),
-        method: paymentMethod,
-        paymentStage,
-        notes: paymentNotes || null,
-        businessId,
-      });
+  try {
+    const paymentResponse = await addAppointmentPayment(paymentAppointment.id, {
+      amount: Number(paymentAmount),
+      method: paymentMethod,
+      paymentStage,
+      notes: paymentNotes || null,
+      businessId,
+    });
 
-      setPaymentAmount("");
-      setPaymentMethod(paymentMethods[0] || "transferencia");
-      setPaymentStage(depositFeatureEnabled ? "deposit" : "full");
-      setPaymentNotes("");
-      setPaymentPanelError("");
+    const createdPayment = paymentResponse?.data?.data;
 
-      await loadAppointmentPayments(paymentAppointment.id);
-      await getAppointments();
-      setMessage("Pago registrado correctamente");
-    } catch (err) {
-      console.error(err);
-      setMessage(err.response?.data?.message || "Error al registrar pago");
-    }
-  };
+    await syncToGoogleSheets({
+      type: "payment",
+      payment_id: createdPayment?.id || "",
+      appointment_id: paymentAppointment.id,
+      businessId,
+      fecha_reserva: paymentAppointment?.date
+        ? String(paymentAppointment.date).slice(0, 10)
+        : "",
+      hora_reserva: String(paymentAppointment?.time || "").slice(0, 5),
+      cliente: paymentAppointment?.name || "",
+      recurso: paymentAppointment?.barber || "",
+      servicio: paymentAppointment?.service || "",
+      monto_pago: Number(paymentAmount),
+      metodo_pago: paymentMethod,
+      tipo_pago: paymentStage,
+      fecha_pago: new Date().toISOString(),
+      observacion: paymentNotes || "",
+    });
+
+    setPaymentAmount("");
+    setPaymentMethod(paymentMethods[0] || "transferencia");
+    setPaymentStage(depositFeatureEnabled ? "deposit" : "full");
+    setPaymentNotes("");
+    setPaymentPanelError("");
+
+    await loadAppointmentPayments(paymentAppointment.id);
+    await getAppointments();
+    setMessage("Pago registrado correctamente");
+  } catch (err) {
+    console.error(err);
+    setMessage(err.response?.data?.message || "Error al registrar pago");
+  }
+};
 
   useEffect(() => {
     if (!businessId) return;
