@@ -142,20 +142,22 @@ function AdminBookingPanel({
 
 </div>
 
-        <select
-          style={styles.select}
-          value={barber}
-          onChange={(e) => setBarber(e.target.value)}
-        >
-          <option value="">
-            {business?.resourceSelectOption || "Selecciona un recurso"}
-          </option>
-          {BARBERS.map((barberName) => (
-            <option key={barberName} value={barberName}>
-              {barberName}
-            </option>
-          ))}
-        </select>
+        {!business?.hideResourceSelector && (
+  <select
+    style={styles.select}
+    value={barber}
+    onChange={(e) => setBarber(e.target.value)}
+  >
+    <option value="">
+      {business?.resourceSelectOption || "Selecciona un recurso"}
+    </option>
+    {BARBERS.map((barberName) => (
+      <option key={barberName} value={barberName}>
+        {barberName}
+      </option>
+    ))}
+  </select>
+)}
 
         {editingId ? (
           <>

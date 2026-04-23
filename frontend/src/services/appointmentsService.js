@@ -27,3 +27,13 @@ export const loginUser = (credentials) => {
 export const getBusinessBySlug = (slug) => {
   return api.get(`/business/${slug}`);
 };
+
+export const getAppointmentPayments = (appointmentId, businessId) => {
+  return api.get(`/appointments/${appointmentId}/payments`, {
+    params: { businessId },
+  });
+};
+
+export const addAppointmentPayment = (appointmentId, data) => {
+  return api.post(`/appointments/${appointmentId}/payments`, data);
+};

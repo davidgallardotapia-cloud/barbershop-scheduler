@@ -31,10 +31,19 @@ function WeeklyCalendar({
   submitting,
   isPastSlot,
   isPastDayOnly,
+  openPaymentPanel,
 }) {
   const resourcePrompt = business?.hideResourceSelector
-  ? "Disponible"
-  : business?.resourceSelectPrompt || "Selecciona un recurso arriba";
+    ? "Disponible"
+    : business?.resourceSelectPrompt || "Selecciona un recurso arriba";
+
+  const mobileGroupedSlots =
+    !isClientMode && isMobile
+      ? mobileSlots.map((slot) => ({
+          ...slot,
+          appointments: slot.appointments || [],
+        }))
+      : [];
 
   return (
     <>
@@ -46,7 +55,9 @@ function WeeklyCalendar({
                 selectedMobileDay &&
                 formatDateToInput(day) === formatDateToInput(selectedMobileDay);
 
-              const isPastDay = isClientMode ? isPastDayOnly(day) || isSunday(day) : false;
+              const isPastDay = isClientMode
+                ? isPastDayOnly(day) || isSunday(day)
+                : false;
 
               return (
                 <button
@@ -95,11 +106,9 @@ function WeeklyCalendar({
             <div style={styles.spinner}></div>
           </div>
         ) : isMobile ? (
-          <div style={styles.mobileSlotsWrapper}>
-            {mobileSlots.map((slot) => {
-              const firstAppointment = slot.appointments[0];
-
-              if (isClientMode) {
+          isClientMode ? (
+            <div style={styles.mobileSlotsWrapper}>
+              {mobileSlots.map((slot) => {
                 const normalizedSlotTime =
                   typeof slot.hour === "string"
                     ? slot.hour
@@ -147,145 +156,249 @@ function WeeklyCalendar({
                     </div>
                   </button>
                 );
-              }
-
-              return slot.isOccupied ? (
+              })}
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "16px",
+              }}
+            >
+              {mobileGroupedSlots.map((slot) => (
                 <div
                   key={slot.hour}
                   style={{
-                    ...styles.mobileSlotButton,
-                    textAlign: "left",
-                    padding: "14px",
-                    borderRadius: "14px",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-                    background: "#ffffff",
-                    color: "#111827",
-                    cursor: "default",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
                   }}
                 >
                   <div
                     style={{
-                      fontSize: "12px",
-                      color: "#6b7280",
-                      marginBottom: "6px",
+                      fontSize: "20px",
+                      fontWeight: "700",
+                      color: "#0f172a",
+                      padding: "4px 2px",
                     }}
                   >
                     {slot.label}
                   </div>
 
-                  <div
-                    style={{
-                      fontSize: "15px",
-                      fontWeight: "600",
-                      marginBottom: "2px",
-                    }}
-                  >
-                    {firstAppointment?.name}
-                  </div>
-
-                  <div style={{ fontSize: "12px", marginBottom: "2px" }}>
-                    {firstAppointment?.service}
-                  </div>
-
-                  <div style={{ fontSize: "12px", marginBottom: "2px" }}>
-                    {firstAppointment?.barber}
-                  </div>
-
-                  <div style={{ fontSize: "12px", marginBottom: "8px" }}>
-                    {!firstAppointment?.status || firstAppointment?.status === "reservada"
-                      ? "🟡 Reservada"
-                      : firstAppointment?.status === "atendida"
-                      ? "🟢 Atendida"
-                      : firstAppointment?.status === "no_asistio"
-                      ? "🔴 No asistió"
-                      : ""}
-                  </div>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "8px",
-                      marginTop: "10px",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <button
-                      type="button"
+                  {slot.isOccupied ? (
+                    <div
                       style={{
-                        ...styles.tinyButton,
-                        backgroundColor: "#dcfce7",
-                        color: "#166534",
-                        border: "1px solid #bbf7d0",
-                        flex: 1,
-                        ...(submitting ? styles.disabledButton : {}),
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "12px",
                       }}
-                      onClick={() => markAppointmentAsAttended(firstAppointment)}
-                      disabled={submitting}
                     >
-                      Atendida
-                    </button>
+                      {slot.appointments.map((appointment) => (
+                        <div
+                          key={appointment.id}
+                          style={{
+                            ...styles.mobileSlotButton,
+                            textAlign: "left",
+                            padding: "14px",
+                            borderRadius: "14px",
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                            background:
+                              business?.id === "giocata"
+                                ? business?.theme?.primary || "#166534"
+                                : "#ffffff",
+                            color:
+                              business?.id === "giocata" ? "#ffffff" : "#111827",
+                            border:
+                              business?.id === "giocata"
+                                ? `1px solid ${
+                                    business?.theme?.primaryDark || "#14532d"
+                                  }`
+                                : "1px solid #e5e7eb",
+                            cursor: "default",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: "15px",
+                              fontWeight: "600",
+                              marginBottom: "2px",
+                              color:
+                                business?.id === "giocata"
+                                  ? "#ffffff"
+                                  : "#111827",
+                            }}
+                          >
+                            {appointment.name}
+                          </div>
 
-                    <button
-                      type="button"
-                      style={{
-                        ...styles.tinyButton,
-                        backgroundColor: "#fee2e2",
-                        color: "#991b1b",
-                        border: "1px solid #fecaca",
-                        flex: 1,
-                        ...(submitting ? styles.disabledButton : {}),
-                      }}
-                      onClick={() => markAppointmentAsNoShow(firstAppointment)}
-                      disabled={submitting}
-                    >
-                      No asistió
-                    </button>
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              marginBottom: "2px",
+                              color:
+                                business?.id === "giocata"
+                                  ? "rgba(255,255,255,0.92)"
+                                  : "#374151",
+                            }}
+                          >
+                            {appointment.service}
+                          </div>
 
-                    <button
-                      type="button"
-                      style={{
-                        ...styles.tinyButton,
-                        ...styles.editButton,
-                        flex: 1,
-                        ...(submitting ? styles.disabledButton : {}),
-                      }}
-                      onClick={() => editAppointment(firstAppointment)}
-                      disabled={submitting}
-                    >
-                      Editar
-                    </button>
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              marginBottom: "2px",
+                              color:
+                                business?.id === "giocata"
+                                  ? "rgba(255,255,255,0.92)"
+                                  : "#374151",
+                            }}
+                          >
+                            {appointment.barber}
+                          </div>
 
-                    <button
-                      type="button"
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              marginBottom: "8px",
+                              color:
+                                business?.id === "giocata"
+                                  ? "#ffffff"
+                                  : "#374151",
+                            }}
+                          >
+                            {!appointment?.status ||
+                            appointment?.status === "reservada"
+                              ? "🟡 Reservada"
+                              : appointment?.status === "atendida"
+                              ? "🟢 Atendida"
+                              : appointment?.status === "no_asistio"
+                              ? "🔴 No asistió"
+                              : ""}
+                          </div>
+
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: "8px",
+                              marginTop: "10px",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <button
+                              type="button"
+                              title="Marcar como atendida"
+                              style={{
+                                ...styles.tinyButton,
+                                minWidth: "38px",
+                                width: "38px",
+                                height: "38px",
+                                padding: 0,
+                                backgroundColor: "#dcfce7",
+                                color: "#166534",
+                                border: "1px solid #bbf7d0",
+                                fontWeight: "700",
+                                fontSize: "18px",
+                                ...(submitting ? styles.disabledButton : {}),
+                              }}
+                              onClick={() => markAppointmentAsAttended(appointment)}
+                              disabled={submitting}
+                            >
+                              ✓
+                            </button>
+
+                            <button
+                              type="button"
+                              title="Marcar como no asistió"
+                              style={{
+                                ...styles.tinyButton,
+                                minWidth: "38px",
+                                width: "38px",
+                                height: "38px",
+                                padding: 0,
+                                backgroundColor: "#fee2e2",
+                                color: "#991b1b",
+                                border: "1px solid #fecaca",
+                                fontWeight: "700",
+                                fontSize: "18px",
+                                ...(submitting ? styles.disabledButton : {}),
+                              }}
+                              onClick={() => markAppointmentAsNoShow(appointment)}
+                              disabled={submitting}
+                            >
+                              ✕
+                            </button>
+
+                            <button
+                              type="button"
+                              style={{
+                                ...styles.tinyButton,
+                                ...styles.editButton,
+                                flex: 1,
+                                minWidth: "90px",
+                                ...(submitting ? styles.disabledButton : {}),
+                              }}
+                              onClick={() => editAppointment(appointment)}
+                              disabled={submitting}
+                            >
+                              Editar
+                            </button>
+
+                            {business?.paymentsEnabled && (
+  <button
+    type="button"
+    style={{
+      ...styles.tinyButton,
+      ...styles.secondaryButton,
+      flex: 1,
+      minWidth: "90px",
+      ...(submitting ? styles.disabledButton : {}),
+    }}
+    onClick={() => openPaymentPanel?.(appointment)}
+    disabled={submitting}
+  >
+    Pago
+  </button>
+)}
+
+                            <button
+                              type="button"
+                              style={{
+                                ...styles.tinyButton,
+                                ...styles.dangerButton,
+                                flex: 1,
+                                minWidth: "90px",
+                                ...(submitting ? styles.disabledButton : {}),
+                              }}
+                              onClick={() => deleteAppointment(appointment.id)}
+                              disabled={submitting}
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div
                       style={{
-                        ...styles.tinyButton,
-                        ...styles.dangerButton,
-                        flex: 1,
-                        ...(submitting ? styles.disabledButton : {}),
+                        border: "1px solid #d1d5db",
+                        borderRadius: "14px",
+                        padding: "16px",
+                        textAlign: "center",
+                        fontWeight: "600",
+                        background: "#ffffff",
+                        color: "#111827",
                       }}
-                      onClick={() => deleteAppointment(firstAppointment.id)}
-                      disabled={submitting}
                     >
-                      Eliminar
-                    </button>
-                  </div>
+                      Disponible
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <button
-                  key={slot.hour}
-                  type="button"
-                  onClick={() => selectSlot(selectedMobileDay, slot.hour)}
-                  style={{
-                    ...styles.mobileSlotButton,
-                    textAlign: "center",
-                  }}
-                >
-                  <div style={styles.mobileSlotTime}>{slot.label}</div>
-                  <div style={styles.mobileSlotStatus}>Disponible</div>
-                </button>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )
         ) : (
           <div style={styles.calendarGrid}>
             <div style={styles.timeHeaderCell}>Hora</div>
@@ -307,7 +420,9 @@ function WeeklyCalendar({
                     typeof hour === "string"
                       ? hour
                       : `${String(hour).padStart(2, "0")}:00`;
-                  const isPast = isClientMode ? isPastSlot(day, normalizedHour) || isSunday(day) : false;
+                  const isPast = isClientMode
+                    ? isPastSlot(day, normalizedHour) || isSunday(day)
+                    : false;
 
                   return (
                     <div key={`${hour}-${index}`} style={styles.slotCell}>
@@ -329,49 +444,103 @@ function WeeklyCalendar({
                             >
                               {isClientMode ? (
                                 <>
-                                <div
-  style={{
-    ...styles.appointmentTitle,
-    color: business?.id === "giocata" ? "#ffffff" : "#111827",
-  }}
->
-  Ocupado
-</div>
+                                  <div
+                                    style={{
+                                      ...styles.appointmentTitle,
+                                      color:
+                                        business?.id === "giocata"
+                                          ? "#ffffff"
+                                          : "#111827",
+                                    }}
+                                  >
+                                    Ocupado
+                                  </div>
 
-<div
-  style={{
-    ...styles.appointmentMeta,
-    color: business?.id === "giocata" ? "#ffffff" : "#374151",
-  }}
->
-  {appointment.barber}
-</div>
+                                  <div
+                                    style={{
+                                      ...styles.appointmentMeta,
+                                      color:
+                                        business?.id === "giocata"
+                                          ? "#ffffff"
+                                          : "#374151",
+                                    }}
+                                  >
+                                    {appointment.barber}
+                                  </div>
 
-<div
-  style={{
-    ...styles.appointmentMeta,
-    color: business?.id === "giocata" ? "#ffffff" : "#374151",
-  }}
->
-  {String(appointment.time).slice(0, 5)}
-</div>
+                                  <div
+                                    style={{
+                                      ...styles.appointmentMeta,
+                                      color:
+                                        business?.id === "giocata"
+                                          ? "#ffffff"
+                                          : "#374151",
+                                    }}
+                                  >
+                                    {String(appointment.time).slice(0, 5)}
+                                  </div>
                                 </>
                               ) : (
                                 <>
-                                  <div style={styles.appointmentTitle}>
+                                  <div
+                                    style={{
+                                      ...styles.appointmentTitle,
+                                      color:
+                                        business?.id === "giocata"
+                                          ? "#ffffff"
+                                          : "#111827",
+                                    }}
+                                  >
                                     {appointment.name}
                                   </div>
-                                  <div style={styles.appointmentMeta}>
+
+                                  <div
+                                    style={{
+                                      ...styles.appointmentMeta,
+                                      color:
+                                        business?.id === "giocata"
+                                          ? "rgba(255,255,255,0.92)"
+                                          : "#374151",
+                                    }}
+                                  >
                                     {appointment.service}
                                   </div>
-                                  <div style={styles.appointmentMeta}>
+
+                                  <div
+                                    style={{
+                                      ...styles.appointmentMeta,
+                                      color:
+                                        business?.id === "giocata"
+                                          ? "rgba(255,255,255,0.92)"
+                                          : "#374151",
+                                    }}
+                                  >
                                     {appointment.barber}
                                   </div>
-                                  <div style={styles.appointmentMeta}>
+
+                                  <div
+                                    style={{
+                                      ...styles.appointmentMeta,
+                                      color:
+                                        business?.id === "giocata"
+                                          ? "rgba(255,255,255,0.92)"
+                                          : "#374151",
+                                    }}
+                                  >
                                     {String(appointment.time).slice(0, 5)}
                                   </div>
-                                  <div style={styles.appointmentMeta}>
-                                    {!appointment.status || appointment.status === "reservada"
+
+                                  <div
+                                    style={{
+                                      ...styles.appointmentMeta,
+                                      color:
+                                        business?.id === "giocata"
+                                          ? "#ffffff"
+                                          : "#374151",
+                                    }}
+                                  >
+                                    {!appointment.status ||
+                                    appointment.status === "reservada"
                                       ? "🟡 Reservada"
                                       : appointment.status === "atendida"
                                       ? "🟢 Atendida"
@@ -384,41 +553,69 @@ function WeeklyCalendar({
                                     style={{
                                       ...styles.actionRow,
                                       flexWrap: "wrap",
+                                      gap: "8px",
                                     }}
                                   >
                                     <button
+                                      type="button"
+                                      title="Marcar como atendida"
                                       style={{
                                         ...styles.tinyButton,
+                                        minWidth: "38px",
+                                        width: "38px",
+                                        height: "38px",
+                                        padding: 0,
                                         backgroundColor: "#dcfce7",
                                         color: "#166534",
                                         border: "1px solid #bbf7d0",
-                                        ...(submitting ? styles.disabledButton : {}),
+                                        fontWeight: "700",
+                                        fontSize: "18px",
+                                        ...(submitting
+                                          ? styles.disabledButton
+                                          : {}),
                                       }}
-                                      onClick={() => markAppointmentAsAttended(appointment)}
+                                      onClick={() =>
+                                        markAppointmentAsAttended(appointment)
+                                      }
                                       disabled={submitting}
                                     >
-                                      Atendida
+                                      ✓
                                     </button>
 
                                     <button
+                                      type="button"
+                                      title="Marcar como no asistió"
                                       style={{
                                         ...styles.tinyButton,
+                                        minWidth: "38px",
+                                        width: "38px",
+                                        height: "38px",
+                                        padding: 0,
                                         backgroundColor: "#fee2e2",
                                         color: "#991b1b",
                                         border: "1px solid #fecaca",
-                                        ...(submitting ? styles.disabledButton : {}),
+                                        fontWeight: "700",
+                                        fontSize: "18px",
+                                        ...(submitting
+                                          ? styles.disabledButton
+                                          : {}),
                                       }}
-                                      onClick={() => markAppointmentAsNoShow(appointment)}
+                                      onClick={() =>
+                                        markAppointmentAsNoShow(appointment)
+                                      }
                                       disabled={submitting}
                                     >
-                                      No asistió
+                                      ✕
                                     </button>
 
                                     <button
+                                      type="button"
                                       style={{
                                         ...styles.tinyButton,
                                         ...styles.editButton,
-                                        ...(submitting ? styles.disabledButton : {}),
+                                        ...(submitting
+                                          ? styles.disabledButton
+                                          : {}),
                                       }}
                                       onClick={() => editAppointment(appointment)}
                                       disabled={submitting}
@@ -426,13 +623,33 @@ function WeeklyCalendar({
                                       Editar
                                     </button>
 
+                                    {business?.paymentsEnabled && (
+  <button
+    type="button"
+    style={{
+      ...styles.tinyButton,
+      ...styles.secondaryButton,
+      ...(submitting ? styles.disabledButton : {}),
+    }}
+    onClick={() => openPaymentPanel?.(appointment)}
+    disabled={submitting}
+  >
+    Pago
+  </button>
+)}
+
                                     <button
+                                      type="button"
                                       style={{
                                         ...styles.tinyButton,
                                         ...styles.dangerButton,
-                                        ...(submitting ? styles.disabledButton : {}),
+                                        ...(submitting
+                                          ? styles.disabledButton
+                                          : {}),
                                       }}
-                                      onClick={() => deleteAppointment(appointment.id)}
+                                      onClick={() =>
+                                        deleteAppointment(appointment.id)
+                                      }
                                       disabled={submitting}
                                     >
                                       Eliminar
@@ -447,9 +664,13 @@ function WeeklyCalendar({
                         <button
                           style={{
                             ...styles.tinyButton,
-                            backgroundColor: business?.theme?.primarySoft || "#e5e7eb",
-                            color: business?.theme?.primaryDark || "#111827",
-                            border: `1px solid ${business?.theme?.border || "#d1d5db"}`,
+                            backgroundColor:
+                              business?.theme?.primarySoft || "#e5e7eb",
+                            color:
+                              business?.theme?.primaryDark || "#111827",
+                            border: `1px solid ${
+                              business?.theme?.border || "#d1d5db"
+                            }`,
                             width: "100%",
                             ...((!isBarberSelected || isPast)
                               ? styles.disabledButton

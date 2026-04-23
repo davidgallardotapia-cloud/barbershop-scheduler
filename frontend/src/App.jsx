@@ -23,6 +23,8 @@ import {
   deleteAppointment as deleteAppointmentService,
   loginUser,
   getBusinessBySlug,
+  getAppointmentPayments,
+  addAppointmentPayment,
 } from "./services/appointmentsService";
 import { businessConfigBySlug } from "./config/businessConfigBySlug";
 
@@ -56,9 +58,12 @@ function App() {
   const [barber, setBarber] = useState("");
   const [message, setMessage] = useState("");
   const [editingId, setEditingId] = useState(null);
+  const [paymentAppointment, setPaymentAppointment] = useState(null);
   const [whatsappUrl, setWhatsappUrl] = useState("");
 
-  const [selectedWeekStart, setSelectedWeekStart] = useState(getMonday(new Date()));
+  const [selectedWeekStart, setSelectedWeekStart] = useState(
+    getMonday(new Date())
+  );
   const [weeklyBarberFilter, setWeeklyBarberFilter] = useState("");
   const [clientSearch, setClientSearch] = useState("");
 
@@ -75,6 +80,16 @@ function App() {
     typeof window !== "undefined" ? window.innerWidth < 1180 : false
   );
   const [selectedMobileDay, setSelectedMobileDay] = useState(null);
+
+  const [selectedAppointmentPayments, setSelectedAppointmentPayments] = useState(
+    []
+  );
+  const [loadingPayments, setLoadingPayments] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("transferencia");
+  const [paymentStage, setPaymentStage] = useState("deposit");
+  const [paymentNotes, setPaymentNotes] = useState("");
+  const [paymentPanelError, setPaymentPanelError] = useState("");
 
   const currentBusinessConfig = useMemo(() => {
     return businessConfigBySlug[slug] || null;
@@ -94,6 +109,75 @@ function App() {
   }, [business, currentBusinessConfig]);
 
   const theme = mergedBusiness?.theme || {};
+
+  const hours = useMemo(() => {
+    return (
+      currentBusinessConfig?.scheduleSlots ||
+      Array.from({ length: 12 }, (_, i) => i + 9)
+    );
+  }, [currentBusinessConfig]);
+
+  const blockedWeekdays = mergedBusiness?.blockedWeekdays || [];
+  const paymentsEnabled = mergedBusiness?.paymentsEnabled || false;
+  const depositFeatureEnabled = mergedBusiness?.depositFeatureEnabled || false;
+  const depositOptional = mergedBusiness?.depositOptional || false;
+  const defaultDepositRate = mergedBusiness?.defaultDepositRate || 0.5;
+  const paymentMethods = mergedBusiness?.paymentMethods || [
+    "transferencia",
+    "efectivo",
+    "debito",
+  ];
+
+  const getServicePrice = (serviceName) => {
+    if (!serviceName) return 0;
+
+    const match = String(serviceName).match(/\$([\d\.]+)/);
+    if (!match) return 0;
+
+    return Number(match[1].replace(/\./g, ""));
+  };
+
+  const selectedPaymentTotal = selectedAppointmentPayments.reduce(
+    (acc, payment) => acc + Number(payment.amount || 0),
+    0
+  );
+
+  const selectedReservationTotal = Math.max(
+    Number(paymentAppointment?.total_amount || 0),
+    Number(getServicePrice(paymentAppointment?.service) || 0)
+  );
+
+  const selectedRequiredDeposit = Math.max(
+    Number(paymentAppointment?.required_deposit_amount || 0),
+    depositFeatureEnabled
+      ? Math.round(selectedReservationTotal * defaultDepositRate)
+      : 0
+  );
+
+  const selectedPendingBalance = Math.max(
+    selectedReservationTotal - selectedPaymentTotal,
+    0
+  );
+
+  const paymentStatusLabelMap = {
+    unpaid: "Sin pago",
+    deposit_pending: "Abono pendiente",
+    deposit_paid: "Abono registrado",
+    partially_paid: "Pago parcial",
+    paid: "Pagado completo",
+    cancelled: "Cancelado",
+  };
+
+  const effectivePaymentStatus =
+    paymentAppointment?.payment_status ||
+    (selectedPaymentTotal > 0
+      ? selectedPaymentTotal >= selectedReservationTotal
+        ? "paid"
+        : "partially_paid"
+      : "unpaid");
+
+  const selectedPaymentStatusLabel =
+    paymentStatusLabelMap[effectivePaymentStatus] || "Sin estado";
 
   async function syncToGoogleSheets(payload) {
     try {
@@ -144,26 +228,27 @@ function App() {
   }, [slug]);
 
   useEffect(() => {
-  if (!slug) {
-    document.title = "AgendaSmart";
+    if (!slug) {
+      document.title = "AgendaSmart";
 
-    const favicon = document.querySelector("link[rel='icon']");
-    if (favicon) {
-      favicon.href = "/agendasmart-favicon.png";
+      const favicon = document.querySelector("link[rel='icon']");
+      if (favicon) {
+        favicon.href = "/agendasmart-favicon.png";
+      }
+
+      return;
     }
 
-    return;
-  }
+    if (mergedBusiness) {
+      document.title =
+        mergedBusiness.tabTitle || mergedBusiness.name || "AgendaSmart";
 
-  if (mergedBusiness) {
-    document.title = mergedBusiness.tabTitle || mergedBusiness.name || "AgendaSmart";
-
-    const favicon = document.querySelector("link[rel='icon']");
-    if (favicon && mergedBusiness.favicon) {
-      favicon.href = mergedBusiness.favicon;
+      const favicon = document.querySelector("link[rel='icon']");
+      if (favicon && mergedBusiness.favicon) {
+        favicon.href = mergedBusiness.favicon;
+      }
     }
-  }
-}, [slug, mergedBusiness]);
+  }, [slug, mergedBusiness]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -199,12 +284,6 @@ function App() {
     }
   }, [weekDays, selectedMobileDay]);
 
-  const hours = useMemo(() => {
-    return currentBusinessConfig?.scheduleSlots || Array.from({ length: 12 }, (_, i) => i + 9);
-  }, [currentBusinessConfig]);
-  
-  const blockedWeekdays = mergedBusiness?.blockedWeekdays || [];
-
   const getAppointments = async () => {
     if (!businessId) return;
 
@@ -217,6 +296,58 @@ function App() {
       setMessage("Error al cargar reservas");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAppointmentPayments = async (appointmentId) => {
+    if (!paymentsEnabled || !businessId || !appointmentId) return;
+
+    setLoadingPayments(true);
+    setPaymentPanelError("");
+
+    try {
+      const res = await getAppointmentPayments(appointmentId, businessId);
+      setSelectedAppointmentPayments(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error(err);
+      setSelectedAppointmentPayments([]);
+      setPaymentPanelError(
+        err.response?.data?.message || "No se pudieron cargar los pagos"
+      );
+    } finally {
+      setLoadingPayments(false);
+    }
+  };
+
+  const handleAddPayment = async () => {
+    if (!paymentAppointment?.id || !businessId) return;
+
+    if (!paymentAmount || Number(paymentAmount) <= 0) {
+      setMessage("Ingresa un monto válido para el pago");
+      return;
+    }
+
+    try {
+      await addAppointmentPayment(paymentAppointment.id, {
+        amount: Number(paymentAmount),
+        method: paymentMethod,
+        paymentStage,
+        notes: paymentNotes || null,
+        businessId,
+      });
+
+      setPaymentAmount("");
+      setPaymentMethod(paymentMethods[0] || "transferencia");
+      setPaymentStage(depositFeatureEnabled ? "deposit" : "full");
+      setPaymentNotes("");
+      setPaymentPanelError("");
+
+      await loadAppointmentPayments(paymentAppointment.id);
+      await getAppointments();
+      setMessage("Pago registrado correctamente");
+    } catch (err) {
+      console.error(err);
+      setMessage(err.response?.data?.message || "Error al registrar pago");
     }
   };
 
@@ -253,69 +384,82 @@ function App() {
     setCustomServiceName("");
     setCustomServicePrice("");
     setEditingId(null);
+    setSelectedAppointmentPayments([]);
+    setPaymentAmount("");
+    setPaymentMethod(paymentMethods[0] || "transferencia");
+    setPaymentStage(depositFeatureEnabled ? "deposit" : "full");
+    setPaymentNotes("");
+    setPaymentAppointment(null);
+    setPaymentPanelError("");
   };
 
   const getResourceFromService = (serviceName) => {
-  if (!serviceName) return "";
+    if (!serviceName) return "";
 
-  const match = String(serviceName).match(/Cancha\s+\d+/i);
-  return match ? match[0] : "";
-};
+    const match = String(serviceName).match(/Cancha\s+\d+/i);
+    return match ? match[0] : "";
+  };
 
-const getResolvedClientResource = () => {
-  if (mergedBusiness?.hideResourceSelector) {
-    return getResourceFromService(service);
-  }
+  const getResolvedClientResource = () => {
+    if (mergedBusiness?.hideResourceSelector) {
+      return getResourceFromService(service);
+    }
 
-  return barber;
-};
+    return barber;
+  };
 
   const normalizeChilePhone = (rawPhone) => {
-  const digits = String(rawPhone || "").replace(/\D/g, "");
+    const digits = String(rawPhone || "").replace(/\D/g, "");
 
-  if (!digits) return "";
+    if (!digits) return "";
 
-  if (digits.startsWith("569") && digits.length === 11) {
+    if (digits.startsWith("569") && digits.length === 11) {
+      return digits;
+    }
+
+    if (digits.startsWith("56") && digits.length === 11) {
+      return digits;
+    }
+
+    if (digits.startsWith("9") && digits.length === 9) {
+      return `56${digits}`;
+    }
+
+    if (digits.length === 8) {
+      return `569${digits}`;
+    }
+
     return digits;
-  }
+  };
 
-  if (digits.startsWith("56") && digits.length === 11) {
-    return digits;
-  }
-
-  if (digits.startsWith("9") && digits.length === 9) {
-    return `56${digits}`;
-  }
-
-  if (digits.length === 8) {
-    return `569${digits}`;
-  }
-
-  return digits;
-};
-
-const isValidChileMobilePhone = (rawPhone) => {
-  const normalized = normalizeChilePhone(rawPhone);
-  return /^569\d{8}$/.test(normalized);
-};
+  const isValidChileMobilePhone = (rawPhone) => {
+    const normalized = normalizeChilePhone(rawPhone);
+    return /^569\d{8}$/.test(normalized);
+  };
 
   const createAppointment = async () => {
     if (submitting || !businessId) return;
 
-    const resolvedBarber =
-  mergedBusiness?.hideResourceSelector
-    ? getResourceFromService(service)
-    : barber;
+    const resolvedBarber = mergedBusiness?.hideResourceSelector
+      ? getResourceFromService(service)
+      : barber;
 
-if (!name.trim() || !phone.trim() || !date || !time || !service.trim() || !resolvedBarber) {
-  setMessage("Completa todos los campos para reservar.");
-  return;
-}
+    if (
+      !name.trim() ||
+      !phone.trim() ||
+      !date ||
+      !time ||
+      !service.trim() ||
+      !resolvedBarber
+    ) {
+      setMessage("Completa todos los campos para reservar.");
+      return;
+    }
 
-if (!isValidChileMobilePhone(phone)) {
-  setMessage("Ingresa un celular chileno válido. Ejemplo: 912345678");
-  return;
-}
+    if (!isValidChileMobilePhone(phone)) {
+      setMessage("Ingresa un celular chileno válido. Ejemplo: 912345678");
+      return;
+    }
 
     setSubmitting(true);
     setMessage("");
@@ -366,23 +510,33 @@ if (!isValidChileMobilePhone(phone)) {
       if (generatedWhatsappUrl) {
         const newWindow = window.open(generatedWhatsappUrl, "_blank");
 
-        if (!newWindow || newWindow.closed || typeof newWindow.closed === "undefined") {
+        if (
+          !newWindow ||
+          newWindow.closed ||
+          typeof newWindow.closed === "undefined"
+        ) {
           setWhatsappUrl(generatedWhatsappUrl);
 
-          setMessage(`✅ ${mergedBusiness?.submitButtonLabel || "Reserva"} registrada correctamente
+          setMessage(`✅ ${
+            mergedBusiness?.submitButtonLabel || "Reserva"
+          } registrada correctamente
 
 📅 ${date} a las ${time}
 ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}
 
 📲 ${mergedBusiness?.whatsappLabel || "Confirma por WhatsApp"}`);
         } else {
-          setMessage(`✅ ${mergedBusiness?.submitButtonLabel || "Reserva"} registrada correctamente
+          setMessage(`✅ ${
+            mergedBusiness?.submitButtonLabel || "Reserva"
+          } registrada correctamente
 
 📅 ${date} a las ${time}
 ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
         }
       } else {
-        setMessage(`✅ ${mergedBusiness?.submitButtonLabel || "Reserva"} registrada correctamente
+        setMessage(`✅ ${
+          mergedBusiness?.submitButtonLabel || "Reserva"
+        } registrada correctamente
 
 📅 ${date} a las ${time}
 ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
@@ -403,15 +557,22 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
   const updateAppointment = async () => {
     if (submitting || !editingId || !businessId) return;
 
-    if (!name.trim() || !phone.trim() || !date || !time || !service.trim() || !barber) {
-  setMessage("Completa todos los campos para actualizar.");
-  return;
-}
+    if (
+      !name.trim() ||
+      !phone.trim() ||
+      !date ||
+      !time ||
+      !service.trim() ||
+      !barber
+    ) {
+      setMessage("Completa todos los campos para actualizar.");
+      return;
+    }
 
-if (!isValidChileMobilePhone(phone)) {
-  setMessage("Ingresa un celular chileno válido. Ejemplo: 912345678");
-  return;
-}
+    if (!isValidChileMobilePhone(phone)) {
+      setMessage("Ingresa un celular chileno válido. Ejemplo: 912345678");
+      return;
+    }
 
     setSubmitting(true);
     setMessage("");
@@ -428,7 +589,8 @@ if (!isValidChileMobilePhone(phone)) {
         service: service.trim(),
         barber,
         businessId,
-        status: appointments.find((a) => a.id === editingId)?.status || "reservada",
+        status:
+          appointments.find((a) => a.id === editingId)?.status || "reservada",
       });
 
       await syncToGoogleSheets({
@@ -439,7 +601,8 @@ if (!isValidChileMobilePhone(phone)) {
         phone: normalizedPhone,
         barber,
         service: service.trim(),
-        status: appointments.find((a) => a.id === editingId)?.status || "reservada",
+        status:
+          appointments.find((a) => a.id === editingId)?.status || "reservada",
       });
 
       resetForm();
@@ -558,8 +721,11 @@ if (!isValidChileMobilePhone(phone)) {
     setService(appointment.service || "");
     setBarber(appointment.barber || "");
     setEditingId(appointment.id);
+    setPaymentAppointment(null);
     setMessage("Editando reserva ✏️");
     setWhatsappUrl("");
+    setPaymentPanelError("");
+    setSelectedAppointmentPayments([]);
 
     if (appointment.date) {
       const appointmentDate = new Date(
@@ -570,6 +736,25 @@ if (!isValidChileMobilePhone(phone)) {
     }
 
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const openPaymentPanel = async (appointment) => {
+    setPaymentAppointment(appointment);
+    setEditingId(null);
+    setMessage("");
+    setWhatsappUrl("");
+    setPaymentPanelError("");
+
+    setPaymentAmount("");
+    setPaymentMethod(paymentMethods[0] || "transferencia");
+    setPaymentStage(depositFeatureEnabled ? "deposit" : "full");
+    setPaymentNotes("");
+
+    if (paymentsEnabled) {
+      await loadAppointmentPayments(appointment.id);
+    } else {
+      setSelectedAppointmentPayments([]);
+    }
   };
 
   const selectSlot = (day, hour) => {
@@ -637,31 +822,31 @@ if (!isValidChileMobilePhone(phone)) {
   };
 
   const getBarberColors = (barberName) => {
-  if (mergedBusiness?.id === "giocata") {
-  return {
-    backgroundColor: theme.primary || "#166534",
-    border: `1px solid ${theme.primaryDark || "#14532d"}`,
-  };
-}
+    if (mergedBusiness?.id === "giocata") {
+      return {
+        backgroundColor: theme.primary || "#166534",
+        border: `1px solid ${theme.primaryDark || "#14532d"}`,
+      };
+    }
 
-  switch (barberName) {
-    case "James":
-      return {
-        backgroundColor: "#dbeafe",
-        border: "1px solid #60a5fa",
-      };
-    case "Jesús":
-      return {
-        backgroundColor: "#dcfce7",
-        border: "1px solid #4ade80",
-      };
-    default:
-      return {
-        backgroundColor: "#e5e7eb",
-        border: "1px solid #d1d5db",
-      };
-  }
-};
+    switch (barberName) {
+      case "James":
+        return {
+          backgroundColor: "#dbeafe",
+          border: "1px solid #60a5fa",
+        };
+      case "Jesús":
+        return {
+          backgroundColor: "#dcfce7",
+          border: "1px solid #4ade80",
+        };
+      default:
+        return {
+          backgroundColor: "#e5e7eb",
+          border: "1px solid #d1d5db",
+        };
+    }
+  };
 
   const goToPreviousWeek = () => {
     setSelectedWeekStart((prev) => addDays(prev, -7));
@@ -682,15 +867,6 @@ if (!isValidChileMobilePhone(phone)) {
   const isAdminMode = appMode === "admin" && isLoggedIn;
 
   const todayStr = formatDateToInput(new Date());
-
-  const getServicePrice = (serviceName) => {
-    if (!serviceName) return 0;
-
-    const match = String(serviceName).match(/\$([\d\.]+)/);
-    if (!match) return 0;
-
-    return Number(match[1].replace(/\./g, ""));
-  };
 
   const dashboardAppointments = useMemo(() => {
     const normalizedClientSearch = clientSearch.trim().toLowerCase();
@@ -723,8 +899,7 @@ if (!isValidChileMobilePhone(phone)) {
   ).length;
 
   const reservedToday = dashboardAppointments.filter(
-    (appointment) =>
-      !appointment.status || appointment.status === "reservada"
+    (appointment) => !appointment.status || appointment.status === "reservada"
   ).length;
 
   const revenueToday = dashboardAppointments
@@ -762,9 +937,7 @@ if (!isValidChileMobilePhone(phone)) {
       const rawTime = String(appointment.time || "").slice(0, 5);
 
       const hourKey =
-        typeof hours[0] === "string"
-          ? rawTime
-          : Number(rawTime.slice(0, 2));
+        typeof hours[0] === "string" ? rawTime : Number(rawTime.slice(0, 2));
 
       const key = `${dayKey}-${hourKey}`;
 
@@ -806,113 +979,106 @@ if (!isValidChileMobilePhone(phone)) {
         isPast,
       };
     });
-  }, [
-    selectedMobileDay,
-    hours,
-    appointmentsBySlot,
-    isClientMode,
-  ]);
+  }, [selectedMobileDay, hours, appointmentsBySlot, isClientMode]);
 
   const resolvedClientResource = getResolvedClientResource();
 
-const availableDays = useMemo(() => {
-  const days = [];
-  const today = new Date();
+  const availableDays = useMemo(() => {
+    const days = [];
+    const today = new Date();
 
-  for (let i = 0; i < 14; i += 1) {
-    const day = addDays(today, i);
-    const dateValue = formatDateToInput(day);
+    for (let i = 0; i < 14; i += 1) {
+      const day = addDays(today, i);
+      const dateValue = formatDateToInput(day);
 
-    if (blockedWeekdays.includes(day.getDay())) continue;
-    if (isPastDayOnly(day)) continue;
+      if (blockedWeekdays.includes(day.getDay())) continue;
+      if (isPastDayOnly(day)) continue;
 
-    days.push({
-      value: dateValue,
-      label: day.toLocaleDateString("es-CL", {
-        weekday: "short",
-        day: "2-digit",
-        month: "2-digit",
-      }),
-    });
-  }
-
-  return days;
-}, [blockedWeekdays]);
-
-const availableTimes = useMemo(() => {
-  if (!date) return [];
-
-  const selectedDay = new Date(`${date}T00:00:00`);
-
-  if (blockedWeekdays.includes(selectedDay.getDay())) return [];
-
-  return hours.map((hour) => {
-    const formattedHour =
-      typeof hour === "string"
-        ? hour
-        : formatHourLabel(hour);
-
-    const normalizedHour =
-      typeof hour === "string"
-        ? hour
-        : `${String(hour).padStart(2, "0")}:00`;
-
-    const isPast = isPastSlot(selectedDay, normalizedHour);
-    const slotAppointments = getAppointmentsForSlot(selectedDay, hour);
-
-    let isTaken = false;
-
-    if (!resolvedClientResource) {
-      isTaken = slotAppointments.length > 0;
-    } else {
-      isTaken = slotAppointments.some(
-        (appointment) => appointment.barber === resolvedClientResource
-      );
+      days.push({
+        value: dateValue,
+        label: day.toLocaleDateString("es-CL", {
+          weekday: "short",
+          day: "2-digit",
+          month: "2-digit",
+        }),
+      });
     }
 
-    return {
-      value: formattedHour,
-      isPast,
-      isTaken,
-      disabled: isPast || isTaken,
-      status: isPast ? "past" : isTaken ? "taken" : "available",
-    };
-  });
-}, [date, hours, resolvedClientResource, appointmentsBySlot, blockedWeekdays]);
+    return days;
+  }, [blockedWeekdays]);
+
+  const availableTimes = useMemo(() => {
+    if (!date) return [];
+
+    const selectedDay = new Date(`${date}T00:00:00`);
+
+    if (blockedWeekdays.includes(selectedDay.getDay())) return [];
+
+    return hours.map((hour) => {
+      const formattedHour =
+        typeof hour === "string" ? hour : formatHourLabel(hour);
+
+      const normalizedHour =
+        typeof hour === "string"
+          ? hour
+          : `${String(hour).padStart(2, "0")}:00`;
+
+      const isPast = isPastSlot(selectedDay, normalizedHour);
+      const slotAppointments = getAppointmentsForSlot(selectedDay, hour);
+
+      let isTaken = false;
+
+      if (!resolvedClientResource) {
+        isTaken = slotAppointments.length > 0;
+      } else {
+        isTaken = slotAppointments.some(
+          (appointment) => appointment.barber === resolvedClientResource
+        );
+      }
+
+      return {
+        value: formattedHour,
+        isPast,
+        isTaken,
+        disabled: isPast || isTaken,
+        status: isPast ? "past" : isTaken ? "taken" : "available",
+      };
+    });
+  }, [date, hours, resolvedClientResource, appointmentsBySlot, blockedWeekdays]);
 
   const styles = {
     page: {
-  minHeight: "100vh",
-  backgroundColor: theme.pageBackground || "#f3f4f6",
-  padding: isMobile ? "12px" : "24px",
-  fontFamily: "Arial, sans-serif",
-  color: "#111827",
-  boxSizing: "border-box",
-  width: "100%",
-  overflowX: "hidden",
-},
+      minHeight: "100vh",
+      backgroundColor: theme.pageBackground || "#f3f4f6",
+      padding: isMobile ? "12px" : "24px",
+      fontFamily: "Arial, sans-serif",
+      color: "#111827",
+      boxSizing: "border-box",
+      width: "100%",
+      overflowX: "hidden",
+    },
     title: {
       marginBottom: "20px",
       fontSize: "28px",
       fontWeight: "bold",
     },
     layout: {
-  display: "grid",
-  gridTemplateColumns: isCompactAdmin ? "1fr" : "320px minmax(0, 1fr)",
-  gap: "20px",
-  alignItems: "start",
-  width: "100%",
-},
+      display: "grid",
+      gridTemplateColumns: isCompactAdmin ? "1fr" : "320px minmax(0, 1fr)",
+      gap: "20px",
+      alignItems: "start",
+      width: "100%",
+    },
     card: {
-  backgroundColor: theme.cardBackground || "#fff",
-  borderRadius: "14px",
-  padding: isMobile ? "16px" : "20px",
-  boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
-  border: `1px solid ${theme.border || "#e5e7eb"}`,
-  boxSizing: "border-box",
-  width: "100%",
-  minWidth: 0,
-},
+      backgroundColor: theme.cardBackground || "#fff",
+      borderRadius: "14px",
+      padding: isMobile ? "16px" : "20px",
+      boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+      border: `1px solid ${theme.border || "#e5e7eb"}`,
+      boxSizing: "border-box",
+      width: "100%",
+      minWidth: 0,
+    },
     dashboardGrid: {
       display: "grid",
       gridTemplateColumns: isMobile
@@ -990,7 +1156,7 @@ const availableTimes = useMemo(() => {
     },
     primaryButton: {
       backgroundColor: theme.primary || "#111827",
-color: "#fff",
+      color: "#fff",
     },
     secondaryButton: {
       backgroundColor: "#e5e7eb",
@@ -1122,8 +1288,11 @@ color: "#fff",
     },
     mobileSlotsWrapper: {
       display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: "10px",
+      gridTemplateColumns:
+        isMobile && !isClientMode && mergedBusiness?.id === "giocata"
+          ? "1fr"
+          : "repeat(2, minmax(0, 1fr))",
+      gap: "12px",
     },
     mobileSlotButton: {
       padding: "14px 10px",
@@ -1143,8 +1312,8 @@ color: "#fff",
     },
     mobileSlotSelected: {
       backgroundColor: theme.primaryDark || "#111827",
-color: "#ffffff",
-border: `1px solid ${theme.primaryDark || "#111827"}`,
+      color: "#ffffff",
+      border: `1px solid ${theme.primaryDark || "#111827"}`,
     },
     mobileSlotTime: {
       fontSize: "15px",
@@ -1157,20 +1326,22 @@ border: `1px solid ${theme.primaryDark || "#111827"}`,
   };
 
   const isClientFormComplete =
-  name.trim() &&
-  phone.trim() &&
-  date &&
-  time &&
-  service.trim() &&
-  (mergedBusiness?.hideResourceSelector ? true : barber);
+    name.trim() &&
+    phone.trim() &&
+    date &&
+    time &&
+    service.trim() &&
+    (mergedBusiness?.hideResourceSelector ? true : barber);
 
-  const isBarberSelected = mergedBusiness?.hideResourceSelector ? true : Boolean(barber);
+  const isBarberSelected = mergedBusiness?.hideResourceSelector
+    ? true
+    : Boolean(barber);
 
   const isHomePage = !slug;
 
   if (isHomePage) {
-  return <HomeLanding />;
-}
+    return <HomeLanding />;
+  }
 
   if (businessLoading) {
     return (
@@ -1249,131 +1420,141 @@ border: `1px solid ${theme.primaryDark || "#111827"}`,
               </button>
             ) : (
               <button
-  style={{
-    ...styles.button,
-    backgroundColor: theme.primarySoft || "#e5e7eb",
-    color: theme.primaryDark || "#111827",
-    border: `1px solid ${theme.border || "#d1d5db"}`,
-  }}
-  onClick={() => setAppMode("admin")}
->
-  Iniciar sesión
-</button>
+                style={{
+                  ...styles.button,
+                  backgroundColor: theme.primarySoft || "#e5e7eb",
+                  color: theme.primaryDark || "#111827",
+                  border: `1px solid ${theme.border || "#d1d5db"}`,
+                }}
+                onClick={() => setAppMode("admin")}
+              >
+                Iniciar sesión
+              </button>
             )}
           </div>
         </div>
 
         {isClientMode ? (
-  <div>
-    <BusinessHeader isMobile={isMobile} business={mergedBusiness} />
+          <div>
+            <BusinessHeader isMobile={isMobile} business={mergedBusiness} />
 
-    <div style={styles.card}>
-      <ClientBookingWizard
-  styles={styles}
-  business={mergedBusiness}
-  SERVICES={SERVICES}
-  BARBERS={BARBERS}
-  service={service}
-  setService={setService}
-  barber={barber}
-  setBarber={setBarber}
-  date={date}
-  setDate={setDate}
-  time={time}
-  setTime={setTime}
-  name={name}
-  setName={setName}
-  phone={phone}
-  setPhone={setPhone}
-  availableDays={availableDays}
-  availableTimes={availableTimes}
-  blockedWeekdays={blockedWeekdays}
-  createAppointment={createAppointment}
-  submitting={submitting}
-  isClientFormComplete={isClientFormComplete}
-  message={message}
-  whatsappUrl={whatsappUrl}
-/>
-              {false && (
-                <>
-              <div style={styles.topBar}>
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  <h2 style={{ marginTop: "32px", marginBottom: "12px" }}>
-                    Disponibilidad semanal
-                  </h2>
-
-                  {!mergedBusiness?.hideResourceSelector && (
-  <div
-    style={{
-      ...styles.select,
-      minWidth: "220px",
-      backgroundColor: "#f9fafb",
-      display: "flex",
-      alignItems: "center",
-      color: barber ? "#111827" : "#6b7280",
-    }}
-  >
-    {barber
-      ? `${mergedBusiness?.resourceSelectedLabel || "Recurso seleccionado"}: ${barber}`
-      : mergedBusiness?.resourceSelectPrompt || "Selecciona un recurso arriba"}
-  </div>
-)}
-                </div>
-
-                <div style={styles.weekActions}>
-                  <button
-                    style={{ ...styles.button, ...styles.secondaryButton }}
-                    onClick={goToPreviousWeek}
-                  >
-                    ← Semana anterior
-                  </button>
-                  <button
-                    style={{ ...styles.button, ...styles.primaryButton }}
-                    onClick={goToCurrentWeek}
-                  >
-                    Semana actual
-                  </button>
-                  <button
-                    style={{ ...styles.button, ...styles.secondaryButton }}
-                    onClick={goToNextWeek}
-                  >
-                    Semana siguiente →
-                  </button>
-                </div>
-              </div>
-
-              <WeeklyCalendar
+            <div style={styles.card}>
+              <ClientBookingWizard
                 styles={styles}
                 business={mergedBusiness}
-                loading={loading}
-                isMobile={isMobile}
-                weekDays={weekDays}
-                selectedMobileDay={selectedMobileDay}
-                setSelectedMobileDay={setSelectedMobileDay}
-                formatDateToInput={formatDateToInput}
-                formatHourLabel={(hour) =>
-                  typeof hour === "string" ? hour : formatHourLabel(hour)
-                }
-                sameDate={sameDate}
-                date={date}
-                time={time}
-                hours={hours}
-                mobileSlots={mobileSlots}
-                isBarberSelected={isBarberSelected}
-                selectSlot={selectSlot}
-                setDate={setDate}
-                setTime={setTime}
-                getAppointmentsForSlot={getAppointmentsForSlot}
-                getBarberColors={getBarberColors}
-                isClientMode={true}
+                SERVICES={SERVICES}
+                BARBERS={BARBERS}
+                service={service}
+                setService={setService}
                 barber={barber}
-                editAppointment={editAppointment}
-                deleteAppointment={deleteAppointment}
+                setBarber={setBarber}
+                date={date}
+                setDate={setDate}
+                time={time}
+                setTime={setTime}
+                name={name}
+                setName={setName}
+                phone={phone}
+                setPhone={setPhone}
+                availableDays={availableDays}
+                availableTimes={availableTimes}
+                blockedWeekdays={blockedWeekdays}
+                createAppointment={createAppointment}
                 submitting={submitting}
-                isPastSlot={isPastSlot}
-                isPastDayOnly={isPastDayOnly}
+                isClientFormComplete={isClientFormComplete}
+                message={message}
+                whatsappUrl={whatsappUrl}
               />
-              </>
+              {false && (
+                <>
+                  <div style={styles.topBar}>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "10px",
+                      }}
+                    >
+                      <h2 style={{ marginTop: "32px", marginBottom: "12px" }}>
+                        Disponibilidad semanal
+                      </h2>
+
+                      {!mergedBusiness?.hideResourceSelector && (
+                        <div
+                          style={{
+                            ...styles.select,
+                            minWidth: "220px",
+                            backgroundColor: "#f9fafb",
+                            display: "flex",
+                            alignItems: "center",
+                            color: barber ? "#111827" : "#6b7280",
+                          }}
+                        >
+                          {barber
+                            ? `${
+                                mergedBusiness?.resourceSelectedLabel ||
+                                "Recurso seleccionado"
+                              }: ${barber}`
+                            : mergedBusiness?.resourceSelectPrompt ||
+                              "Selecciona un recurso arriba"}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={styles.weekActions}>
+                      <button
+                        style={{ ...styles.button, ...styles.secondaryButton }}
+                        onClick={goToPreviousWeek}
+                      >
+                        ← Semana anterior
+                      </button>
+                      <button
+                        style={{ ...styles.button, ...styles.primaryButton }}
+                        onClick={goToCurrentWeek}
+                      >
+                        Semana actual
+                      </button>
+                      <button
+                        style={{ ...styles.button, ...styles.secondaryButton }}
+                        onClick={goToNextWeek}
+                      >
+                        Semana siguiente →
+                      </button>
+                    </div>
+                  </div>
+
+                  <WeeklyCalendar
+                    styles={styles}
+                    business={mergedBusiness}
+                    loading={loading}
+                    isMobile={isMobile}
+                    weekDays={weekDays}
+                    selectedMobileDay={selectedMobileDay}
+                    setSelectedMobileDay={setSelectedMobileDay}
+                    formatDateToInput={formatDateToInput}
+                    formatHourLabel={(hour) =>
+                      typeof hour === "string" ? hour : formatHourLabel(hour)
+                    }
+                    sameDate={sameDate}
+                    date={date}
+                    time={time}
+                    hours={hours}
+                    mobileSlots={mobileSlots}
+                    isBarberSelected={isBarberSelected}
+                    selectSlot={selectSlot}
+                    setDate={setDate}
+                    setTime={setTime}
+                    getAppointmentsForSlot={getAppointmentsForSlot}
+                    getBarberColors={getBarberColors}
+                    isClientMode={true}
+                    barber={barber}
+                    editAppointment={editAppointment}
+                    deleteAppointment={deleteAppointment}
+                    submitting={submitting}
+                    isPastSlot={isPastSlot}
+                    isPastDayOnly={isPastDayOnly}
+                  />
+                </>
               )}
             </div>
           </div>
@@ -1409,6 +1590,261 @@ border: `1px solid ${theme.primaryDark || "#111827"}`,
               message={message}
             />
 
+            {isAdminMode && paymentsEnabled && paymentAppointment && (
+              <div style={{ ...styles.card, marginTop: "20px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "12px",
+                    marginBottom: "8px",
+                  }}
+                >
+                  <h3 style={{ margin: 0 }}>Pagos de la reserva</h3>
+
+                  <button
+                    type="button"
+                    style={{ ...styles.button, ...styles.secondaryButton }}
+                    onClick={() => {
+                      setPaymentAppointment(null);
+                      setSelectedAppointmentPayments([]);
+                      setPaymentPanelError("");
+                    }}
+                  >
+                    Cerrar
+                  </button>
+                </div>
+
+                <p style={{ marginTop: 0, marginBottom: "16px", color: "#6b7280" }}>
+                  {paymentAppointment?.name} · {paymentAppointment?.service} ·{" "}
+                  {paymentAppointment?.date
+                    ? new Date(paymentAppointment.date).toLocaleDateString("es-CL")
+                    : ""}{" "}
+                  · {String(paymentAppointment?.time || "").slice(0, 5)}
+                </p>
+
+                {paymentPanelError && (
+                  <p
+                    style={{
+                      marginTop: 0,
+                      marginBottom: "16px",
+                      color: "#b42318",
+                    }}
+                  >
+                    {paymentPanelError}
+                  </p>
+                )}
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: isMobile
+                      ? "1fr 1fr"
+                      : "repeat(4, minmax(0, 1fr))",
+                    gap: "10px",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <div
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "12px",
+                      padding: "12px",
+                      backgroundColor: "#ffffff",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "12px",
+                        color: "#6b7280",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      Total
+                    </div>
+                    <div style={{ fontWeight: "700", fontSize: "18px" }}>
+                      ${selectedReservationTotal.toLocaleString("es-CL")}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "12px",
+                      padding: "12px",
+                      backgroundColor: "#ffffff",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "12px",
+                        color: "#6b7280",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      Pagado
+                    </div>
+                    <div style={{ fontWeight: "700", fontSize: "18px" }}>
+                      ${selectedPaymentTotal.toLocaleString("es-CL")}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "12px",
+                      padding: "12px",
+                      backgroundColor: "#ffffff",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "12px",
+                        color: "#6b7280",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      Saldo
+                    </div>
+                    <div style={{ fontWeight: "700", fontSize: "18px" }}>
+                      ${selectedPendingBalance.toLocaleString("es-CL")}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "12px",
+                      padding: "12px",
+                      backgroundColor: "#ffffff",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "12px",
+                        color: "#6b7280",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      Estado
+                    </div>
+                    <div style={{ fontWeight: "700", fontSize: "16px" }}>
+                      {selectedPaymentStatusLabel}
+                    </div>
+                  </div>
+                </div>
+
+                {depositFeatureEnabled && (
+                  <p style={{ marginTop: 0, marginBottom: "16px", color: "#6b7280" }}>
+                    Abono sugerido/requerido:{" "}
+                    <strong>
+                      ${selectedRequiredDeposit.toLocaleString("es-CL")}
+                    </strong>
+                  </p>
+                )}
+
+                {loadingPayments ? (
+                  <p style={{ marginTop: 0 }}>Cargando pagos...</p>
+                ) : selectedAppointmentPayments.length === 0 ? (
+                  <p style={{ marginTop: 0, color: "#6b7280" }}>
+                    Aún no hay pagos registrados para esta reserva.
+                  </p>
+                ) : (
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: "10px",
+                      marginBottom: "16px",
+                    }}
+                  >
+                    {selectedAppointmentPayments.map((payment) => (
+                      <div
+                        key={payment.id}
+                        style={{
+                          border: "1px solid #e5e7eb",
+                          borderRadius: "12px",
+                          padding: "12px",
+                          backgroundColor: "#ffffff",
+                        }}
+                      >
+                        <div style={{ fontWeight: "bold" }}>
+                          ${Number(payment.amount || 0).toLocaleString("es-CL")}
+                        </div>
+                        <div style={{ fontSize: "14px", color: "#4b5563" }}>
+                          Método: {payment.method}
+                        </div>
+                        <div style={{ fontSize: "14px", color: "#4b5563" }}>
+                          Etapa: {payment.payment_stage}
+                        </div>
+                        {payment.notes ? (
+                          <div style={{ fontSize: "14px", color: "#4b5563" }}>
+                            Nota: {payment.notes}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ display: "grid", gap: "10px" }}>
+                  <input
+                    style={styles.input}
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="Monto del pago"
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value)}
+                  />
+
+                  <select
+                    style={styles.select}
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                  >
+                    {paymentMethods.map((method) => (
+                      <option key={method} value={method}>
+                        {method}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    style={styles.select}
+                    value={paymentStage}
+                    onChange={(e) => setPaymentStage(e.target.value)}
+                  >
+                    {depositFeatureEnabled ? (
+                      <>
+                        <option value="deposit">
+                          {depositOptional ? "Abono (opcional)" : "Abono"}
+                        </option>
+                        <option value="balance">Saldo</option>
+                        <option value="full">Pago completo</option>
+                      </>
+                    ) : (
+                      <option value="full">Pago completo</option>
+                    )}
+                  </select>
+
+                  <input
+                    style={styles.input}
+                    placeholder="Observación del pago"
+                    value={paymentNotes}
+                    onChange={(e) => setPaymentNotes(e.target.value)}
+                  />
+
+                  <button
+                    style={{ ...styles.button, ...styles.primaryButton }}
+                    onClick={handleAddPayment}
+                  >
+                    Agregar pago
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div style={styles.card}>
               <div style={styles.dashboardGrid}>
                 <div style={styles.dashboardCard}>
@@ -1440,7 +1876,13 @@ border: `1px solid ${theme.primaryDark || "#111827"}`,
               </div>
 
               <div style={styles.topBar}>
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                  }}
+                >
                   <h2 style={{ margin: 0 }}>Vista semanal</h2>
 
                   <input
@@ -1523,6 +1965,7 @@ border: `1px solid ${theme.primaryDark || "#111827"}`,
                 submitting={submitting}
                 isPastSlot={isPastSlot}
                 isPastDayOnly={isPastDayOnly}
+                openPaymentPanel={openPaymentPanel}
               />
             </div>
           </div>

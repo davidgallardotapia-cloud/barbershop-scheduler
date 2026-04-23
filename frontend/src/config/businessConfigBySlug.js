@@ -52,6 +52,8 @@ export const businessConfigBySlug = {
     takenSlotLabel: "Ocupado",
     pastSlotLabel: "Pasó",
     availableSlotLabel: "Disponible",
+    paymentsEnabled: false,
+    depositFeatureEnabled: false,
 
     barbers: ["James"],
 
@@ -224,6 +226,11 @@ export const businessConfigBySlug = {
     takenSlotLabel: "Reservado",
     pastSlotLabel: "Pasó",
     availableSlotLabel: "Disponible",
+    paymentsEnabled: true,
+depositFeatureEnabled: true,
+depositOptional: true,
+defaultDepositRate: 0.5,
+paymentMethods: ["transferencia", "efectivo", "debito"],
 
     barbers: [
       "Cancha 1",
