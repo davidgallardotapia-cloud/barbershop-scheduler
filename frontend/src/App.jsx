@@ -168,13 +168,17 @@ function App() {
     cancelled: "Cancelado",
   };
 
-  const effectivePaymentStatus =
-    paymentAppointment?.payment_status ||
-    (selectedPaymentTotal > 0
-      ? selectedPaymentTotal >= selectedReservationTotal
-        ? "paid"
-        : "partially_paid"
-      : "unpaid");
+  const effectivePaymentStatus = paymentAppointment?.payment_status
+  ? paymentAppointment.payment_status
+  : selectedPaymentTotal <= 0
+  ? "unpaid"
+  : depositFeatureEnabled && selectedPaymentTotal >= selectedRequiredDeposit && selectedPaymentTotal < selectedReservationTotal
+  ? selectedPaymentTotal === selectedRequiredDeposit
+    ? "deposit_paid"
+    : "partially_paid"
+  : selectedPaymentTotal >= selectedReservationTotal
+  ? "paid"
+  : "partially_paid";
 
   const selectedPaymentStatusLabel =
     paymentStatusLabelMap[effectivePaymentStatus] || "Sin estado";
