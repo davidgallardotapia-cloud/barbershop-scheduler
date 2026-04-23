@@ -168,17 +168,14 @@ function App() {
     cancelled: "Cancelado",
   };
 
-  const effectivePaymentStatus = paymentAppointment?.payment_status
-  ? paymentAppointment.payment_status
-  : selectedPaymentTotal <= 0
-  ? "unpaid"
-  : depositFeatureEnabled && selectedPaymentTotal >= selectedRequiredDeposit && selectedPaymentTotal < selectedReservationTotal
-  ? selectedPaymentTotal === selectedRequiredDeposit
+  const effectivePaymentStatus =
+  selectedPaymentTotal <= 0
+    ? "unpaid"
+    : selectedPaymentTotal >= selectedReservationTotal
+    ? "paid"
+    : depositFeatureEnabled && selectedPaymentTotal === selectedRequiredDeposit
     ? "deposit_paid"
-    : "partially_paid"
-  : selectedPaymentTotal >= selectedReservationTotal
-  ? "paid"
-  : "partially_paid";
+    : "partially_paid";
 
   const selectedPaymentStatusLabel =
     paymentStatusLabelMap[effectivePaymentStatus] || "Sin estado";
