@@ -8,6 +8,14 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const pool = require("./config/database");
 
+const app = express();
+
+console.log("PAYMENTS BACKEND VERSION OK");
+
+
+app.use(cors());
+app.use(express.json());
+
 const normalizeChilePhone = (rawPhone) => {
   const digits = String(rawPhone || "").replace(/\D/g, "");
 
@@ -37,8 +45,6 @@ const isValidChileMobilePhone = (rawPhone) => {
   return /^569\d{8}$/.test(normalized);
 };
 
-const app = express();
-
 const createTables = async () => {
   try {
     await pool.query(`
@@ -65,6 +71,53 @@ const createTables = async () => {
     await pool.query(`
       ALTER TABLE appointments
       ADD COLUMN IF NOT EXISTS business_id VARCHAR(100);
+    `);
+
+    await pool.query(`
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS total_amount NUMERIC(10,2) DEFAULT 0;
+    `);
+
+    await pool.query(`
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS deposit_required BOOLEAN DEFAULT FALSE;
+    `);
+
+    await pool.query(`
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS required_deposit_amount NUMERIC(10,2) DEFAULT 0;
+    `);
+
+    await pool.query(`
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS payment_status VARCHAR(30) DEFAULT 'unpaid';
+    `);
+
+    await pool.query(`
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS deposit_receipt_url TEXT;
+    `);
+
+    await pool.query(`
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS notes TEXT;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS appointment_payments (
+        id SERIAL PRIMARY KEY,
+        appointment_id INTEGER NOT NULL,
+        amount NUMERIC(10,2) NOT NULL CHECK (amount >= 0),
+        method VARCHAR(30) NOT NULL CHECK (method IN ('transferencia', 'efectivo', 'debito')),
+        payment_stage VARCHAR(30) NOT NULL CHECK (payment_stage IN ('deposit', 'balance', 'full')),
+        receipt_url TEXT,
+        notes TEXT,
+        created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+        CONSTRAINT fk_appointment_payments_appointment
+          FOREIGN KEY (appointment_id)
+          REFERENCES appointments(id)
+          ON DELETE CASCADE
+      );
     `);
 
     await pool.query(`
@@ -114,120 +167,135 @@ const createTables = async () => {
 
     await pool.query(`
       INSERT INTO businesses (id, name, slug)
-      VALUES ('giocata', 'Canchas Giocata', 'giocata')
+      VALUES ('giocata', 'Giocata', 'giocata')
       ON CONFLICT (id) DO NOTHING;
     `);
 
     await pool.query(`
       UPDATE businesses
-      SET name = 'Canchas Giocata', slug = 'giocata'
+      SET name = 'Giocata', slug = 'giocata'
       WHERE id = 'giocata';
     `);
 
-    const hashedPassword = await bcrypt.hash("1234", 10);
-
-    const existingAdmin = await pool.query(
+    const jamesUser = await pool.query(
       "SELECT * FROM users WHERE username = $1",
-      ["admin"]
+      ["james"]
     );
 
-    if (existingAdmin.rows.length === 0) {
+    if (jamesUser.rows.length === 0) {
+      const hashedPassword = await bcrypt.hash("1234", 10);
       await pool.query(
         "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
-        ["admin", hashedPassword, "barberia-james"]
+        ["james", hashedPassword, "barberia-james"]
       );
-
-      console.log("Usuario admin creado ✅");
-    } else {
+    } else if (!jamesUser.rows[0].business_id) {
       await pool.query(
-        "UPDATE users SET password = $1, business_id = $2 WHERE username = $3",
-        [hashedPassword, "barberia-james", "admin"]
+        "UPDATE users SET business_id = $1 WHERE username = $2",
+        ["barberia-james", "james"]
       );
-
-      console.log("Contraseña de admin actualizada ✅");
     }
 
-    const existingJuniorAdmin = await pool.query(
+    const juniorUser = await pool.query(
       "SELECT * FROM users WHERE username = $1",
-      ["admin_junior"]
+      ["junior"]
     );
 
-    if (existingJuniorAdmin.rows.length === 0) {
+    if (juniorUser.rows.length === 0) {
+      const hashedPassword = await bcrypt.hash("1234", 10);
       await pool.query(
         "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
-        ["admin_junior", hashedPassword, "barberia-junior"]
+        ["junior", hashedPassword, "barberia-junior"]
       );
-
-      console.log("Usuario admin_junior creado ✅");
-    } else {
+    } else if (!juniorUser.rows[0].business_id) {
       await pool.query(
-        "UPDATE users SET password = $1, business_id = $2 WHERE username = $3",
-        [hashedPassword, "barberia-junior", "admin_junior"]
+        "UPDATE users SET business_id = $1 WHERE username = $2",
+        ["barberia-junior", "junior"]
       );
-
-      console.log("Contraseña de admin_junior actualizada ✅");
     }
 
-    const existingGiocataAdmin = await pool.query(
+    const giocataUser = await pool.query(
       "SELECT * FROM users WHERE username = $1",
-      ["admin_giocata"]
+      ["giocata"]
     );
 
-    if (existingGiocataAdmin.rows.length === 0) {
+    if (giocataUser.rows.length === 0) {
+      const hashedPassword = await bcrypt.hash("1234", 10);
       await pool.query(
         "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
-        ["admin_giocata", hashedPassword, "giocata"]
+        ["giocata", hashedPassword, "giocata"]
       );
-
-      console.log("Usuario admin_giocata creado ✅");
-    } else {
+    } else if (!giocataUser.rows[0].business_id) {
       await pool.query(
-        "UPDATE users SET password = $1, business_id = $2 WHERE username = $3",
-        [hashedPassword, "giocata", "admin_giocata"]
+        "UPDATE users SET business_id = $1 WHERE username = $2",
+        ["giocata", "giocata"]
       );
-
-      console.log("Contraseña de admin_giocata actualizada ✅");
     }
 
-    console.log("Tablas creadas 🚀");
+    console.log("Tablas verificadas/creadas correctamente");
   } catch (error) {
     console.error("Error creando tablas:", error);
   }
 };
 
-const allowedOrigins = [
-  "https://barbershop-scheduler-two.vercel.app",
-  "https://agendasmart.cl",
-  "https://www.agendasmart.cl",
-  "http://localhost:5173",
-];
+app.get("/", async (_req, res) => {
+  res.json({ ok: true, message: "Backend AgendaSmart operativo" });
+});
 
-const corsOptions = {
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      return callback(null, true);
+app.get("/appointments", async (req, res) => {
+  const { businessId } = req.query;
+
+  try {
+    let result;
+
+    if (businessId) {
+      result = await pool.query(
+        "SELECT * FROM appointments WHERE business_id = $1 ORDER BY date ASC, time ASC",
+        [businessId]
+      );
+    } else {
+      result = await pool.query(
+        "SELECT * FROM appointments ORDER BY date ASC, time ASC"
+      );
     }
-    return callback(new Error("Origen no permitido por CORS"));
-  },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-};
 
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
-app.use(express.json());
+    return res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al obtener citas" });
+  }
+});
+
+app.get("/business/:slug", async (req, res) => {
+  const { slug } = req.params;
+
+  try {
+    const result = await pool.query(
+      "SELECT * FROM businesses WHERE slug = $1 LIMIT 1",
+      [slug]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Negocio no encontrado" });
+    }
+
+    return res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al obtener negocio" });
+  }
+});
 
 app.post("/login", async (req, res) => {
   const { username, password, businessId } = req.body;
 
-  if (!username || !password || !businessId) {
+  if (!username || !password) {
     return res.status(400).json({ message: "Faltan credenciales" });
   }
 
   try {
     const result = await pool.query(
-      "SELECT * FROM users WHERE username = $1 AND business_id = $2",
-      [username, businessId]
+      "SELECT * FROM users WHERE username = $1 LIMIT 1",
+      [username]
     );
 
     if (result.rows.length === 0) {
@@ -235,10 +303,16 @@ app.post("/login", async (req, res) => {
     }
 
     const user = result.rows[0];
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.password);
 
-    if (!isPasswordValid) {
+    if (!isMatch) {
       return res.status(401).json({ message: "Contraseña incorrecta" });
+    }
+
+    if (businessId && user.business_id && user.business_id !== businessId) {
+      return res.status(403).json({
+        message: "Este usuario no pertenece a este negocio",
+      });
     }
 
     return res.json({
@@ -250,65 +324,40 @@ app.post("/login", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error en login:", error);
+    console.error(error);
     return res.status(500).json({ message: "Error al iniciar sesión" });
   }
 });
 
-app.get("/business/:slug", async (req, res) => {
-  const { slug } = req.params;
-
-  try {
-    const result = await pool.query(
-      "SELECT * FROM businesses WHERE slug = $1",
-      [slug]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Negocio no encontrado" });
-    }
-
-    return res.json(result.rows[0]);
-  } catch (error) {
-    console.error("Error al obtener negocio:", error);
-    return res.status(500).json({ error: "Error del servidor" });
-  }
-});
-
-app.get("/appointments", async (req, res) => {
-  const { businessId } = req.query;
-
-  if (!businessId) {
-    return res.status(400).json({ error: "businessId requerido" });
-  }
-
-  try {
-    const result = await pool.query(
-      "SELECT * FROM appointments WHERE business_id = $1 ORDER BY date ASC, time ASC",
-      [businessId]
-    );
-
-    return res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: "Error al obtener citas" });
-  }
-});
-
 app.post("/appointments", async (req, res) => {
-  const { name, phone, date, time, service, barber, businessId, status } = req.body;
+  const {
+    name,
+    phone,
+    date,
+    time,
+    service,
+    barber,
+    businessId,
+    status,
+    totalAmount,
+    depositRequired,
+    requiredDepositAmount,
+    paymentStatus,
+    depositReceiptUrl,
+    notes,
+  } = req.body;
 
   if (!name || !phone || !date || !time || !service || !barber || !businessId) {
     return res.status(400).json({ message: "Faltan campos obligatorios" });
   }
 
   if (!isValidChileMobilePhone(phone)) {
-  return res.status(400).json({
-    message: "Ingresa un celular chileno válido",
-  });
-}
+    return res.status(400).json({
+      message: "Ingresa un celular chileno válido",
+    });
+  }
 
-const normalizedPhone = normalizeChilePhone(phone);
+  const normalizedPhone = normalizeChilePhone(phone);
 
   try {
     const exists = await pool.query(
@@ -324,10 +373,40 @@ const normalizedPhone = normalizeChilePhone(phone);
     }
 
     const result = await pool.query(
-      `INSERT INTO appointments (name, phone, date, time, service, barber, business_id, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO appointments (
+        name,
+        phone,
+        date,
+        time,
+        service,
+        barber,
+        business_id,
+        status,
+        total_amount,
+        deposit_required,
+        required_deposit_amount,
+        payment_status,
+        deposit_receipt_url,
+        notes
+      )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
-      [name, normalizedPhone, date, time, service, barber, businessId, status || "reservada"]
+      [
+        name,
+        normalizedPhone,
+        date,
+        time,
+        service,
+        barber,
+        businessId,
+        status || "reservada",
+        totalAmount || 0,
+        depositRequired ?? false,
+        requiredDepositAmount || 0,
+        paymentStatus || (depositRequired ? "deposit_pending" : "unpaid"),
+        depositReceiptUrl || null,
+        notes || null,
+      ]
     );
 
     return res.json({
@@ -342,19 +421,34 @@ const normalizedPhone = normalizeChilePhone(phone);
 
 app.put("/appointments/:id", async (req, res) => {
   const { id } = req.params;
-  const { name, phone, date, time, service, barber, businessId, status } = req.body;
+  const {
+    name,
+    phone,
+    date,
+    time,
+    service,
+    barber,
+    businessId,
+    status,
+    totalAmount,
+    depositRequired,
+    requiredDepositAmount,
+    paymentStatus,
+    depositReceiptUrl,
+    notes,
+  } = req.body;
 
-if (!name || !phone || !date || !time || !service || !barber || !businessId) {
-  return res.status(400).json({ message: "Faltan campos obligatorios" });
-}
+  if (!name || !phone || !date || !time || !service || !barber || !businessId) {
+    return res.status(400).json({ message: "Faltan campos obligatorios" });
+  }
 
-if (!isValidChileMobilePhone(phone)) {
-  return res.status(400).json({
-    message: "Ingresa un celular chileno válido",
-  });
-}
+  if (!isValidChileMobilePhone(phone)) {
+    return res.status(400).json({
+      message: "Ingresa un celular chileno válido",
+    });
+  }
 
-const normalizedPhone = normalizeChilePhone(phone);
+  const normalizedPhone = normalizeChilePhone(phone);
 
   try {
     const exists = await pool.query(
@@ -371,10 +465,40 @@ const normalizedPhone = normalizeChilePhone(phone);
 
     const result = await pool.query(
       `UPDATE appointments
-       SET name = $1, phone = $2, date = $3, time = $4, service = $5, barber = $6, business_id = $7, status = $8
-       WHERE id = $9 AND business_id = $7
+       SET
+         name = $1,
+         phone = $2,
+         date = $3,
+         time = $4,
+         service = $5,
+         barber = $6,
+         business_id = $7,
+         status = $8,
+         total_amount = $9,
+         deposit_required = $10,
+         required_deposit_amount = $11,
+         payment_status = $12,
+         deposit_receipt_url = $13,
+         notes = $14
+       WHERE id = $15 AND business_id = $7
        RETURNING *`,
-      [name, normalizedPhone, date, time, service, barber, businessId, status || "reservada", id]
+      [
+        name,
+        normalizedPhone,
+        date,
+        time,
+        service,
+        barber,
+        businessId,
+        status || "reservada",
+        totalAmount || 0,
+        depositRequired ?? false,
+        requiredDepositAmount || 0,
+        paymentStatus || (depositRequired ? "deposit_pending" : "unpaid"),
+        depositReceiptUrl || null,
+        notes || null,
+        id,
+      ]
     );
 
     if (result.rows.length === 0) {
@@ -390,6 +514,155 @@ const normalizedPhone = normalizeChilePhone(phone);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Error al actualizar cita" });
+  }
+});
+
+console.log("REGISTERING GET /appointments/:id/payments");
+console.log("REGISTERING POST /appointments/:id/payments");
+
+app.post("/appointments/:id/payments", async (req, res) => {
+  const { id } = req.params;
+  const {
+    amount,
+    method,
+    paymentStage,
+    receiptUrl,
+    notes,
+    businessId,
+  } = req.body;
+
+  if (!businessId) {
+    return res.status(400).json({ message: "businessId requerido" });
+  }
+
+  if (amount == null || !method || !paymentStage) {
+    return res.status(400).json({ message: "Faltan campos obligatorios del pago" });
+  }
+
+  if (Number(amount) <= 0) {
+    return res.status(400).json({ message: "El monto del pago debe ser mayor a 0" });
+  }
+
+  try {
+    const appointmentResult = await pool.query(
+      "SELECT * FROM appointments WHERE id = $1 AND business_id = $2",
+      [id, businessId]
+    );
+
+    if (appointmentResult.rows.length === 0) {
+      return res.status(404).json({
+        message: "Reserva no encontrada o no pertenece a este negocio",
+      });
+    }
+
+    const appointment = appointmentResult.rows[0];
+
+    const paymentResult = await pool.query(
+      `INSERT INTO appointment_payments (
+        appointment_id,
+        amount,
+        method,
+        payment_stage,
+        receipt_url,
+        notes
+      )
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [
+        id,
+        amount,
+        method,
+        paymentStage,
+        receiptUrl || null,
+        notes || null,
+      ]
+    );
+
+    const totalsResult = await pool.query(
+      `SELECT COALESCE(SUM(amount), 0) AS total_paid
+       FROM appointment_payments
+       WHERE appointment_id = $1`,
+      [id]
+    );
+
+    const totalPaid = Number(totalsResult.rows[0].total_paid || 0);
+    const totalAmount = Number(appointment.total_amount || 0);
+    const requiredDepositAmount = Number(appointment.required_deposit_amount || 0);
+    const depositRequired = Boolean(appointment.deposit_required);
+
+    let nextPaymentStatus = "unpaid";
+
+    if (depositRequired) {
+      if (totalPaid <= 0 || totalPaid < requiredDepositAmount) {
+        nextPaymentStatus = "deposit_pending";
+      } else if (totalPaid === requiredDepositAmount) {
+        nextPaymentStatus = "deposit_paid";
+      } else if (totalPaid > requiredDepositAmount && totalPaid < totalAmount) {
+        nextPaymentStatus = "partially_paid";
+      } else if (totalPaid >= totalAmount && totalAmount > 0) {
+        nextPaymentStatus = "paid";
+      }
+    } else {
+      if (totalPaid <= 0) {
+        nextPaymentStatus = "unpaid";
+      } else if (totalPaid < totalAmount) {
+        nextPaymentStatus = "partially_paid";
+      } else if (totalPaid >= totalAmount && totalAmount > 0) {
+        nextPaymentStatus = "paid";
+      }
+    }
+
+    await pool.query(
+      `UPDATE appointments
+       SET payment_status = $1
+       WHERE id = $2`,
+      [nextPaymentStatus, id]
+    );
+
+    return res.json({
+      message: "Pago registrado correctamente",
+      data: paymentResult.rows[0],
+      paymentStatus: nextPaymentStatus,
+      totalPaid,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al registrar pago" });
+  }
+});
+
+app.get("/appointments/:id/payments", async (req, res) => {
+  const { id } = req.params;
+  const { businessId } = req.query;
+
+  if (!businessId) {
+    return res.status(400).json({ message: "businessId requerido" });
+  }
+
+  try {
+    const appointmentResult = await pool.query(
+      "SELECT * FROM appointments WHERE id = $1 AND business_id = $2",
+      [id, businessId]
+    );
+
+    if (appointmentResult.rows.length === 0) {
+      return res.status(404).json({
+        message: "Reserva no encontrada o no pertenece a este negocio",
+      });
+    }
+
+    const result = await pool.query(
+      `SELECT *
+       FROM appointment_payments
+       WHERE appointment_id = $1
+       ORDER BY created_at ASC`,
+      [id]
+    );
+
+    return res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al obtener pagos" });
   }
 });
 
