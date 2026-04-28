@@ -163,7 +163,7 @@ export const businessConfigBySlug = {
   "giocata": {
     id: "giocata",
     tabTitle: "Canchas Giocata | AgendaSmart",
-    favicon: "/giocata-logo.jpg",
+    favicon: "/giocata-logo.png",
     name: "Canchas Giocata",
     subtitle: "Arriendo de canchas de fútbol",
     logoWidth: "150px",
@@ -265,6 +265,118 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
       { name: "Fútbol 6", image: "/giocata-logo.png" },
       { name: "Fútbol 7", image: "/giocata-logo.png" },
       { name: "Fútbol 8", image: "/giocata-logo.png" },
+    ],
+  },
+    "pinguino-club": {
+    id: "pinguino-club",
+    tabTitle: "Pingüino Club | AgendaSmart",
+    favicon: "/pinguino-logo.jpg",
+    name: "Pingüino Club",
+    subtitle: "Reserva tu cancha de forma rápida y simple",
+    logoWidth: "150px",
+    logoHeight: "150px",
+
+    phone: "Por definir",
+    hours: "Horario por definir",
+    location: "Por definir",
+    address: "Dirección por definir",
+
+    image: "/pinguino-hero.png",
+    logo: "/pinguino-logo.jpg",
+
+    description:
+      "Reserva online en Pingüino Club. Elige la cancha, selecciona un horario disponible y confirma tu reserva fácilmente.",
+
+    whatsappLabel: "Confirma tu reserva por WhatsApp",
+    mapLink: "https://maps.google.com",
+    mapEmbedUrl: "https://www.google.com/maps?q=Chile&output=embed",
+
+    bookingTitle: "Reserva tu cancha",
+    adminTitle: "Panel de reservas",
+
+    theme: {
+      pageBackground: "#f0fdf4",
+      cardBackground: "#ffffff",
+      primary: "#166534",
+      primaryDark: "#14532d",
+      primarySoft: "#dcfce7",
+      border: "#bbf7d0",
+      text: "#111827",
+      mutedText: "#374151",
+    },
+
+    bookingPanelTitle: "Reserva tu cancha",
+    bookingPanelDescription:
+      "Elige la cancha, selecciona un bloque disponible y confirma tu reserva en segundos.",
+    calendarHelpText:
+      "Para reservar, primero selecciona un bloque disponible en el calendario.",
+
+    resourceLabelSingle: "Cancha",
+    resourceLabelPlural: "Canchas",
+    hideResourceSelector: true,
+
+    serviceLabel: "tipo de cancha",
+    clientNamePlaceholder: "Nombre cliente",
+    clientPhonePlaceholder: "Celular cliente (ej: 912345678)",
+
+    submitButtonLabel: "Confirmar reserva",
+    submittingLabel: "Reservando...",
+    updateButtonLabel: "Actualizar reserva",
+    updatingLabel: "Actualizando...",
+    cancelEditLabel: "Cancelar edición",
+    createButtonLabel: "Crear reserva",
+    creatingLabel: "Creando...",
+
+    headerProfessionalsLimit: 3,
+    headerResourceSectionTitle: "Tipos de cancha",
+
+    newItemTitle: "Nueva reserva",
+    editItemTitle: "Editar reserva",
+
+    whatsappButtonLabel: "Abrir WhatsApp",
+    resourceSelectedLabel: "Cancha seleccionada",
+    resourceSelectPrompt: "Selecciona una cancha arriba",
+    resourceSelectOption: "Selecciona una cancha",
+    serviceSelectOption: "Selecciona un tipo de cancha",
+
+    blockedWeekdays: [],
+    takenSlotLabel: "Reservado",
+    pastSlotLabel: "Pasó",
+    availableSlotLabel: "Disponible",
+
+    paymentsEnabled: true,
+    depositFeatureEnabled: true,
+    depositOptional: true,
+    defaultDepositRate: 0.5,
+    paymentMethods: ["transferencia", "efectivo", "debito"],
+
+    barbers: [
+      "Cancha 1",
+      "Cancha 2",
+      "Cancha 3",
+      "Cancha 4",
+    ],
+
+    phones: {
+      "Cancha 1": "",
+      "Cancha 2": "",
+      "Cancha 3": "",
+      "Cancha 4": "",
+    },
+
+    services: [
+      "Cancha 1 ($22.000)",
+      "Cancha 2 ($22.000)",
+      "Cancha 3 ($22.000)",
+      "Cancha 4 ($22.000)",
+    ],
+
+    scheduleSlots: ["19:00", "20:00", "21:00", "22:00"],
+
+    professionals: [
+      { name: "Cancha 1", image: "/giocata-logo.png" },
+      { name: "Cancha 2", image: "/giocata-logo.png" },
+      { name: "Cancha 3", image: "/giocata-logo.png" },
     ],
   },
 };

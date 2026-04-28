@@ -1,4 +1,5 @@
 import React from "react";
+import { businessConfigBySlug } from "../config/businessConfigBySlug";
 
 function LoginScreen({
   styles,
@@ -11,6 +12,20 @@ function LoginScreen({
   handleLogin,
   setAppMode,
 }) {
+  const currentSlug = window.location.pathname.split("/").filter(Boolean)[0];
+
+  const currentBusiness = businessConfigBySlug[currentSlug];
+
+  const isSportsBusiness = ["giocata", "pinguino-club"].includes(currentSlug);
+
+  const fallbackIcon = isSportsBusiness ? "⚽" : "💈";
+
+  const loginDescription = isSportsBusiness
+    ? "Accede al panel de administración para gestionar reservas, canchas y clientes."
+    : "Accede al panel de administración para gestionar reservas, horarios y clientes.";
+
+  const loginLogo = currentBusiness?.logo || currentBusiness?.favicon || null;
+
   return (
     <div
       style={{
@@ -35,10 +50,28 @@ function LoginScreen({
         }}
       >
         <div style={{ marginBottom: "22px", textAlign: "center" }}>
-          <div style={{ fontSize: "34px", marginBottom: "8px" }}>💈</div>
+          {loginLogo ? (
+            <img
+              src={loginLogo}
+              alt={currentBusiness?.name || "Logo del negocio"}
+              style={{
+                width: "72px",
+                height: "72px",
+                objectFit: "contain",
+                marginBottom: "10px",
+                borderRadius: "14px",
+              }}
+            />
+          ) : (
+            <div style={{ fontSize: "34px", marginBottom: "8px" }}>
+              {fallbackIcon}
+            </div>
+          )}
+
           <h2 style={{ margin: 0, fontSize: "24px", color: "#111827" }}>
             Iniciar sesión
           </h2>
+
           <p
             style={{
               margin: "10px 0 0 0",
@@ -47,8 +80,7 @@ function LoginScreen({
               lineHeight: 1.5,
             }}
           >
-            Accede al panel de administración para gestionar reservas,
-            horarios y clientes.
+            {loginDescription}
           </p>
         </div>
 
