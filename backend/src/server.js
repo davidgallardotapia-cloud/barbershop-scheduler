@@ -201,7 +201,7 @@ const createTables = async () => {
     );
 
     if (juniorUser.rows.length === 0) {
-      const hashedPassword = await bcrypt.hash("1234", 10);
+      const hashedPassword = await bcrypt.hash("1314", 10);
       await pool.query(
         "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
         ["junior", hashedPassword, "barberia-junior"]
