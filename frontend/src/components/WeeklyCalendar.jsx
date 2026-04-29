@@ -37,6 +37,41 @@ function WeeklyCalendar({
     ? "Disponible"
     : business?.resourceSelectPrompt || "Selecciona un recurso arriba";
 
+  const isGiocata = business?.id === "giocata";
+
+  const getPaymentStatusLabel = (paymentStatus) => {
+    switch (paymentStatus) {
+      case "paid":
+        return "💰 Pago: Pagado";
+      case "partially_paid":
+        return "💰 Pago: Pago parcial";
+      case "deposit_paid":
+        return "💰 Pago: Abono registrado";
+      case "deposit_pending":
+        return "💰 Pago: Abono pendiente";
+      case "unpaid":
+      default:
+        return "💰 Pago: Sin pago";
+    }
+  };
+
+  const renderPaymentStatus = (appointment, extraStyle = {}) => {
+    if (!business?.paymentsEnabled) return null;
+
+    return (
+      <div
+        style={{
+          ...styles.appointmentMeta,
+          color: isGiocata ? "rgba(255,255,255,0.92)" : "#374151",
+          fontWeight: "700",
+          ...extraStyle,
+        }}
+      >
+        {getPaymentStatusLabel(appointment.payment_status)}
+      </div>
+    );
+  };
+
   const mobileGroupedSlots =
     !isClientMode && isMobile
       ? mobileSlots.map((slot) => ({
@@ -74,7 +109,11 @@ function WeeklyCalendar({
                       : isActive
                       ? "#111827"
                       : "#ffffff",
-                    color: isPastDay ? "#9ca3af" : isActive ? "#ffffff" : "#111827",
+                    color: isPastDay
+                      ? "#9ca3af"
+                      : isActive
+                      ? "#ffffff"
+                      : "#111827",
                     border: isActive
                       ? "1px solid #111827"
                       : "1px solid #d1d5db",
@@ -90,6 +129,7 @@ function WeeklyCalendar({
                   <div style={{ textTransform: "capitalize", fontSize: "13px" }}>
                     {day.toLocaleDateString("es-CL", { weekday: "short" })}
                   </div>
+
                   <div style={{ fontSize: "12px", opacity: 0.9 }}>
                     {day.getDate()}
                   </div>
@@ -145,6 +185,7 @@ function WeeklyCalendar({
                     }}
                   >
                     <div style={styles.mobileSlotTime}>{slot.label}</div>
+
                     <div style={styles.mobileSlotStatus}>
                       {!isBarberSelected
                         ? resourcePrompt
@@ -203,18 +244,15 @@ function WeeklyCalendar({
                             padding: "14px",
                             borderRadius: "14px",
                             boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-                            background:
-                              business?.id === "giocata"
-                                ? business?.theme?.primary || "#166534"
-                                : "#ffffff",
-                            color:
-                              business?.id === "giocata" ? "#ffffff" : "#111827",
-                            border:
-                              business?.id === "giocata"
-                                ? `1px solid ${
-                                    business?.theme?.primaryDark || "#14532d"
-                                  }`
-                                : "1px solid #e5e7eb",
+                            background: isGiocata
+                              ? business?.theme?.primary || "#166534"
+                              : "#ffffff",
+                            color: isGiocata ? "#ffffff" : "#111827",
+                            border: isGiocata
+                              ? `1px solid ${
+                                  business?.theme?.primaryDark || "#14532d"
+                                }`
+                              : "1px solid #e5e7eb",
                             cursor: "default",
                           }}
                         >
@@ -223,10 +261,7 @@ function WeeklyCalendar({
                               fontSize: "15px",
                               fontWeight: "600",
                               marginBottom: "2px",
-                              color:
-                                business?.id === "giocata"
-                                  ? "#ffffff"
-                                  : "#111827",
+                              color: isGiocata ? "#ffffff" : "#111827",
                             }}
                           >
                             {appointment.name}
@@ -236,10 +271,9 @@ function WeeklyCalendar({
                             style={{
                               fontSize: "12px",
                               marginBottom: "2px",
-                              color:
-                                business?.id === "giocata"
-                                  ? "rgba(255,255,255,0.92)"
-                                  : "#374151",
+                              color: isGiocata
+                                ? "rgba(255,255,255,0.92)"
+                                : "#374151",
                             }}
                           >
                             {appointment.service}
@@ -249,10 +283,9 @@ function WeeklyCalendar({
                             style={{
                               fontSize: "12px",
                               marginBottom: "2px",
-                              color:
-                                business?.id === "giocata"
-                                  ? "rgba(255,255,255,0.92)"
-                                  : "#374151",
+                              color: isGiocata
+                                ? "rgba(255,255,255,0.92)"
+                                : "#374151",
                             }}
                           >
                             {appointment.barber}
@@ -262,10 +295,7 @@ function WeeklyCalendar({
                             style={{
                               fontSize: "12px",
                               marginBottom: "8px",
-                              color:
-                                business?.id === "giocata"
-                                  ? "#ffffff"
-                                  : "#374151",
+                              color: isGiocata ? "#ffffff" : "#374151",
                             }}
                           >
                             {!appointment?.status ||
@@ -277,6 +307,10 @@ function WeeklyCalendar({
                               ? "🔴 No asistió"
                               : ""}
                           </div>
+
+                          {renderPaymentStatus(appointment, {
+                            marginBottom: "8px",
+                          })}
 
                           <div
                             style={{
@@ -302,7 +336,9 @@ function WeeklyCalendar({
                                 fontSize: "18px",
                                 ...(submitting ? styles.disabledButton : {}),
                               }}
-                              onClick={() => markAppointmentAsAttended(appointment)}
+                              onClick={() =>
+                                markAppointmentAsAttended(appointment)
+                              }
                               disabled={submitting}
                             >
                               ✓
@@ -324,7 +360,9 @@ function WeeklyCalendar({
                                 fontSize: "18px",
                                 ...(submitting ? styles.disabledButton : {}),
                               }}
-                              onClick={() => markAppointmentAsNoShow(appointment)}
+                              onClick={() =>
+                                markAppointmentAsNoShow(appointment)
+                              }
                               disabled={submitting}
                             >
                               ✕
@@ -346,21 +384,21 @@ function WeeklyCalendar({
                             </button>
 
                             {business?.paymentsEnabled && (
-  <button
-    type="button"
-    style={{
-      ...styles.tinyButton,
-      ...styles.secondaryButton,
-      flex: 1,
-      minWidth: "90px",
-      ...(submitting ? styles.disabledButton : {}),
-    }}
-    onClick={() => openPaymentPanel?.(appointment)}
-    disabled={submitting}
-  >
-    Pago
-  </button>
-)}
+                              <button
+                                type="button"
+                                style={{
+                                  ...styles.tinyButton,
+                                  ...styles.secondaryButton,
+                                  flex: 1,
+                                  minWidth: "90px",
+                                  ...(submitting ? styles.disabledButton : {}),
+                                }}
+                                onClick={() => openPaymentPanel?.(appointment)}
+                                disabled={submitting}
+                              >
+                                Pago
+                              </button>
+                            )}
 
                             <button
                               type="button"
@@ -416,10 +454,12 @@ function WeeklyCalendar({
 
                 {weekDays.map((day, index) => {
                   const slotAppointments = getAppointmentsForSlot(day, hour);
+
                   const normalizedHour =
                     typeof hour === "string"
                       ? hour
                       : `${String(hour).padStart(2, "0")}:00`;
+
                   const isPast = isClientMode
                     ? isPastSlot(day, normalizedHour) || isSunday(day)
                     : false;
@@ -447,10 +487,7 @@ function WeeklyCalendar({
                                   <div
                                     style={{
                                       ...styles.appointmentTitle,
-                                      color:
-                                        business?.id === "giocata"
-                                          ? "#ffffff"
-                                          : "#111827",
+                                      color: isGiocata ? "#ffffff" : "#111827",
                                     }}
                                   >
                                     Ocupado
@@ -459,10 +496,7 @@ function WeeklyCalendar({
                                   <div
                                     style={{
                                       ...styles.appointmentMeta,
-                                      color:
-                                        business?.id === "giocata"
-                                          ? "#ffffff"
-                                          : "#374151",
+                                      color: isGiocata ? "#ffffff" : "#374151",
                                     }}
                                   >
                                     {appointment.barber}
@@ -471,10 +505,7 @@ function WeeklyCalendar({
                                   <div
                                     style={{
                                       ...styles.appointmentMeta,
-                                      color:
-                                        business?.id === "giocata"
-                                          ? "#ffffff"
-                                          : "#374151",
+                                      color: isGiocata ? "#ffffff" : "#374151",
                                     }}
                                   >
                                     {String(appointment.time).slice(0, 5)}
@@ -485,10 +516,7 @@ function WeeklyCalendar({
                                   <div
                                     style={{
                                       ...styles.appointmentTitle,
-                                      color:
-                                        business?.id === "giocata"
-                                          ? "#ffffff"
-                                          : "#111827",
+                                      color: isGiocata ? "#ffffff" : "#111827",
                                     }}
                                   >
                                     {appointment.name}
@@ -497,10 +525,9 @@ function WeeklyCalendar({
                                   <div
                                     style={{
                                       ...styles.appointmentMeta,
-                                      color:
-                                        business?.id === "giocata"
-                                          ? "rgba(255,255,255,0.92)"
-                                          : "#374151",
+                                      color: isGiocata
+                                        ? "rgba(255,255,255,0.92)"
+                                        : "#374151",
                                     }}
                                   >
                                     {appointment.service}
@@ -509,10 +536,9 @@ function WeeklyCalendar({
                                   <div
                                     style={{
                                       ...styles.appointmentMeta,
-                                      color:
-                                        business?.id === "giocata"
-                                          ? "rgba(255,255,255,0.92)"
-                                          : "#374151",
+                                      color: isGiocata
+                                        ? "rgba(255,255,255,0.92)"
+                                        : "#374151",
                                     }}
                                   >
                                     {appointment.barber}
@@ -521,10 +547,9 @@ function WeeklyCalendar({
                                   <div
                                     style={{
                                       ...styles.appointmentMeta,
-                                      color:
-                                        business?.id === "giocata"
-                                          ? "rgba(255,255,255,0.92)"
-                                          : "#374151",
+                                      color: isGiocata
+                                        ? "rgba(255,255,255,0.92)"
+                                        : "#374151",
                                     }}
                                   >
                                     {String(appointment.time).slice(0, 5)}
@@ -533,10 +558,7 @@ function WeeklyCalendar({
                                   <div
                                     style={{
                                       ...styles.appointmentMeta,
-                                      color:
-                                        business?.id === "giocata"
-                                          ? "#ffffff"
-                                          : "#374151",
+                                      color: isGiocata ? "#ffffff" : "#374151",
                                     }}
                                   >
                                     {!appointment.status ||
@@ -548,6 +570,11 @@ function WeeklyCalendar({
                                       ? "🔴 No asistió"
                                       : ""}
                                   </div>
+
+                                  {renderPaymentStatus(appointment, {
+                                    marginTop: "2px",
+                                    marginBottom: "6px",
+                                  })}
 
                                   <div
                                     style={{
@@ -624,19 +651,23 @@ function WeeklyCalendar({
                                     </button>
 
                                     {business?.paymentsEnabled && (
-  <button
-    type="button"
-    style={{
-      ...styles.tinyButton,
-      ...styles.secondaryButton,
-      ...(submitting ? styles.disabledButton : {}),
-    }}
-    onClick={() => openPaymentPanel?.(appointment)}
-    disabled={submitting}
-  >
-    Pago
-  </button>
-)}
+                                      <button
+                                        type="button"
+                                        style={{
+                                          ...styles.tinyButton,
+                                          ...styles.secondaryButton,
+                                          ...(submitting
+                                            ? styles.disabledButton
+                                            : {}),
+                                        }}
+                                        onClick={() =>
+                                          openPaymentPanel?.(appointment)
+                                        }
+                                        disabled={submitting}
+                                      >
+                                        Pago
+                                      </button>
+                                    )}
 
                                     <button
                                       type="button"
@@ -666,13 +697,12 @@ function WeeklyCalendar({
                             ...styles.tinyButton,
                             backgroundColor:
                               business?.theme?.primarySoft || "#e5e7eb",
-                            color:
-                              business?.theme?.primaryDark || "#111827",
+                            color: business?.theme?.primaryDark || "#111827",
                             border: `1px solid ${
                               business?.theme?.border || "#d1d5db"
                             }`,
                             width: "100%",
-                            ...((!isBarberSelected || isPast)
+                            ...(!isBarberSelected || isPast
                               ? styles.disabledButton
                               : {}),
                             ...(isPast
