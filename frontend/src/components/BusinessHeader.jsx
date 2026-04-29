@@ -3,6 +3,30 @@ import React from "react";
 function BusinessHeader({ isMobile, business }) {
   if (!business) return null;
 
+  const hasSocialLinks =
+    Boolean(business?.socialLinks?.instagram) ||
+    Boolean(business?.socialLinks?.facebook);
+
+  const getInstagramHandle = (url) => {
+    if (!url) return "";
+
+    const cleanUrl = url.replace(/\/+$/, "");
+    const parts = cleanUrl.split("/");
+    return parts[parts.length - 1]
+      ? `@${parts[parts.length - 1]}`
+      : "@instagram";
+  };
+
+  const getFacebookLabel = (url) => {
+    if (!url) return "Facebook";
+
+    const cleanUrl = url.replace(/\/+$/, "");
+    const parts = cleanUrl.split("/");
+    const lastPart = parts[parts.length - 1];
+
+    return lastPart ? lastPart.replace(/-/g, " ") : "Facebook";
+  };
+
   return (
     <div
       style={{
@@ -25,27 +49,27 @@ function BusinessHeader({ isMobile, business }) {
         }}
       >
         <div
-  style={{
-    width: "100%",
-    height: isMobile ? "220px" : "420px",
-    overflow: "hidden",
-    backgroundColor: "#111",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  }}
->
-  <img
-    src={business.image}
-    alt={business.name}
-    style={{
-      width: "100%",
-      height: "100%",
-      objectFit: "contain",
-      display: "block",
-    }}
-  />
-</div>
+          style={{
+            width: "100%",
+            height: isMobile ? "220px" : "420px",
+            overflow: "hidden",
+            backgroundColor: "#111",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <img
+            src={business.image}
+            alt={business.name}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              display: "block",
+            }}
+          />
+        </div>
 
         <div
           style={{
@@ -57,15 +81,15 @@ function BusinessHeader({ isMobile, business }) {
           }}
         >
           <div
-  style={{
-    width: business?.logoWidth || "140px",
-    height: business?.logoHeight || "110px",
-    borderRadius: "12px",
-    overflow: "hidden",
-    backgroundColor: "#111",
-    margin: isMobile ? "0 auto" : "0",
-  }}
->
+            style={{
+              width: business?.logoWidth || "140px",
+              height: business?.logoHeight || "110px",
+              borderRadius: "12px",
+              overflow: "hidden",
+              backgroundColor: "#111",
+              margin: isMobile ? "0 auto" : "0",
+            }}
+          >
             <img
               src={business.logo}
               alt={`${business.name} logo`}
@@ -158,11 +182,177 @@ function BusinessHeader({ isMobile, business }) {
             💬 {business.whatsappLabel}
           </p>
 
-          <div style={{ margin: "0 0 24px" }}>
+          <div style={{ margin: "0 0 18px" }}>
             <p style={{ margin: "0 0 6px", fontSize: "18px", color: "#374151" }}>
               🕒 {business.hours || "Horario por confirmar"}
             </p>
           </div>
+
+          {hasSocialLinks && (
+            <div
+              style={{
+                margin: "0 0 24px",
+                padding: "16px",
+                borderRadius: "16px",
+                backgroundColor: "#f8fafc",
+                border: "1px solid #e5e7eb",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: "900",
+                  color: business?.theme?.text || "#111827",
+                  marginBottom: "12px",
+                  fontSize: "17px",
+                }}
+              >
+                Síguenos en redes
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "10px",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                }}
+              >
+                {business?.socialLinks?.instagram && (
+                  <a
+                    href={business.socialLinks.instagram}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      textDecoration: "none",
+                      padding: "10px 16px",
+                      borderRadius: "999px",
+                      background:
+                        "linear-gradient(135deg, rgba(253,242,248,1) 0%, rgba(252,231,243,1) 100%)",
+                      border: "1px solid #f9a8d4",
+                      color: "#be185d",
+                      fontWeight: "900",
+                      fontSize: "14px",
+                      boxShadow: "0 4px 12px rgba(190, 24, 93, 0.10)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: "22px",
+                        height: "22px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="22"
+                        height="22"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <defs>
+                          <linearGradient
+                            id="igGradientHeader"
+                            x1="0%"
+                            y1="100%"
+                            x2="100%"
+                            y2="0%"
+                          >
+                            <stop offset="0%" stopColor="#f58529" />
+                            <stop offset="35%" stopColor="#dd2a7b" />
+                            <stop offset="70%" stopColor="#8134af" />
+                            <stop offset="100%" stopColor="#515bd4" />
+                          </linearGradient>
+                        </defs>
+
+                        <rect
+                          x="3"
+                          y="3"
+                          width="18"
+                          height="18"
+                          rx="5"
+                          stroke="url(#igGradientHeader)"
+                          strokeWidth="2"
+                        />
+
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="4.2"
+                          stroke="url(#igGradientHeader)"
+                          strokeWidth="2"
+                        />
+
+                        <circle
+                          cx="17.2"
+                          cy="6.8"
+                          r="1.2"
+                          fill="url(#igGradientHeader)"
+                        />
+                      </svg>
+                    </span>
+
+                    <span
+                      style={{
+                        color: "#db2777",
+                        fontWeight: "900",
+                      }}
+                    >
+                      {getInstagramHandle(business.socialLinks.instagram)}
+                    </span>
+                  </a>
+                )}
+
+                {business?.socialLinks?.facebook && (
+                  <a
+                    href={business.socialLinks.facebook}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      textDecoration: "none",
+                      padding: "10px 16px",
+                      borderRadius: "999px",
+                      backgroundColor: "#eff6ff",
+                      border: "1px solid #bfdbfe",
+                      color: "#1d4ed8",
+                      fontWeight: "900",
+                      fontSize: "14px",
+                      boxShadow: "0 4px 12px rgba(29, 78, 216, 0.08)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: "22px",
+                        height: "22px",
+                        borderRadius: "999px",
+                        backgroundColor: "#1877f2",
+                        color: "#ffffff",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: "900",
+                        fontSize: "16px",
+                        fontFamily: "Arial, sans-serif",
+                        flexShrink: 0,
+                      }}
+                    >
+                      f
+                    </span>
+
+                    <span>{getFacebookLabel(business.socialLinks.facebook)}</span>
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div
@@ -172,8 +362,10 @@ function BusinessHeader({ isMobile, business }) {
           }}
         >
           <h3 style={{ margin: "0 0 16px", fontSize: "18px", color: "#111827" }}>
-  {business.headerResourceSectionTitle || business.resourceLabelPlural || "Recursos"}
-</h3>
+            {business.headerResourceSectionTitle ||
+              business.resourceLabelPlural ||
+              "Recursos"}
+          </h3>
 
           <div
             style={{
@@ -184,35 +376,41 @@ function BusinessHeader({ isMobile, business }) {
             }}
           >
             {(business.professionals || [])
-  .slice(0, business?.headerProfessionalsLimit || business?.professionals?.length || 0)
-  .map((pro) => (
-              <div key={pro.name}>
-                <div
-                  style={{
-                    width: "58px",
-                    height: "58px",
-                    borderRadius: "999px",
-                    overflow: "hidden",
-                    margin: "0 auto 8px",
-                    backgroundColor: "#ddd",
-                  }}
-                >
-                  <img
-                    src={pro.image}
-                    alt={pro.name}
+              .slice(
+                0,
+                business?.headerProfessionalsLimit ||
+                  business?.professionals?.length ||
+                  0
+              )
+              .map((pro) => (
+                <div key={pro.name}>
+                  <div
                     style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
+                      width: "58px",
+                      height: "58px",
+                      borderRadius: "999px",
+                      overflow: "hidden",
+                      margin: "0 auto 8px",
+                      backgroundColor: "#ddd",
                     }}
-                  />
+                  >
+                    <img
+                      src={pro.image}
+                      alt={pro.name}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block",
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ fontSize: "14px", color: "#374151" }}>
+                    {pro.name}
+                  </div>
                 </div>
-                <div style={{ fontSize: "14px", color: "#374151" }}>
-                  {pro.name}
-                </div>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
       </div>

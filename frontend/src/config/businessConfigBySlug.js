@@ -169,7 +169,7 @@ export const businessConfigBySlug = {
     logoWidth: "150px",
     logoHeight: "150px",
     phone: "Por definir",
-    hours: "Lun a Dom, 20:00 a 22:00",
+    hours: "Lun a Dom, 19:00 a 22:00",
     location: "La Serena",
     address: "Hortensia Bustamante 52",
     image: "/giocata-hero.png",
@@ -180,6 +180,10 @@ export const businessConfigBySlug = {
     mapLink: "https://maps.google.com/?q=Hortensia+Bustamante+52,+La+Serena",
     mapEmbedUrl:
       "https://www.google.com/maps?q=Hortensia+Bustamante+52+La+Serena&output=embed",
+    socialLinks: {
+  instagram: "",
+  facebook: "https://www.facebook.com/clublagiocata",
+  },
 
     bookingTitle: "Reserva tu cancha",
     adminTitle: "Panel de reservas",
@@ -290,6 +294,10 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     whatsappLabel: "Confirma tu reserva por WhatsApp",
     mapLink: "https://maps.google.com",
     mapEmbedUrl: "https://www.google.com/maps?q=Chile&output=embed",
+    socialLinks: {
+  instagram: "https://www.instagram.com/pinguino_club/",
+  facebook: "",
+  },
 
     bookingTitle: "Reserva tu cancha",
     adminTitle: "Panel de reservas",
