@@ -242,12 +242,12 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     ],
 
     phones: {
-      "Cancha 1": "",
-      "Cancha 2": "",
-      "Cancha 3": "",
-      "Cancha 4": "",
-      "Cancha 5": "",
-      "Cancha 6": "",
+      "Cancha 1": "56993239412",
+      "Cancha 2": "56993239412",
+      "Cancha 3": "56993239412",
+      "Cancha 4": "56993239412",
+      "Cancha 5": "56993239412",
+      "Cancha 6": "56993239412",
     },
 
     services: [

@@ -1130,7 +1130,6 @@ setEditingId(appointment.id);
   mergedBusiness?.id,
 ]);
 
-
   const styles = {
     page: {
       minHeight: "100vh",
