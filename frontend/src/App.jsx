@@ -15,7 +15,10 @@ import {
   isPastDayOnly,
 } from "./utils/dateUtils";
 import { SHEETS_URL } from "./utils/constants";
-import { buildBarberWhatsappUrl } from "./utils/whatsapp";
+import {
+  buildBarberWhatsappUrl,
+  buildOpponentWhatsappUrl,
+} from "./utils/whatsapp";
 import {
   getAppointments as fetchAppointments,
   createAppointment as createAppointmentService,
@@ -512,7 +515,101 @@ setEditingId(null);
     const normalizedPhone = normalizeChilePhone(phone);
 
     try {
-      const createdAppointment = await createAppointmentService({
+  const isSportsBusiness = ["giocata", "pinguino-club"].includes(
+    mergedBusiness?.id
+  );
+
+  const openOpponentAppointment = isSportsBusiness
+    ? appointments.find((appointment) => {
+        const appointmentDate = String(appointment.date || "").slice(0, 10);
+        const appointmentTime = String(appointment.time || "").slice(0, 5);
+
+        return (
+          appointmentDate === date &&
+          appointmentTime === String(time || "").slice(0, 5) &&
+          appointment.barber === resolvedBarber &&
+          Boolean(appointment.needs_opponent) &&
+          !appointment.opponent_name &&
+          !appointment.opponent_phone
+        );
+      })
+    : null;
+
+  if (openOpponentAppointment) {
+    await updateAppointmentService(openOpponentAppointment.id, {
+      name: openOpponentAppointment.name,
+      phone: openOpponentAppointment.phone,
+      date,
+      time,
+      service: openOpponentAppointment.service || service.trim(),
+      barber: resolvedBarber,
+      businessId,
+      status: openOpponentAppointment.status || "reservada",
+
+      totalAmount:
+        openOpponentAppointment.total_amount ||
+        getServicePrice(openOpponentAppointment.service || service.trim()) ||
+        0,
+      depositRequired: Boolean(openOpponentAppointment.deposit_required),
+      requiredDepositAmount:
+        Number(openOpponentAppointment.required_deposit_amount || 0),
+      paymentStatus: openOpponentAppointment.payment_status || "unpaid",
+      depositReceiptUrl: openOpponentAppointment.deposit_receipt_url || null,
+      notes: openOpponentAppointment.notes || null,
+
+      needsOpponent: false,
+      opponentName: name.trim(),
+      opponentPhone: normalizedPhone,
+    });
+
+    const barberPhone = BARBER_PHONES[resolvedBarber] || "";
+
+const generatedOpponentWhatsappUrl = barberPhone
+  ? buildOpponentWhatsappUrl({
+      barberPhone,
+      teamOneName: openOpponentAppointment.name,
+      teamOnePhone: openOpponentAppointment.phone,
+      opponentName: name.trim(),
+      opponentPhone: normalizedPhone,
+      date,
+      time,
+      service: openOpponentAppointment.service || service.trim(),
+      barber: resolvedBarber,
+      business: mergedBusiness,
+    })
+  : "";
+
+if (generatedOpponentWhatsappUrl) {
+  setWhatsappUrl(generatedOpponentWhatsappUrl);
+  window.open(generatedOpponentWhatsappUrl, "_blank");
+}
+
+    await syncToGoogleSheets({
+      id: openOpponentAppointment.id,
+      date,
+      time,
+      name: `${openOpponentAppointment.name || "Equipo 1"} vs ${name.trim()}`,
+      phone: openOpponentAppointment.phone || "",
+      barber: resolvedBarber,
+      service: openOpponentAppointment.service || service.trim(),
+      status: openOpponentAppointment.status || "reservada",
+    });
+
+    setSelectedWeekStart(getMonday(new Date()));
+    await getAppointments();
+
+    setMessage(`✅ Te sumaste como rival correctamente
+
+📅 ${date} a las ${time}
+${mergedBusiness?.resourceLabelSingle || "Cancha"}: ${resolvedBarber}
+
+⚽ Partido completado`);
+
+    resetForm();
+    return;
+  }
+
+  const createdAppointment = await createAppointmentService({
   name: name.trim(),
   phone: normalizedPhone,
   date,
@@ -530,17 +627,19 @@ setEditingId(null);
 
       const barberPhone = BARBER_PHONES[resolvedBarber] || "";
 
-      const generatedWhatsappUrl = barberPhone
-        ? buildBarberWhatsappUrl({
-            barberPhone,
-            name: name.trim(),
-            phone: normalizedPhone,
-            date,
-            time,
-            service: service.trim(),
-            barber: resolvedBarber,
-          })
-        : "";
+const generatedWhatsappUrl = barberPhone
+  ? buildBarberWhatsappUrl({
+      barberPhone,
+      name: name.trim(),
+      phone: normalizedPhone,
+      date,
+      time,
+      service: service.trim(),
+      barber: resolvedBarber,
+      business: mergedBusiness,
+      needsOpponent,
+    })
+  : "";
 
       await syncToGoogleSheets({
         id: createdAppointment.data.data.id,
