@@ -36,7 +36,7 @@ function BusinessHeader({ isMobile, business }) {
           : "minmax(0, 1.8fr) minmax(320px, 1fr)",
         gap: isMobile ? "16px" : "24px",
         marginBottom: "24px",
-        alignItems: "stretch",
+        alignItems: "flex-start",
       }}
     >
       <div
@@ -48,28 +48,49 @@ function BusinessHeader({ isMobile, business }) {
           boxShadow: "0 6px 20px rgba(0,0,0,0.06)",
         }}
       >
-        <div
-          style={{
-            width: "100%",
-            height: isMobile ? "220px" : "420px",
-            overflow: "hidden",
-            backgroundColor: "#111",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <img
-            src={business.image}
-            alt={business.name}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              display: "block",
-            }}
-          />
-        </div>
+       <div
+  style={{
+    position: "relative",
+    width: "100%",
+    height: isMobile ? "220px" : "420px",
+    overflow: "hidden",
+  }}
+>
+  <div
+    style={{
+      position: "absolute",
+      inset: 0,
+      backgroundImage: `url(${business.image})`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+      filter: "blur(18px)",
+      transform: "scale(1.08)",
+      opacity: 0.7,
+    }}
+  />
+
+  <div
+    style={{
+      position: "absolute",
+      inset: 0,
+      background: "rgba(0,0,0,0.20)",
+    }}
+  />
+
+  <img
+    src={business.image}
+    alt={business.name}
+    style={{
+      position: "relative",
+      zIndex: 1,
+      width: "100%",
+      height: "100%",
+      objectFit: "contain",
+      display: "block",
+    }}
+  />
+</div>
 
         <div
           style={{
