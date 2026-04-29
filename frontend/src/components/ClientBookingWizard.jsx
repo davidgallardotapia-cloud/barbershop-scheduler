@@ -711,7 +711,8 @@ function ClientBookingWizard({
 ) : (
   availableTimes.map((slot) => {
     const isSelected = time === slot.value;
-    const isDisabled = slot.disabled;
+const isDisabled = slot.disabled;
+const isLookingForOpponent = slot.status === "looking_opponent";
 
     return (
       <button
@@ -744,19 +745,23 @@ function ClientBookingWizard({
             ? `2px solid ${business?.theme?.primary || "#111827"}`
             : "1px solid #d1d5db",
           backgroundColor: isSelected
-            ? business?.theme?.primarySoft || "#f3f4f6"
-            : slot.status === "taken"
-            ? "#f3f4f6"
-            : slot.status === "past"
-            ? "#f9fafb"
-            : "#ffffff",
+  ? business?.theme?.primarySoft || "#f3f4f6"
+  : isLookingForOpponent
+  ? "#dbeafe"
+  : slot.status === "taken"
+  ? "#f3f4f6"
+  : slot.status === "past"
+  ? "#f9fafb"
+  : "#ffffff",
           color: isSelected
-            ? "#111827"
-            : slot.status === "taken"
-            ? "#6b7280"
-            : slot.status === "past"
-            ? "#9ca3af"
-            : "#111827",
+  ? "#111827"
+  : isLookingForOpponent
+  ? "#1e40af"
+  : slot.status === "taken"
+  ? "#6b7280"
+  : slot.status === "past"
+  ? "#9ca3af"
+  : "#111827",
           fontWeight: "bold",
           minHeight: isMobile ? "58px" : "64px",
           boxShadow: isSelected
@@ -778,16 +783,20 @@ function ClientBookingWizard({
             fontSize: "11px",
             fontWeight: "bold",
             color:
-              slot.status === "taken"
-                ? "#6b7280"
-                : slot.status === "past"
-                ? "#9ca3af"
-                : "#16a34a",
+  isLookingForOpponent
+    ? "#1d4ed8"
+    : slot.status === "taken"
+    ? "#6b7280"
+    : slot.status === "past"
+    ? "#9ca3af"
+    : "#16a34a",
             textTransform: "uppercase",
             letterSpacing: "0.02em",
           }}
         >
-          {slot.status === "taken"
+          {isLookingForOpponent
+  ? "Se busca rival"
+  : slot.status === "taken"
   ? business?.takenSlotLabel || "Reservado"
   : slot.status === "past"
   ? business?.pastSlotLabel || "Pasó"

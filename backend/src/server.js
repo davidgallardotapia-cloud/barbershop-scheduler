@@ -104,6 +104,21 @@ const createTables = async () => {
     `);
 
     await pool.query(`
+  ALTER TABLE appointments
+  ADD COLUMN IF NOT EXISTS needs_opponent BOOLEAN DEFAULT FALSE;
+`);
+
+await pool.query(`
+  ALTER TABLE appointments
+  ADD COLUMN IF NOT EXISTS opponent_name VARCHAR(100);
+`);
+
+await pool.query(`
+  ALTER TABLE appointments
+  ADD COLUMN IF NOT EXISTS opponent_phone VARCHAR(30);
+`);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS appointment_payments (
         id SERIAL PRIMARY KEY,
         appointment_id INTEGER NOT NULL,
@@ -345,6 +360,9 @@ app.post("/appointments", async (req, res) => {
     paymentStatus,
     depositReceiptUrl,
     notes,
+    needsOpponent,
+    opponentName,
+    opponentPhone,
   } = req.body;
 
   if (!name || !phone || !date || !time || !service || !barber || !businessId) {
@@ -357,7 +375,16 @@ app.post("/appointments", async (req, res) => {
     });
   }
 
+  if (opponentPhone && !isValidChileMobilePhone(opponentPhone)) {
+    return res.status(400).json({
+      message: "Ingresa un celular chileno válido para el rival",
+    });
+  }
+
   const normalizedPhone = normalizeChilePhone(phone);
+  const normalizedOpponentPhone = opponentPhone
+    ? normalizeChilePhone(opponentPhone)
+    : null;
 
   try {
     const exists = await pool.query(
@@ -368,7 +395,7 @@ app.post("/appointments", async (req, res) => {
 
     if (exists.rows.length > 0) {
       return res.status(400).json({
-        message: "Ese barbero ya tiene una cita agendada en esa fecha y hora",
+        message: "Ese horario ya está reservado para ese recurso",
       });
     }
 
@@ -387,9 +414,12 @@ app.post("/appointments", async (req, res) => {
         required_deposit_amount,
         payment_status,
         deposit_receipt_url,
-        notes
+        notes,
+        needs_opponent,
+        opponent_name,
+        opponent_phone
       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
        RETURNING *`,
       [
         name,
@@ -406,6 +436,9 @@ app.post("/appointments", async (req, res) => {
         paymentStatus || (depositRequired ? "deposit_pending" : "unpaid"),
         depositReceiptUrl || null,
         notes || null,
+        needsOpponent ?? false,
+        opponentName || null,
+        normalizedOpponentPhone,
       ]
     );
 
@@ -436,6 +469,9 @@ app.put("/appointments/:id", async (req, res) => {
     paymentStatus,
     depositReceiptUrl,
     notes,
+    needsOpponent,
+    opponentName,
+    opponentPhone,
   } = req.body;
 
   if (!name || !phone || !date || !time || !service || !barber || !businessId) {
@@ -448,7 +484,16 @@ app.put("/appointments/:id", async (req, res) => {
     });
   }
 
+  if (opponentPhone && !isValidChileMobilePhone(opponentPhone)) {
+    return res.status(400).json({
+      message: "Ingresa un celular chileno válido para el rival",
+    });
+  }
+
   const normalizedPhone = normalizeChilePhone(phone);
+  const normalizedOpponentPhone = opponentPhone
+    ? normalizeChilePhone(opponentPhone)
+    : null;
 
   try {
     const exists = await pool.query(
@@ -459,7 +504,7 @@ app.put("/appointments/:id", async (req, res) => {
 
     if (exists.rows.length > 0) {
       return res.status(400).json({
-        message: "Ese barbero ya tiene una cita agendada en esa fecha y hora",
+        message: "Ese horario ya está reservado para ese recurso",
       });
     }
 
@@ -479,8 +524,11 @@ app.put("/appointments/:id", async (req, res) => {
          required_deposit_amount = $11,
          payment_status = $12,
          deposit_receipt_url = $13,
-         notes = $14
-       WHERE id = $15 AND business_id = $7
+         notes = $14,
+         needs_opponent = $15,
+         opponent_name = $16,
+         opponent_phone = $17
+       WHERE id = $18 AND business_id = $7
        RETURNING *`,
       [
         name,
@@ -497,6 +545,9 @@ app.put("/appointments/:id", async (req, res) => {
         paymentStatus || (depositRequired ? "deposit_pending" : "unpaid"),
         depositReceiptUrl || null,
         notes || null,
+        needsOpponent ?? false,
+        opponentName || null,
+        normalizedOpponentPhone,
         id,
       ]
     );

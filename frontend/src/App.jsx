@@ -54,8 +54,13 @@ function App() {
   const [time, setTime] = useState("");
   const [service, setService] = useState("");
   const [customServiceName, setCustomServiceName] = useState("");
-  const [customServicePrice, setCustomServicePrice] = useState("");
-  const [barber, setBarber] = useState("");
+const [customServicePrice, setCustomServicePrice] = useState("");
+
+const [needsOpponent, setNeedsOpponent] = useState(false);
+const [opponentName, setOpponentName] = useState("");
+const [opponentPhone, setOpponentPhone] = useState("");
+
+const [barber, setBarber] = useState("");
   const [message, setMessage] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [paymentAppointment, setPaymentAppointment] = useState(null);
@@ -416,8 +421,13 @@ function App() {
     setService("");
     setBarber("");
     setCustomServiceName("");
-    setCustomServicePrice("");
-    setEditingId(null);
+setCustomServicePrice("");
+
+setNeedsOpponent(false);
+setOpponentName("");
+setOpponentPhone("");
+
+setEditingId(null);
     setSelectedAppointmentPayments([]);
     setPaymentAmount("");
     setPaymentMethod(paymentMethods[0] || "transferencia");
@@ -503,15 +513,20 @@ function App() {
 
     try {
       const createdAppointment = await createAppointmentService({
-        name: name.trim(),
-        phone: normalizedPhone,
-        date,
-        time,
-        service: service.trim(),
-        barber: resolvedBarber,
-        businessId,
-        status: "reservada",
-      });
+  name: name.trim(),
+  phone: normalizedPhone,
+  date,
+  time,
+  service: service.trim(),
+  barber: resolvedBarber,
+  businessId,
+  status: "reservada",
+  needsOpponent,
+  opponentName: opponentName.trim() || null,
+  opponentPhone: opponentPhone.trim()
+    ? normalizeChilePhone(opponentPhone)
+    : null,
+});
 
       const barberPhone = BARBER_PHONES[resolvedBarber] || "";
 
@@ -616,16 +631,21 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
 
     try {
       await updateAppointmentService(editingId, {
-        name: name.trim(),
-        phone: normalizedPhone,
-        date,
-        time,
-        service: service.trim(),
-        barber,
-        businessId,
-        status:
-          appointments.find((a) => a.id === editingId)?.status || "reservada",
-      });
+  name: name.trim(),
+  phone: normalizedPhone,
+  date,
+  time,
+  service: service.trim(),
+  barber,
+  businessId,
+  status:
+    appointments.find((a) => a.id === editingId)?.status || "reservada",
+  needsOpponent,
+  opponentName: opponentName.trim() || null,
+  opponentPhone: opponentPhone.trim()
+    ? normalizeChilePhone(opponentPhone)
+    : null,
+});
 
       await syncToGoogleSheets({
         id: editingId,
@@ -753,8 +773,13 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
     setDate(String(appointment.date || "").slice(0, 10));
     setTime(String(appointment.time || "").slice(0, 5));
     setService(appointment.service || "");
-    setBarber(appointment.barber || "");
-    setEditingId(appointment.id);
+setBarber(appointment.barber || "");
+
+setNeedsOpponent(Boolean(appointment.needs_opponent));
+setOpponentName(appointment.opponent_name || "");
+setOpponentPhone(appointment.opponent_phone || "");
+
+setEditingId(appointment.id);
     setPaymentAppointment(null);
     setMessage("Editando reserva ✏️");
     setWhatsappUrl("");
@@ -1042,43 +1067,69 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
   }, [blockedWeekdays]);
 
   const availableTimes = useMemo(() => {
-    if (!date) return [];
+  if (!date) return [];
 
-    const selectedDay = new Date(`${date}T00:00:00`);
+  const selectedDay = new Date(`${date}T00:00:00`);
 
-    if (blockedWeekdays.includes(selectedDay.getDay())) return [];
+  if (blockedWeekdays.includes(selectedDay.getDay())) return [];
 
-    return hours.map((hour) => {
-      const formattedHour =
-        typeof hour === "string" ? hour : formatHourLabel(hour);
+  const isSportsBusiness = ["giocata", "pinguino-club"].includes(
+    mergedBusiness?.id
+  );
 
-      const normalizedHour =
-        typeof hour === "string"
-          ? hour
-          : `${String(hour).padStart(2, "0")}:00`;
+  return hours.map((hour) => {
+    const formattedHour =
+      typeof hour === "string" ? hour : formatHourLabel(hour);
 
-      const isPast = isPastSlot(selectedDay, normalizedHour);
-      const slotAppointments = getAppointmentsForSlot(selectedDay, hour);
+    const normalizedHour =
+      typeof hour === "string"
+        ? hour
+        : `${String(hour).padStart(2, "0")}:00`;
 
-      let isTaken = false;
+    const isPast = isPastSlot(selectedDay, normalizedHour);
+    const slotAppointments = getAppointmentsForSlot(selectedDay, hour);
 
-      if (!resolvedClientResource) {
-        isTaken = slotAppointments.length > 0;
-      } else {
-        isTaken = slotAppointments.some(
+    const relevantAppointments = resolvedClientResource
+      ? slotAppointments.filter(
           (appointment) => appointment.barber === resolvedClientResource
-        );
-      }
+        )
+      : slotAppointments;
 
-      return {
-        value: formattedHour,
-        isPast,
-        isTaken,
-        disabled: isPast || isTaken,
-        status: isPast ? "past" : isTaken ? "taken" : "available",
-      };
-    });
-  }, [date, hours, resolvedClientResource, appointmentsBySlot, blockedWeekdays]);
+    const opponentAppointment = relevantAppointments.find(
+      (appointment) =>
+        Boolean(appointment.needs_opponent) &&
+        !appointment.opponent_name &&
+        !appointment.opponent_phone
+    );
+
+    const isTaken = relevantAppointments.length > 0;
+    const isLookingForOpponent = isSportsBusiness && Boolean(opponentAppointment);
+
+    return {
+      value: formattedHour,
+      isPast,
+      isTaken,
+      isLookingForOpponent,
+      opponentAppointment: opponentAppointment || null,
+      disabled: isPast || (isTaken && !isLookingForOpponent),
+      status: isPast
+        ? "past"
+        : isLookingForOpponent
+        ? "looking_opponent"
+        : isTaken
+        ? "taken"
+        : "available",
+    };
+  });
+}, [
+  date,
+  hours,
+  resolvedClientResource,
+  appointmentsBySlot,
+  blockedWeekdays,
+  mergedBusiness?.id,
+]);
+
 
   const styles = {
     page: {
@@ -1658,10 +1709,22 @@ paymentHistoryItem: {
               BARBERS={BARBERS}
               SERVICES={SERVICES}
               customServiceName={customServiceName}
-              setCustomServiceName={setCustomServiceName}
-              customServicePrice={customServicePrice}
-              setCustomServicePrice={setCustomServicePrice}
-              updateAppointment={updateAppointment}
+setCustomServiceName={setCustomServiceName}
+customServicePrice={customServicePrice}
+setCustomServicePrice={setCustomServicePrice}
+
+needsOpponent={needsOpponent}
+setNeedsOpponent={setNeedsOpponent}
+opponentName={opponentName}
+setOpponentName={setOpponentName}
+opponentPhone={opponentPhone}
+setOpponentPhone={setOpponentPhone}
+isSportsBusiness={["giocata", "pinguino-club"].includes(mergedBusiness?.id)}
+isCustomServiceBusiness={["barberia-james", "barberia-junior"].includes(
+  mergedBusiness?.id
+)}
+
+updateAppointment={updateAppointment}
               createAppointment={createAppointment}
               resetForm={resetForm}
               submitting={submitting}
