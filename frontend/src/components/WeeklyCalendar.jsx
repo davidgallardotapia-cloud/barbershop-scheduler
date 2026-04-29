@@ -38,36 +38,88 @@ function WeeklyCalendar({
     : business?.resourceSelectPrompt || "Selecciona un recurso arriba";
 
   const isGiocata = business?.id === "giocata";
+  const isSportsBusiness = ["giocata", "pinguino-club"].includes(business?.id);
 
-  const getPaymentStatusLabel = (paymentStatus) => {
+  const getPaymentStatusInfo = (paymentStatus) => {
     switch (paymentStatus) {
       case "paid":
-        return "💰 Pago: Pagado";
+        return {
+          label: "Pagado",
+          icon: "✅",
+          background: "#dcfce7",
+          border: "#86efac",
+          color: "#166534",
+        };
+
       case "partially_paid":
-        return "💰 Pago: Pago parcial";
+        return {
+          label: "Parcial",
+          icon: "🟡",
+          background: "#fef9c3",
+          border: "#fde047",
+          color: "#854d0e",
+        };
+
       case "deposit_paid":
-        return "💰 Pago: Abono registrado";
+        return {
+          label: "Abono",
+          icon: "🟠",
+          background: "#ffedd5",
+          border: "#fdba74",
+          color: "#9a3412",
+        };
+
       case "deposit_pending":
-        return "💰 Pago: Abono pendiente";
+        return {
+          label: "Pendiente",
+          icon: "⏳",
+          background: "#e0f2fe",
+          border: "#7dd3fc",
+          color: "#075985",
+        };
+
       case "unpaid":
       default:
-        return "💰 Pago: Sin pago";
+        return {
+          label: "Sin pago",
+          icon: "🔴",
+          background: "#fee2e2",
+          border: "#fecaca",
+          color: "#991b1b",
+        };
     }
   };
 
   const renderPaymentStatus = (appointment, extraStyle = {}) => {
     if (!business?.paymentsEnabled) return null;
 
+    const paymentInfo = getPaymentStatusInfo(appointment.payment_status);
+
     return (
       <div
         style={{
-          ...styles.appointmentMeta,
-          color: isGiocata ? "rgba(255,255,255,0.92)" : "#374151",
-          fontWeight: "700",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "5px",
+          width: "fit-content",
+          maxWidth: "100%",
+          padding: "4px 7px",
+          borderRadius: "999px",
+          backgroundColor: paymentInfo.background,
+          border: `1px solid ${paymentInfo.border}`,
+          color: paymentInfo.color,
+          fontWeight: "800",
+          fontSize: "11px",
+          lineHeight: 1,
+          marginTop: "4px",
+          whiteSpace: "nowrap",
           ...extraStyle,
         }}
       >
-        {getPaymentStatusLabel(appointment.payment_status)}
+        <span style={{ fontSize: "10px", lineHeight: 1 }}>
+          {paymentInfo.icon}
+        </span>
+        <span>{paymentInfo.label}</span>
       </div>
     );
   };
@@ -279,17 +331,19 @@ function WeeklyCalendar({
                             {appointment.service}
                           </div>
 
-                          <div
-                            style={{
-                              fontSize: "12px",
-                              marginBottom: "2px",
-                              color: isGiocata
-                                ? "rgba(255,255,255,0.92)"
-                                : "#374151",
-                            }}
-                          >
-                            {appointment.barber}
-                          </div>
+                          {!isSportsBusiness && (
+                            <div
+                              style={{
+                                fontSize: "12px",
+                                marginBottom: "2px",
+                                color: isGiocata
+                                  ? "rgba(255,255,255,0.92)"
+                                  : "#374151",
+                              }}
+                            >
+                              {appointment.barber}
+                            </div>
+                          )}
 
                           <div
                             style={{
@@ -533,16 +587,18 @@ function WeeklyCalendar({
                                     {appointment.service}
                                   </div>
 
-                                  <div
-                                    style={{
-                                      ...styles.appointmentMeta,
-                                      color: isGiocata
-                                        ? "rgba(255,255,255,0.92)"
-                                        : "#374151",
-                                    }}
-                                  >
-                                    {appointment.barber}
-                                  </div>
+                                  {!isSportsBusiness && (
+                                    <div
+                                      style={{
+                                        ...styles.appointmentMeta,
+                                        color: isGiocata
+                                          ? "rgba(255,255,255,0.92)"
+                                          : "#374151",
+                                      }}
+                                    >
+                                      {appointment.barber}
+                                    </div>
+                                  )}
 
                                   <div
                                     style={{
