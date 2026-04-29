@@ -31,7 +31,8 @@ function AdminBookingPanel({
   opponentPhone,
   setOpponentPhone,
   isSportsBusiness,
-isCustomServiceBusiness,
+  isCustomServiceBusiness,
+  isCustomPriceBusiness,
 
   updateAppointment,
   createAppointment,
@@ -39,6 +40,18 @@ isCustomServiceBusiness,
   submitting,
   message,
 }) {
+  const applyCustomPriceToSelectedService = () => {
+    if (!service || !customServicePrice.trim()) return;
+
+    const serviceWithoutPrice = service
+      .replace(/\s*\(\$[\d.,]+\)\s*$/g, "")
+      .trim();
+
+    const formattedPrice = Number(customServicePrice).toLocaleString("es-CL");
+
+    setService(`${serviceWithoutPrice} ($${formattedPrice})`);
+  };
+
   return (
     <div style={{ ...styles.card, maxWidth: isCompactAdmin ? "100%" : "320px" }}>
       <h2 style={styles.sectionTitle}>
@@ -84,6 +97,7 @@ isCustomServiceBusiness,
           <option value="">
             {business?.serviceSelectOption || "Selecciona un servicio"}
           </option>
+
           {SERVICES.map((item) => (
             <option key={item} value={item}>
               {item}
@@ -91,69 +105,146 @@ isCustomServiceBusiness,
           ))}
         </select>
 
+        {isCustomPriceBusiness && (
+          <div
+            style={{
+              border: "1px solid #bbf7d0",
+              borderRadius: "12px",
+              padding: "12px",
+              backgroundColor: "#f0fdf4",
+            }}
+          >
+            <div
+              style={{
+                fontWeight: "bold",
+                marginBottom: "6px",
+                color: "#14532d",
+              }}
+            >
+              Precio personalizado
+            </div>
+
+            <p
+              style={{
+                margin: "0 0 10px 0",
+                color: "#166534",
+                fontSize: "13px",
+                lineHeight: 1.4,
+              }}
+            >
+              Mantiene el tipo de cancha seleccionado, pero permite cambiar el
+              precio solo para esta reserva.
+            </p>
+
+            <input
+              style={styles.input}
+              placeholder="Nuevo precio ejemplo: 18000"
+              value={customServicePrice}
+              onChange={(e) =>
+                setCustomServicePrice(e.target.value.replace(/\D/g, ""))
+              }
+            />
+
+            <button
+              type="button"
+              style={{
+                ...styles.button,
+                ...styles.secondaryButton,
+                width: "100%",
+              }}
+              onClick={applyCustomPriceToSelectedService}
+            >
+              Aplicar precio personalizado
+            </button>
+
+            {service && (
+              <div
+                style={{
+                  marginTop: "10px",
+                  backgroundColor: "#ecfdf5",
+                  border: "1px solid #86efac",
+                  color: "#166534",
+                  borderRadius: "8px",
+                  padding: "10px 12px",
+                  fontWeight: "bold",
+                  fontSize: "14px",
+                }}
+              >
+                Servicio final: {service}
+              </div>
+            )}
+          </div>
+        )}
+
         {isCustomServiceBusiness && (
-  <div
-    style={{
-      border: "1px solid #d1d5db",
-      borderRadius: "10px",
-      padding: "12px",
-      backgroundColor: "#f9fafb",
-    }}
-  >
-    <div style={{ fontWeight: "bold", marginBottom: "8px" }}>
-      Servicio personalizado
-    </div>
+          <div
+            style={{
+              border: "1px solid #d1d5db",
+              borderRadius: "10px",
+              padding: "12px",
+              backgroundColor: "#f9fafb",
+            }}
+          >
+            <div style={{ fontWeight: "bold", marginBottom: "8px" }}>
+              Servicio personalizado
+            </div>
 
-    <input
-      style={styles.input}
-      placeholder="Nombre del servicio especial"
-      value={customServiceName}
-      onChange={(e) => setCustomServiceName(e.target.value)}
-    />
+            <input
+              style={styles.input}
+              placeholder="Nombre del servicio especial"
+              value={customServiceName}
+              onChange={(e) => setCustomServiceName(e.target.value)}
+            />
 
-    <input
-      style={styles.input}
-      placeholder="Precio ejemplo: 18000"
-      value={customServicePrice}
-      onChange={(e) =>
-        setCustomServicePrice(e.target.value.replace(/\D/g, ""))
-      }
-    />
+            <input
+              style={styles.input}
+              placeholder="Precio ejemplo: 18000"
+              value={customServicePrice}
+              onChange={(e) =>
+                setCustomServicePrice(e.target.value.replace(/\D/g, ""))
+              }
+            />
 
-    <button
-      type="button"
-      style={{ ...styles.button, ...styles.secondaryButton, width: "100%" }}
-      onClick={() => {
-        if (!customServiceName.trim() || !customServicePrice.trim()) return;
+            <button
+              type="button"
+              style={{
+                ...styles.button,
+                ...styles.secondaryButton,
+                width: "100%",
+              }}
+              onClick={() => {
+                if (!customServiceName.trim() || !customServicePrice.trim()) {
+                  return;
+                }
 
-        setService(
-          `${customServiceName.trim()} ($${Number(
-            customServicePrice
-          ).toLocaleString("es-CL")})`
-        );
-      }}
-    >
-      Usar servicio personalizado
-    </button>
+                setService(
+                  `${customServiceName.trim()} ($${Number(
+                    customServicePrice
+                  ).toLocaleString("es-CL")})`
+                );
+              }}
+            >
+              Usar servicio personalizado
+            </button>
 
-    {service && (
-      <div
-        style={{
-          marginTop: "10px",
-          backgroundColor: "#ecfdf5",
-          border: "1px solid #86efac",
-          color: "#166534",
-          borderRadius: "8px",
-          padding: "10px 12px",
-          fontWeight: "bold",
-          fontSize: "14px",
-        }}
-      >
-        Servicio seleccionado: {service}
-      </div>
-    )}
-  </div>
-)}
+            {service && (
+              <div
+                style={{
+                  marginTop: "10px",
+                  backgroundColor: "#ecfdf5",
+                  border: "1px solid #86efac",
+                  color: "#166534",
+                  borderRadius: "8px",
+                  padding: "10px 12px",
+                  fontWeight: "bold",
+                  fontSize: "14px",
+                }}
+              >
+                Servicio seleccionado: {service}
+              </div>
+            )}
+          </div>
+        )}
 
         {!business?.hideResourceSelector && (
           <select
@@ -164,6 +255,7 @@ isCustomServiceBusiness,
             <option value="">
               {business?.resourceSelectOption || "Selecciona un recurso"}
             </option>
+
             {BARBERS.map((barberName) => (
               <option key={barberName} value={barberName}>
                 {barberName}
@@ -208,6 +300,7 @@ isCustomServiceBusiness,
                   cursor: "pointer",
                 }}
               />
+
               Se busca rival
             </label>
 
@@ -220,7 +313,8 @@ isCustomServiceBusiness,
               }}
             >
               Activa esta opción cuando un equipo reserve la cancha y quiera
-              encontrar rival. En la vista cliente aparecerá como partido abierto.
+              encontrar rival. En la vista cliente aparecerá como partido
+              abierto.
             </p>
 
             {needsOpponent && (

@@ -609,15 +609,26 @@ ${mergedBusiness?.resourceLabelSingle || "Cancha"}: ${resolvedBarber}
     return;
   }
 
-  const createdAppointment = await createAppointmentService({
+  const finalService = service.trim();
+const finalTotalAmount = getServicePrice(finalService) || 0;
+
+const createdAppointment = await createAppointmentService({
   name: name.trim(),
   phone: normalizedPhone,
   date,
   time,
-  service: service.trim(),
+  service: finalService,
   barber: resolvedBarber,
   businessId,
   status: "reservada",
+
+  totalAmount: finalTotalAmount,
+  depositRequired: false,
+  requiredDepositAmount: 0,
+  paymentStatus: "unpaid",
+  depositReceiptUrl: null,
+  notes: null,
+
   needsOpponent,
   opponentName: opponentName.trim() || null,
   opponentPhone: opponentPhone.trim()
@@ -634,7 +645,7 @@ const generatedWhatsappUrl = barberPhone
       phone: normalizedPhone,
       date,
       time,
-      service: service.trim(),
+      service: finalService,
       barber: resolvedBarber,
       business: mergedBusiness,
       needsOpponent,
@@ -648,7 +659,7 @@ const generatedWhatsappUrl = barberPhone
         name: name.trim(),
         phone: normalizedPhone,
         barber: resolvedBarber,
-        service: service.trim(),
+        service: finalService,
         status: "reservada",
       });
 
@@ -729,16 +740,28 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
     const normalizedPhone = normalizeChilePhone(phone);
 
     try {
-      await updateAppointmentService(editingId, {
+     const finalService = service.trim();
+const finalTotalAmount = getServicePrice(finalService) || 0;
+const currentAppointment = appointments.find((a) => a.id === editingId);
+
+await updateAppointmentService(editingId, {
   name: name.trim(),
   phone: normalizedPhone,
   date,
   time,
-  service: service.trim(),
+  service: finalService,
   barber,
   businessId,
-  status:
-    appointments.find((a) => a.id === editingId)?.status || "reservada",
+  status: currentAppointment?.status || "reservada",
+
+  totalAmount: finalTotalAmount,
+  depositRequired: Boolean(currentAppointment?.deposit_required),
+  requiredDepositAmount:
+    Number(currentAppointment?.required_deposit_amount || 0),
+  paymentStatus: currentAppointment?.payment_status || "unpaid",
+  depositReceiptUrl: currentAppointment?.deposit_receipt_url || null,
+  notes: currentAppointment?.notes || null,
+
   needsOpponent,
   opponentName: opponentName.trim() || null,
   opponentPhone: opponentPhone.trim()
@@ -753,7 +776,7 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
         name: name.trim(),
         phone: normalizedPhone,
         barber,
-        service: service.trim(),
+        service: finalService,
         status:
           appointments.find((a) => a.id === editingId)?.status || "reservada",
       });
@@ -1819,6 +1842,9 @@ opponentPhone={opponentPhone}
 setOpponentPhone={setOpponentPhone}
 isSportsBusiness={["giocata", "pinguino-club"].includes(mergedBusiness?.id)}
 isCustomServiceBusiness={["barberia-james", "barberia-junior"].includes(
+  mergedBusiness?.id
+)}
+isCustomPriceBusiness={["giocata", "pinguino-club"].includes(
   mergedBusiness?.id
 )}
 
