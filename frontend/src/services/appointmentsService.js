@@ -37,3 +37,13 @@ export const getAppointmentPayments = (appointmentId, businessId) => {
 export const addAppointmentPayment = (appointmentId, data) => {
   return api.post(`/appointments/${appointmentId}/payments`, data);
 };
+
+export const updateAppointmentPayment = (appointmentId, paymentId, data) => {
+  return api.put(`/appointments/${appointmentId}/payments/${paymentId}`, data);
+};
+
+export const deleteAppointmentPayment = (appointmentId, paymentId, businessId) => {
+  return api.delete(`/appointments/${appointmentId}/payments/${paymentId}`, {
+    params: { businessId },
+  });
+};

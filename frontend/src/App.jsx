@@ -28,6 +28,8 @@ import {
   getBusinessBySlug,
   getAppointmentPayments,
   addAppointmentPayment,
+  updateAppointmentPayment,
+  deleteAppointmentPayment,
 } from "./services/appointmentsService";
 import { businessConfigBySlug } from "./config/businessConfigBySlug";
 
@@ -97,6 +99,7 @@ const [barber, setBarber] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("transferencia");
   const [paymentStage, setPaymentStage] = useState("deposit");
   const [paymentNotes, setPaymentNotes] = useState("");
+  const [editingPaymentId, setEditingPaymentId] = useState(null);
   const [paymentPanelError, setPaymentPanelError] = useState("");
 
   const currentBusinessConfig = useMemo(() => {
@@ -328,7 +331,28 @@ const [barber, setBarber] = useState("");
     }
   };
 
-  const handleAddPayment = async () => {
+  const resetPaymentForm = () => {
+  setEditingPaymentId(null);
+  setPaymentAmount("");
+  setPaymentMethod(paymentMethods[0] || "transferencia");
+  setPaymentStage(depositFeatureEnabled ? "deposit" : "full");
+  setPaymentNotes("");
+};
+
+const handleEditPaymentClick = (payment) => {
+  setEditingPaymentId(payment.id);
+  setPaymentAmount(String(Number(payment.amount || 0)));
+  setPaymentMethod(payment.method || paymentMethods[0] || "transferencia");
+  setPaymentStage(payment.payment_stage || (depositFeatureEnabled ? "deposit" : "full"));
+  setPaymentNotes(payment.notes || "");
+  setPaymentPanelError("");
+};
+
+const handleCancelPaymentEdit = () => {
+  resetPaymentForm();
+};
+
+const handleSavePayment = async () => {
   if (!paymentAppointment?.id || !businessId) return;
 
   if (!paymentAmount || Number(paymentAmount) <= 0) {
@@ -337,48 +361,93 @@ const [barber, setBarber] = useState("");
   }
 
   try {
-    const paymentResponse = await addAppointmentPayment(paymentAppointment.id, {
-      amount: Number(paymentAmount),
-      method: paymentMethod,
-      paymentStage,
-      notes: paymentNotes || null,
-      businessId,
-    });
+    if (editingPaymentId) {
+      await updateAppointmentPayment(paymentAppointment.id, editingPaymentId, {
+        amount: Number(paymentAmount),
+        method: paymentMethod,
+        paymentStage,
+        notes: paymentNotes || null,
+        receiptUrl: null,
+        businessId,
+      });
 
-    const createdPayment = paymentResponse?.data?.data;
+      setMessage("Pago actualizado correctamente");
+    } else {
+      const paymentResponse = await addAppointmentPayment(paymentAppointment.id, {
+        amount: Number(paymentAmount),
+        method: paymentMethod,
+        paymentStage,
+        notes: paymentNotes || null,
+        businessId,
+      });
 
-    await syncToGoogleSheets({
-      type: "payment",
-      payment_id: createdPayment?.id || "",
-      appointment_id: paymentAppointment.id,
-      businessId,
-      fecha_reserva: paymentAppointment?.date
-        ? String(paymentAppointment.date).slice(0, 10)
-        : "",
-      hora_reserva: String(paymentAppointment?.time || "").slice(0, 5),
-      cliente: paymentAppointment?.name || "",
-      recurso: paymentAppointment?.barber || "",
-      servicio: paymentAppointment?.service || "",
-      monto_pago: Number(paymentAmount),
-      metodo_pago: paymentMethod,
-      tipo_pago: paymentStage,
-      fecha_pago: new Date().toISOString(),
-      observacion: paymentNotes || "",
-    });
+      const createdPayment = paymentResponse?.data?.data;
 
-    setPaymentAmount("");
-    setPaymentMethod(paymentMethods[0] || "transferencia");
-    setPaymentStage(depositFeatureEnabled ? "deposit" : "full");
-    setPaymentNotes("");
+      await syncToGoogleSheets({
+        type: "payment",
+        payment_id: createdPayment?.id || "",
+        appointment_id: paymentAppointment.id,
+        businessId,
+        fecha_reserva: paymentAppointment?.date
+          ? String(paymentAppointment.date).slice(0, 10)
+          : "",
+        hora_reserva: String(paymentAppointment?.time || "").slice(0, 5),
+        cliente: paymentAppointment?.name || "",
+        recurso: paymentAppointment?.barber || "",
+        servicio: paymentAppointment?.service || "",
+        monto_pago: Number(paymentAmount),
+        metodo_pago: paymentMethod,
+        tipo_pago: paymentStage,
+        fecha_pago: new Date().toISOString(),
+        observacion: paymentNotes || "",
+      });
+
+      setMessage("Pago registrado correctamente");
+    }
+
+    resetPaymentForm();
     setPaymentPanelError("");
 
     await loadAppointmentPayments(paymentAppointment.id);
     await getAppointments();
-    setMessage("Pago registrado correctamente");
   } catch (err) {
     console.error(err);
-    setMessage(err.response?.data?.message || "Error al registrar pago");
+    setMessage(
+      err.response?.data?.message ||
+        (editingPaymentId ? "Error al actualizar pago" : "Error al registrar pago")
+    );
   }
+};
+
+const handleDeletePayment = async (payment) => {
+  if (!paymentAppointment?.id || !businessId || !payment?.id) return;
+
+  const confirmed = window.confirm("¿Seguro que quieres eliminar este pago?");
+  if (!confirmed) return;
+
+  try {
+    await deleteAppointmentPayment(paymentAppointment.id, payment.id, businessId);
+
+    if (editingPaymentId === payment.id) {
+      resetPaymentForm();
+    }
+
+    setPaymentPanelError("");
+    setMessage("Pago eliminado correctamente");
+
+    await loadAppointmentPayments(paymentAppointment.id);
+    await getAppointments();
+  } catch (err) {
+    console.error(err);
+    setMessage(err.response?.data?.message || "Error al eliminar pago");
+  }
+};
+
+const closePaymentPanel = () => {
+  setPaymentAppointment(null);
+  setSelectedAppointmentPayments([]);
+  setPaymentPanelError("");
+  resetPaymentForm();
 };
 
   useEffect(() => {
@@ -436,6 +505,7 @@ setEditingId(null);
     setPaymentMethod(paymentMethods[0] || "transferencia");
     setPaymentStage(depositFeatureEnabled ? "deposit" : "full");
     setPaymentNotes("");
+    setEditingPaymentId(null);
     setPaymentAppointment(null);
     setPaymentPanelError("");
   };
@@ -930,6 +1000,7 @@ setEditingId(appointment.id);
     setPaymentMethod(paymentMethods[0] || "transferencia");
     setPaymentStage(depositFeatureEnabled ? "deposit" : "full");
     setPaymentNotes("");
+    setEditingPaymentId(null);
 
     if (paymentsEnabled) {
       await loadAppointmentPayments(appointment.id);
@@ -1982,194 +2053,290 @@ updateAppointment={updateAppointment}
         )}
 
         {isAdminMode && paymentsEnabled && paymentAppointment && (
-  <div
-    style={styles.paymentModalOverlay}
-    onClick={() => {
-      setPaymentAppointment(null);
-      setSelectedAppointmentPayments([]);
-      setPaymentPanelError("");
-    }}
-  >
-    <div
-      style={styles.paymentModalCard}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: "12px",
-          marginBottom: "8px",
-        }}
-      >
-        <h3 style={{ margin: 0 }}>Pagos de la reserva</h3>
+          <div style={styles.paymentModalOverlay} onClick={closePaymentPanel}>
+            <div
+              style={styles.paymentModalCard}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "12px",
+                  marginBottom: "8px",
+                }}
+              >
+                <h3 style={{ margin: 0 }}>Pagos de la reserva</h3>
 
-        <button
-          type="button"
-          style={{ ...styles.button, ...styles.secondaryButton }}
-          onClick={() => {
-            setPaymentAppointment(null);
-            setSelectedAppointmentPayments([]);
-            setPaymentPanelError("");
-          }}
-        >
-          Cerrar
-        </button>
-      </div>
-
-      <p style={{ marginTop: 0, marginBottom: "16px", color: "#6b7280" }}>
-        {paymentAppointment?.name} · {paymentAppointment?.service} ·{" "}
-        {paymentAppointment?.date
-          ? new Date(paymentAppointment.date).toLocaleDateString("es-CL")
-          : ""}{" "}
-        · {String(paymentAppointment?.time || "").slice(0, 5)}
-      </p>
-
-      {paymentPanelError && (
-        <p
-          style={{
-            marginTop: 0,
-            marginBottom: "16px",
-            color: "#b42318",
-          }}
-        >
-          {paymentPanelError}
-        </p>
-      )}
-
-      <div style={styles.paymentSummaryGrid}>
-        <div style={styles.paymentSummaryCard}>
-          <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>
-            Total
-          </div>
-          <div style={{ fontWeight: "700", fontSize: "18px" }}>
-            ${selectedReservationTotal.toLocaleString("es-CL")}
-          </div>
-        </div>
-
-        <div style={styles.paymentSummaryCard}>
-          <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>
-            Pagado
-          </div>
-          <div style={{ fontWeight: "700", fontSize: "18px" }}>
-            ${selectedPaymentTotal.toLocaleString("es-CL")}
-          </div>
-        </div>
-
-        <div style={styles.paymentSummaryCard}>
-          <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>
-            Saldo
-          </div>
-          <div style={{ fontWeight: "700", fontSize: "18px" }}>
-            ${selectedPendingBalance.toLocaleString("es-CL")}
-          </div>
-        </div>
-
-        <div style={styles.paymentSummaryCard}>
-          <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "4px" }}>
-            Estado
-          </div>
-          <div style={{ fontWeight: "700", fontSize: "16px" }}>
-            {selectedPaymentStatusLabel}
-          </div>
-        </div>
-      </div>
-
-      {depositFeatureEnabled && (
-        <p style={{ marginTop: 0, marginBottom: "16px", color: "#6b7280" }}>
-          Abono sugerido/requerido:{" "}
-          <strong>${selectedRequiredDeposit.toLocaleString("es-CL")}</strong>
-        </p>
-      )}
-
-      {loadingPayments ? (
-        <p style={{ marginTop: 0 }}>Cargando pagos...</p>
-      ) : selectedAppointmentPayments.length === 0 ? (
-        <p style={{ marginTop: 0, color: "#6b7280" }}>
-          Aún no hay pagos registrados para esta reserva.
-        </p>
-      ) : (
-        <div style={{ display: "grid", gap: "10px", marginBottom: "16px" }}>
-          {selectedAppointmentPayments.map((payment) => (
-            <div key={payment.id} style={styles.paymentHistoryItem}>
-              <div style={{ fontWeight: "bold" }}>
-                ${Number(payment.amount || 0).toLocaleString("es-CL")}
+                <button
+                  type="button"
+                  style={{ ...styles.button, ...styles.secondaryButton }}
+                  onClick={closePaymentPanel}
+                >
+                  Cerrar
+                </button>
               </div>
-              <div style={{ fontSize: "14px", color: "#4b5563" }}>
-                Método: {payment.method}
-              </div>
-              <div style={{ fontSize: "14px", color: "#4b5563" }}>
-                Etapa: {payment.payment_stage}
-              </div>
-              {payment.notes ? (
-                <div style={{ fontSize: "14px", color: "#4b5563" }}>
-                  Nota: {payment.notes}
+
+              <p style={{ marginTop: 0, marginBottom: "16px", color: "#6b7280" }}>
+                {paymentAppointment?.name} · {paymentAppointment?.service} ·{" "}
+                {paymentAppointment?.date
+                  ? new Date(paymentAppointment.date).toLocaleDateString("es-CL")
+                  : ""}{" "}
+                · {String(paymentAppointment?.time || "").slice(0, 5)}
+              </p>
+
+              {paymentPanelError && (
+                <p
+                  style={{
+                    marginTop: 0,
+                    marginBottom: "16px",
+                    color: "#b42318",
+                    fontWeight: "700",
+                  }}
+                >
+                  {paymentPanelError}
+                </p>
+              )}
+
+              <div style={styles.paymentSummaryGrid}>
+                <div style={styles.paymentSummaryCard}>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "#6b7280",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Total
+                  </div>
+                  <div style={{ fontWeight: "700", fontSize: "18px" }}>
+                    ${selectedReservationTotal.toLocaleString("es-CL")}
+                  </div>
                 </div>
-              ) : null}
+
+                <div style={styles.paymentSummaryCard}>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "#6b7280",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Pagado
+                  </div>
+                  <div style={{ fontWeight: "700", fontSize: "18px" }}>
+                    ${selectedPaymentTotal.toLocaleString("es-CL")}
+                  </div>
+                </div>
+
+                <div style={styles.paymentSummaryCard}>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "#6b7280",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Saldo
+                  </div>
+                  <div style={{ fontWeight: "700", fontSize: "18px" }}>
+                    ${selectedPendingBalance.toLocaleString("es-CL")}
+                  </div>
+                </div>
+
+                <div style={styles.paymentSummaryCard}>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "#6b7280",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Estado
+                  </div>
+                  <div style={{ fontWeight: "700", fontSize: "16px" }}>
+                    {selectedPaymentStatusLabel}
+                  </div>
+                </div>
+              </div>
+
+              {depositFeatureEnabled && (
+                <p style={{ marginTop: 0, marginBottom: "16px", color: "#6b7280" }}>
+                  Abono sugerido/requerido:{" "}
+                  <strong>${selectedRequiredDeposit.toLocaleString("es-CL")}</strong>
+                </p>
+              )}
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile ? "1fr" : "1.05fr 0.95fr",
+                  gap: "16px",
+                  alignItems: "start",
+                }}
+              >
+                <div>
+                  <h4 style={{ margin: "0 0 10px" }}>Historial de pagos</h4>
+
+                  {loadingPayments ? (
+                    <p style={{ marginTop: 0 }}>Cargando pagos...</p>
+                  ) : selectedAppointmentPayments.length === 0 ? (
+                    <p style={{ marginTop: 0, color: "#6b7280" }}>
+                      Aún no hay pagos registrados para esta reserva.
+                    </p>
+                  ) : (
+                    <div style={{ display: "grid", gap: "10px" }}>
+                      {selectedAppointmentPayments.map((payment) => {
+                        const isEditingThisPayment = editingPaymentId === payment.id;
+
+                        return (
+                          <div
+                            key={payment.id}
+                            style={{
+                              ...styles.paymentHistoryItem,
+                              border: isEditingThisPayment
+                                ? "2px solid #2563eb"
+                                : styles.paymentHistoryItem.border,
+                              backgroundColor: isEditingThisPayment ? "#eff6ff" : "#ffffff",
+                            }}
+                          >
+                            <div style={{ fontWeight: "bold", fontSize: "16px" }}>
+                              ${Number(payment.amount || 0).toLocaleString("es-CL")}
+                            </div>
+
+                            <div style={{ fontSize: "14px", color: "#4b5563" }}>
+                              Método: {payment.method}
+                            </div>
+
+                            <div style={{ fontSize: "14px", color: "#4b5563" }}>
+                              Etapa: {payment.payment_stage}
+                            </div>
+
+                            {payment.notes ? (
+                              <div style={{ fontSize: "14px", color: "#4b5563" }}>
+                                Nota: {payment.notes}
+                              </div>
+                            ) : null}
+
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: "8px",
+                                marginTop: "10px",
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              <button
+                                type="button"
+                                style={{
+                                  ...styles.tinyButton,
+                                  ...styles.editButton,
+                                  flex: 1,
+                                  minWidth: "90px",
+                                }}
+                                onClick={() => handleEditPaymentClick(payment)}
+                              >
+                                Editar
+                              </button>
+
+                              <button
+                                type="button"
+                                style={{
+                                  ...styles.tinyButton,
+                                  ...styles.dangerButton,
+                                  flex: 1,
+                                  minWidth: "90px",
+                                }}
+                                onClick={() => handleDeletePayment(payment)}
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <h4 style={{ margin: "0 0 10px" }}>
+                    {editingPaymentId ? "Editar pago" : "Registrar nuevo pago"}
+                  </h4>
+
+                  <div style={{ display: "grid", gap: "10px" }}>
+                    <input
+                      style={styles.input}
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="Monto del pago"
+                      value={paymentAmount}
+                      onChange={(e) => setPaymentAmount(e.target.value)}
+                    />
+
+                    <select
+                      style={styles.select}
+                      value={paymentMethod}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                    >
+                      {paymentMethods.map((method) => (
+                        <option key={method} value={method}>
+                          {method}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      style={styles.select}
+                      value={paymentStage}
+                      onChange={(e) => setPaymentStage(e.target.value)}
+                    >
+                      {depositFeatureEnabled ? (
+                        <>
+                          <option value="deposit">
+                            {depositOptional ? "Abono (opcional)" : "Abono"}
+                          </option>
+                          <option value="balance">Saldo</option>
+                          <option value="full">Pago completo</option>
+                        </>
+                      ) : (
+                        <option value="full">Pago completo</option>
+                      )}
+                    </select>
+
+                    <input
+                      style={styles.input}
+                      placeholder="Observación del pago"
+                      value={paymentNotes}
+                      onChange={(e) => setPaymentNotes(e.target.value)}
+                    />
+
+                    <button
+                      type="button"
+                      style={{ ...styles.button, ...styles.primaryButton }}
+                      onClick={handleSavePayment}
+                    >
+                      {editingPaymentId ? "Actualizar pago" : "Registrar pago"}
+                    </button>
+
+                    {editingPaymentId && (
+                      <button
+                        type="button"
+                        style={{ ...styles.button, ...styles.secondaryButton }}
+                        onClick={handleCancelPaymentEdit}
+                      >
+                        Cancelar edición
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        )}
 
-      <div style={{ display: "grid", gap: "10px" }}>
-        <input
-          style={styles.input}
-          type="number"
-          min="0"
-          step="1"
-          placeholder="Monto del pago"
-          value={paymentAmount}
-          onChange={(e) => setPaymentAmount(e.target.value)}
-        />
-
-        <select
-          style={styles.select}
-          value={paymentMethod}
-          onChange={(e) => setPaymentMethod(e.target.value)}
-        >
-          {paymentMethods.map((method) => (
-            <option key={method} value={method}>
-              {method}
-            </option>
-          ))}
-        </select>
-
-        <select
-          style={styles.select}
-          value={paymentStage}
-          onChange={(e) => setPaymentStage(e.target.value)}
-        >
-          {depositFeatureEnabled ? (
-            <>
-              <option value="deposit">
-                {depositOptional ? "Abono (opcional)" : "Abono"}
-              </option>
-              <option value="balance">Saldo</option>
-              <option value="full">Pago completo</option>
-            </>
-          ) : (
-            <option value="full">Pago completo</option>
-          )}
-        </select>
-
-        <input
-          style={styles.input}
-          placeholder="Observación del pago"
-          value={paymentNotes}
-          onChange={(e) => setPaymentNotes(e.target.value)}
-        />
-
-        <button
-          style={{ ...styles.button, ...styles.primaryButton }}
-          onClick={handleAddPayment}
-        >
-          Agregar pago
-        </button>
-      </div>
-    </div>
-  </div>
-)}
 
       </div>
     </>

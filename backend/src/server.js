@@ -12,7 +12,6 @@ const app = express();
 
 console.log("PAYMENTS BACKEND VERSION OK");
 
-
 app.use(cors());
 app.use(express.json());
 
@@ -43,6 +42,68 @@ const normalizeChilePhone = (rawPhone) => {
 const isValidChileMobilePhone = (rawPhone) => {
   const normalized = normalizeChilePhone(rawPhone);
   return /^569\d{8}$/.test(normalized);
+};
+
+const recalculateAppointmentPaymentStatus = async (appointmentId) => {
+  const appointmentResult = await pool.query(
+    "SELECT * FROM appointments WHERE id = $1",
+    [appointmentId]
+  );
+
+  if (appointmentResult.rows.length === 0) {
+    return null;
+  }
+
+  const appointment = appointmentResult.rows[0];
+
+  const totalsResult = await pool.query(
+    `SELECT COALESCE(SUM(amount), 0) AS total_paid
+     FROM appointment_payments
+     WHERE appointment_id = $1`,
+    [appointmentId]
+  );
+
+  const totalPaid = Number(totalsResult.rows[0].total_paid || 0);
+  const totalAmount = Number(appointment.total_amount || 0);
+  const requiredDepositAmount = Number(
+    appointment.required_deposit_amount || 0
+  );
+  const depositRequired = Boolean(appointment.deposit_required);
+
+  let nextPaymentStatus = "unpaid";
+
+  if (depositRequired) {
+    if (totalPaid <= 0 || totalPaid < requiredDepositAmount) {
+      nextPaymentStatus = "deposit_pending";
+    } else if (totalPaid === requiredDepositAmount) {
+      nextPaymentStatus = "deposit_paid";
+    } else if (totalPaid > requiredDepositAmount && totalPaid < totalAmount) {
+      nextPaymentStatus = "partially_paid";
+    } else if (totalPaid >= totalAmount && totalAmount > 0) {
+      nextPaymentStatus = "paid";
+    }
+  } else {
+    if (totalPaid <= 0) {
+      nextPaymentStatus = "unpaid";
+    } else if (totalPaid < totalAmount) {
+      nextPaymentStatus = "partially_paid";
+    } else if (totalPaid >= totalAmount && totalAmount > 0) {
+      nextPaymentStatus = "paid";
+    }
+  }
+
+  await pool.query(
+    `UPDATE appointments
+     SET payment_status = $1
+     WHERE id = $2`,
+    [nextPaymentStatus, appointmentId]
+  );
+
+  return {
+    paymentStatus: nextPaymentStatus,
+    totalPaid,
+    totalAmount,
+  };
 };
 
 const createTables = async () => {
@@ -104,19 +165,19 @@ const createTables = async () => {
     `);
 
     await pool.query(`
-  ALTER TABLE appointments
-  ADD COLUMN IF NOT EXISTS needs_opponent BOOLEAN DEFAULT FALSE;
-`);
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS needs_opponent BOOLEAN DEFAULT FALSE;
+    `);
 
-await pool.query(`
-  ALTER TABLE appointments
-  ADD COLUMN IF NOT EXISTS opponent_name VARCHAR(100);
-`);
+    await pool.query(`
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS opponent_name VARCHAR(100);
+    `);
 
-await pool.query(`
-  ALTER TABLE appointments
-  ADD COLUMN IF NOT EXISTS opponent_phone VARCHAR(30);
-`);
+    await pool.query(`
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS opponent_phone VARCHAR(30);
+    `);
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS appointment_payments (
@@ -182,14 +243,26 @@ await pool.query(`
 
     await pool.query(`
       INSERT INTO businesses (id, name, slug)
-      VALUES ('giocata', 'Giocata', 'giocata')
+      VALUES ('giocata', 'Centro Deportivo La Giocata', 'giocata')
       ON CONFLICT (id) DO NOTHING;
     `);
 
     await pool.query(`
       UPDATE businesses
-      SET name = 'Giocata', slug = 'giocata'
+      SET name = 'Centro Deportivo La Giocata', slug = 'giocata'
       WHERE id = 'giocata';
+    `);
+
+    await pool.query(`
+      INSERT INTO businesses (id, name, slug)
+      VALUES ('pinguino-club', 'Pingüino Club', 'pinguino-club')
+      ON CONFLICT (id) DO NOTHING;
+    `);
+
+    await pool.query(`
+      UPDATE businesses
+      SET name = 'Pingüino Club', slug = 'pinguino-club'
+      WHERE id = 'pinguino-club';
     `);
 
     const jamesUser = await pool.query(
@@ -243,6 +316,24 @@ await pool.query(`
       await pool.query(
         "UPDATE users SET business_id = $1 WHERE username = $2",
         ["giocata", "giocata"]
+      );
+    }
+
+    const pinguinoUser = await pool.query(
+      "SELECT * FROM users WHERE username = $1",
+      ["admin_pinguino"]
+    );
+
+    if (pinguinoUser.rows.length === 0) {
+      const hashedPassword = await bcrypt.hash("1234", 10);
+      await pool.query(
+        "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
+        ["admin_pinguino", hashedPassword, "pinguino-club"]
+      );
+    } else if (!pinguinoUser.rows[0].business_id) {
+      await pool.query(
+        "UPDATE users SET business_id = $1 WHERE username = $2",
+        ["pinguino-club", "admin_pinguino"]
       );
     }
 
@@ -570,6 +661,8 @@ app.put("/appointments/:id", async (req, res) => {
 
 console.log("REGISTERING GET /appointments/:id/payments");
 console.log("REGISTERING POST /appointments/:id/payments");
+console.log("REGISTERING PUT /appointments/:appointmentId/payments/:paymentId");
+console.log("REGISTERING DELETE /appointments/:appointmentId/payments/:paymentId");
 
 app.post("/appointments/:id/payments", async (req, res) => {
   const { id } = req.params;
@@ -587,11 +680,27 @@ app.post("/appointments/:id/payments", async (req, res) => {
   }
 
   if (amount == null || !method || !paymentStage) {
-    return res.status(400).json({ message: "Faltan campos obligatorios del pago" });
+    return res.status(400).json({
+      message: "Faltan campos obligatorios del pago",
+    });
   }
 
   if (Number(amount) <= 0) {
-    return res.status(400).json({ message: "El monto del pago debe ser mayor a 0" });
+    return res.status(400).json({
+      message: "El monto del pago debe ser mayor a 0",
+    });
+  }
+
+  if (!["transferencia", "efectivo", "debito"].includes(method)) {
+    return res.status(400).json({
+      message: "Método de pago no válido",
+    });
+  }
+
+  if (!["deposit", "balance", "full"].includes(paymentStage)) {
+    return res.status(400).json({
+      message: "Etapa de pago no válida",
+    });
   }
 
   try {
@@ -605,8 +714,6 @@ app.post("/appointments/:id/payments", async (req, res) => {
         message: "Reserva no encontrada o no pertenece a este negocio",
       });
     }
-
-    const appointment = appointmentResult.rows[0];
 
     const paymentResult = await pool.query(
       `INSERT INTO appointment_payments (
@@ -629,52 +736,13 @@ app.post("/appointments/:id/payments", async (req, res) => {
       ]
     );
 
-    const totalsResult = await pool.query(
-      `SELECT COALESCE(SUM(amount), 0) AS total_paid
-       FROM appointment_payments
-       WHERE appointment_id = $1`,
-      [id]
-    );
-
-    const totalPaid = Number(totalsResult.rows[0].total_paid || 0);
-    const totalAmount = Number(appointment.total_amount || 0);
-    const requiredDepositAmount = Number(appointment.required_deposit_amount || 0);
-    const depositRequired = Boolean(appointment.deposit_required);
-
-    let nextPaymentStatus = "unpaid";
-
-    if (depositRequired) {
-      if (totalPaid <= 0 || totalPaid < requiredDepositAmount) {
-        nextPaymentStatus = "deposit_pending";
-      } else if (totalPaid === requiredDepositAmount) {
-        nextPaymentStatus = "deposit_paid";
-      } else if (totalPaid > requiredDepositAmount && totalPaid < totalAmount) {
-        nextPaymentStatus = "partially_paid";
-      } else if (totalPaid >= totalAmount && totalAmount > 0) {
-        nextPaymentStatus = "paid";
-      }
-    } else {
-      if (totalPaid <= 0) {
-        nextPaymentStatus = "unpaid";
-      } else if (totalPaid < totalAmount) {
-        nextPaymentStatus = "partially_paid";
-      } else if (totalPaid >= totalAmount && totalAmount > 0) {
-        nextPaymentStatus = "paid";
-      }
-    }
-
-    await pool.query(
-      `UPDATE appointments
-       SET payment_status = $1
-       WHERE id = $2`,
-      [nextPaymentStatus, id]
-    );
+    const paymentSummary = await recalculateAppointmentPaymentStatus(id);
 
     return res.json({
       message: "Pago registrado correctamente",
       data: paymentResult.rows[0],
-      paymentStatus: nextPaymentStatus,
-      totalPaid,
+      paymentStatus: paymentSummary?.paymentStatus,
+      totalPaid: paymentSummary?.totalPaid,
     });
   } catch (error) {
     console.error(error);
@@ -714,6 +782,156 @@ app.get("/appointments/:id/payments", async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Error al obtener pagos" });
+  }
+});
+
+app.put("/appointments/:appointmentId/payments/:paymentId", async (req, res) => {
+  const { appointmentId, paymentId } = req.params;
+  const {
+    amount,
+    method,
+    paymentStage,
+    receiptUrl,
+    notes,
+    businessId,
+  } = req.body;
+
+  if (!businessId) {
+    return res.status(400).json({ message: "businessId requerido" });
+  }
+
+  if (amount == null || !method || !paymentStage) {
+    return res.status(400).json({
+      message: "Faltan campos obligatorios del pago",
+    });
+  }
+
+  if (Number(amount) <= 0) {
+    return res.status(400).json({
+      message: "El monto del pago debe ser mayor a 0",
+    });
+  }
+
+  if (!["transferencia", "efectivo", "debito"].includes(method)) {
+    return res.status(400).json({
+      message: "Método de pago no válido",
+    });
+  }
+
+  if (!["deposit", "balance", "full"].includes(paymentStage)) {
+    return res.status(400).json({
+      message: "Etapa de pago no válida",
+    });
+  }
+
+  try {
+    const appointmentResult = await pool.query(
+      "SELECT * FROM appointments WHERE id = $1 AND business_id = $2",
+      [appointmentId, businessId]
+    );
+
+    if (appointmentResult.rows.length === 0) {
+      return res.status(404).json({
+        message: "Reserva no encontrada o no pertenece a este negocio",
+      });
+    }
+
+    const paymentExists = await pool.query(
+      `SELECT *
+       FROM appointment_payments
+       WHERE id = $1 AND appointment_id = $2`,
+      [paymentId, appointmentId]
+    );
+
+    if (paymentExists.rows.length === 0) {
+      return res.status(404).json({
+        message: "Pago no encontrado para esta reserva",
+      });
+    }
+
+    const updatedPayment = await pool.query(
+      `UPDATE appointment_payments
+       SET
+         amount = $1,
+         method = $2,
+         payment_stage = $3,
+         receipt_url = $4,
+         notes = $5
+       WHERE id = $6 AND appointment_id = $7
+       RETURNING *`,
+      [
+        amount,
+        method,
+        paymentStage,
+        receiptUrl || null,
+        notes || null,
+        paymentId,
+        appointmentId,
+      ]
+    );
+
+    const paymentSummary = await recalculateAppointmentPaymentStatus(
+      appointmentId
+    );
+
+    return res.json({
+      message: "Pago actualizado correctamente",
+      data: updatedPayment.rows[0],
+      paymentStatus: paymentSummary?.paymentStatus,
+      totalPaid: paymentSummary?.totalPaid,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al actualizar pago" });
+  }
+});
+
+app.delete("/appointments/:appointmentId/payments/:paymentId", async (req, res) => {
+  const { appointmentId, paymentId } = req.params;
+  const businessId = req.query.businessId || req.body?.businessId;
+
+  if (!businessId) {
+    return res.status(400).json({ message: "businessId requerido" });
+  }
+
+  try {
+    const appointmentResult = await pool.query(
+      "SELECT * FROM appointments WHERE id = $1 AND business_id = $2",
+      [appointmentId, businessId]
+    );
+
+    if (appointmentResult.rows.length === 0) {
+      return res.status(404).json({
+        message: "Reserva no encontrada o no pertenece a este negocio",
+      });
+    }
+
+    const deletedPayment = await pool.query(
+      `DELETE FROM appointment_payments
+       WHERE id = $1 AND appointment_id = $2
+       RETURNING *`,
+      [paymentId, appointmentId]
+    );
+
+    if (deletedPayment.rows.length === 0) {
+      return res.status(404).json({
+        message: "Pago no encontrado para esta reserva",
+      });
+    }
+
+    const paymentSummary = await recalculateAppointmentPaymentStatus(
+      appointmentId
+    );
+
+    return res.json({
+      message: "Pago eliminado correctamente",
+      data: deletedPayment.rows[0],
+      paymentStatus: paymentSummary?.paymentStatus,
+      totalPaid: paymentSummary?.totalPaid,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al eliminar pago" });
   }
 });
 
