@@ -192,6 +192,11 @@ const [barber, setBarber] = useState("");
     paymentStatusLabelMap[effectivePaymentStatus] || "Sin estado";
 
   async function syncToGoogleSheets(payload) {
+    console.log("INTENTANDO ENVIAR A GOOGLE SHEETS", {
+      SHEETS_URL,
+      payload,
+    });
+
     try {
       const response = await fetch(SHEETS_URL, {
         method: "POST",
@@ -204,7 +209,11 @@ const [barber, setBarber] = useState("");
         }),
       });
 
+      console.log("RESPUESTA RAW SHEETS", response);
+
       const text = await response.text();
+
+      console.log("TEXTO RESPUESTA SHEETS", text);
 
       try {
         const data = JSON.parse(text);
@@ -362,6 +371,15 @@ const handleSavePayment = async () => {
 
   try {
     if (editingPaymentId) {
+      console.log("ENTRÓ A EDITAR PAGO", {
+        editingPaymentId,
+        paymentAppointmentId: paymentAppointment?.id,
+        paymentAmount,
+        paymentMethod,
+        paymentStage,
+        paymentNotes,
+      });
+
       await updateAppointmentPayment(paymentAppointment.id, editingPaymentId, {
         amount: Number(paymentAmount),
         method: paymentMethod,
@@ -372,24 +390,24 @@ const handleSavePayment = async () => {
       });
 
       await syncToGoogleSheets({
-  type: "payment_update",
-  payment_id: editingPaymentId,
-  appointment_id: paymentAppointment.id,
-  businessId,
-  fecha_reserva: paymentAppointment?.date
-    ? String(paymentAppointment.date).slice(0, 10)
-    : "",
-  hora_reserva: String(paymentAppointment?.time || "").slice(0, 5),
-  cliente: paymentAppointment?.name || "",
-  recurso: paymentAppointment?.barber || "",
-  servicio: paymentAppointment?.service || "",
-  monto_pago: Number(paymentAmount),
-  metodo_pago: paymentMethod,
-  tipo_pago: paymentStage,
-  fecha_pago: new Date().toISOString(),
-  observacion: paymentNotes || "",
-  sync_status: "updated",
-});
+        type: "payment_update",
+        payment_id: editingPaymentId,
+        appointment_id: paymentAppointment.id,
+        businessId,
+        fecha_reserva: paymentAppointment?.date
+          ? String(paymentAppointment.date).slice(0, 10)
+          : "",
+        hora_reserva: String(paymentAppointment?.time || "").slice(0, 5),
+        cliente: paymentAppointment?.name || "",
+        recurso: paymentAppointment?.barber || "",
+        servicio: paymentAppointment?.service || "",
+        monto_pago: Number(paymentAmount),
+        metodo_pago: paymentMethod,
+        tipo_pago: paymentStage,
+        fecha_pago: new Date().toISOString(),
+        observacion: paymentNotes || "",
+        sync_status: "updated",
+      });
 
       setMessage("Pago actualizado correctamente");
     } else {
@@ -449,24 +467,24 @@ const handleDeletePayment = async (payment) => {
     await deleteAppointmentPayment(paymentAppointment.id, payment.id, businessId);
 
     await syncToGoogleSheets({
-  type: "payment_delete",
-  payment_id: payment.id,
-  appointment_id: paymentAppointment.id,
-  businessId,
-  fecha_reserva: paymentAppointment?.date
-    ? String(paymentAppointment.date).slice(0, 10)
-    : "",
-  hora_reserva: String(paymentAppointment?.time || "").slice(0, 5),
-  cliente: paymentAppointment?.name || "",
-  recurso: paymentAppointment?.barber || "",
-  servicio: paymentAppointment?.service || "",
-  monto_pago: Number(payment.amount || 0),
-  metodo_pago: payment.method || "",
-  tipo_pago: payment.payment_stage || "",
-  fecha_pago: new Date().toISOString(),
-  observacion: payment.notes || "",
-  sync_status: "deleted",
-});
+      type: "payment_delete",
+      payment_id: payment.id,
+      appointment_id: paymentAppointment.id,
+      businessId,
+      fecha_reserva: paymentAppointment?.date
+        ? String(paymentAppointment.date).slice(0, 10)
+        : "",
+      hora_reserva: String(paymentAppointment?.time || "").slice(0, 5),
+      cliente: paymentAppointment?.name || "",
+      recurso: paymentAppointment?.barber || "",
+      servicio: paymentAppointment?.service || "",
+      monto_pago: Number(payment.amount || 0),
+      metodo_pago: payment.method || "",
+      tipo_pago: payment.payment_stage || "",
+      fecha_pago: new Date().toISOString(),
+      observacion: payment.notes || "",
+      sync_status: "deleted",
+    });
 
     if (editingPaymentId === payment.id) {
       resetPaymentForm();
