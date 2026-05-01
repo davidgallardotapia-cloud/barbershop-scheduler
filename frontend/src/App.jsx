@@ -191,12 +191,135 @@ const [barber, setBarber] = useState("");
   const selectedPaymentStatusLabel =
     paymentStatusLabelMap[effectivePaymentStatus] || "Sin estado";
 
-  async function syncToGoogleSheets(payload) {
-    console.log("INTENTANDO ENVIAR A GOOGLE SHEETS", {
-      SHEETS_URL,
-      payload,
-    });
 
+  const formatCurrency = (value) => {
+    return `$${Number(value || 0).toLocaleString("es-CL")}`;
+  };
+
+  const getReservationStatusMeta = (status) => {
+    const normalized = String(status || "reservada").toLowerCase();
+
+    if (normalized === "atendida") {
+      return {
+        label: "Atendida",
+        icon: "🟢",
+        background: "#dcfce7",
+        border: "#86efac",
+        color: "#166534",
+      };
+    }
+
+    if (normalized === "no_asistio" || normalized === "no asistio") {
+      return {
+        label: "No asistió",
+        icon: "🔴",
+        background: "#fee2e2",
+        border: "#fca5a5",
+        color: "#991b1b",
+      };
+    }
+
+    if (normalized === "cancelada" || normalized === "cancelled") {
+      return {
+        label: "Cancelada",
+        icon: "⚪",
+        background: "#f3f4f6",
+        border: "#d1d5db",
+        color: "#374151",
+      };
+    }
+
+    return {
+      label: "Reservada",
+      icon: "🟡",
+      background: "#fef3c7",
+      border: "#fcd34d",
+      color: "#92400e",
+    };
+  };
+
+  const getPaymentStatusMeta = (paymentStatus) => {
+    const normalized = String(paymentStatus || "unpaid").toLowerCase();
+
+    if (normalized === "paid") {
+      return {
+        label: "Pagado completo",
+        icon: "✅",
+        background: "#dcfce7",
+        border: "#86efac",
+        color: "#166534",
+      };
+    }
+
+    if (normalized === "partially_paid") {
+      return {
+        label: "Pago parcial",
+        icon: "🟡",
+        background: "#fef3c7",
+        border: "#fcd34d",
+        color: "#92400e",
+      };
+    }
+
+    if (normalized === "deposit_paid") {
+      return {
+        label: "Abono registrado",
+        icon: "🟠",
+        background: "#ffedd5",
+        border: "#fdba74",
+        color: "#9a3412",
+      };
+    }
+
+    if (normalized === "deposit_pending") {
+      return {
+        label: "Abono pendiente",
+        icon: "⏳",
+        background: "#e0f2fe",
+        border: "#7dd3fc",
+        color: "#075985",
+      };
+    }
+
+    if (normalized === "cancelled") {
+      return {
+        label: "Cancelado",
+        icon: "⚪",
+        background: "#f3f4f6",
+        border: "#d1d5db",
+        color: "#374151",
+      };
+    }
+
+    return {
+      label: "Sin pago",
+      icon: "🔴",
+      background: "#fee2e2",
+      border: "#fca5a5",
+      color: "#991b1b",
+    };
+  };
+
+  const getPaymentMethodLabel = (method) => {
+    const normalized = String(method || "").toLowerCase();
+
+    if (normalized === "transferencia") return "Transferencia";
+    if (normalized === "efectivo") return "Efectivo";
+    if (normalized === "debito") return "Débito";
+
+    return method || "Método";
+  };
+
+  const getPaymentStageLabel = (stage) => {
+    const normalized = String(stage || "").toLowerCase();
+
+    if (normalized === "deposit") return "Abono";
+    if (normalized === "balance") return "Saldo";
+    if (normalized === "full") return "Pago completo";
+
+    return stage || "Pago";
+  };
+  async function syncToGoogleSheets(payload) {
     try {
       const response = await fetch(SHEETS_URL, {
         method: "POST",
@@ -209,11 +332,7 @@ const [barber, setBarber] = useState("");
         }),
       });
 
-      console.log("RESPUESTA RAW SHEETS", response);
-
       const text = await response.text();
-
-      console.log("TEXTO RESPUESTA SHEETS", text);
 
       try {
         const data = JSON.parse(text);
@@ -225,6 +344,7 @@ const [barber, setBarber] = useState("");
       console.error("Error guardando en Sheets:", error);
     }
   }
+
 
   useEffect(() => {
     const loadBusiness = async () => {
@@ -508,6 +628,96 @@ const closePaymentPanel = () => {
   resetPaymentForm();
 };
 
+
+const handleReservationStatusFromPaymentPanel = async (nextStatus) => {
+  if (!paymentAppointment?.id || !businessId || submitting) return;
+
+  try {
+    setSubmitting(true);
+    setMessage("");
+
+    const response = await updateAppointmentService(paymentAppointment.id, {
+      name: paymentAppointment.name || "",
+      phone: paymentAppointment.phone || "",
+      date: paymentAppointment.date
+        ? String(paymentAppointment.date).slice(0, 10)
+        : "",
+      time: String(paymentAppointment.time || "").slice(0, 5),
+      service: paymentAppointment.service || "",
+      barber: paymentAppointment.barber || "",
+      businessId,
+      status: nextStatus,
+      totalAmount:
+        Number(paymentAppointment.total_amount || 0) ||
+        getServicePrice(paymentAppointment.service),
+      depositRequired: Boolean(paymentAppointment.deposit_required),
+      requiredDepositAmount: Number(
+        paymentAppointment.required_deposit_amount || 0
+      ),
+      paymentStatus: effectivePaymentStatus || paymentAppointment.payment_status || "unpaid",
+      depositReceiptUrl: paymentAppointment.deposit_receipt_url || null,
+      notes: paymentAppointment.notes || null,
+      needsOpponent: Boolean(paymentAppointment.needs_opponent),
+      opponentName: paymentAppointment.opponent_name || null,
+      opponentPhone: paymentAppointment.opponent_phone || null,
+    });
+
+    const updatedAppointment = response?.data?.data || {
+      ...paymentAppointment,
+      status: nextStatus,
+    };
+
+    await syncToGoogleSheets({
+      id: paymentAppointment.id,
+      date: paymentAppointment.date,
+      time: paymentAppointment.time,
+      name: paymentAppointment.name,
+      phone: paymentAppointment.phone || "",
+      barber: paymentAppointment.barber,
+      service: paymentAppointment.service,
+      status: nextStatus,
+    });
+
+    setPaymentAppointment(updatedAppointment);
+    setMessage(
+      nextStatus === "atendida"
+        ? "Reserva marcada como atendida ✅"
+        : "Reserva marcada como no asistió ❌"
+    );
+
+    await getAppointments();
+  } catch (err) {
+    console.error(err);
+    setMessage("Error al actualizar estado de la reserva");
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+const handleEditReservationFromPaymentPanel = () => {
+  if (!paymentAppointment) return;
+  editAppointment(paymentAppointment);
+};
+
+const handleDeleteReservationFromPaymentPanel = async () => {
+  if (!paymentAppointment?.id || !businessId || submitting) return;
+
+  const confirmed = window.confirm("¿Seguro que quieres eliminar esta reserva?");
+  if (!confirmed) return;
+
+  try {
+    setSubmitting(true);
+    await deleteAppointmentService(paymentAppointment.id, businessId);
+    closePaymentPanel();
+    setMessage("Reserva eliminada correctamente ✅");
+    await getAppointments();
+  } catch (err) {
+    console.error(err);
+    setMessage(err.response?.data?.message || "Error al eliminar reserva");
+  } finally {
+    setSubmitting(false);
+  }
+};
   useEffect(() => {
   if (paymentAppointment) {
     document.body.style.overflow = "hidden";
@@ -1704,6 +1914,26 @@ paymentHistoryItem: {
     },
   };
 
+  const activeReservationStatusMeta = getReservationStatusMeta(
+    paymentAppointment?.status
+  );
+
+  const activePaymentStatusMeta = getPaymentStatusMeta(effectivePaymentStatus);
+
+  const paymentAppointmentPhone = paymentAppointment?.phone
+    ? normalizeChilePhone(paymentAppointment.phone)
+    : "";
+
+  const paymentAppointmentPhoneDisplay = paymentAppointmentPhone
+    ? paymentAppointmentPhone.startsWith("56") && paymentAppointmentPhone.length === 11
+      ? `+${paymentAppointmentPhone.slice(0, 2)} ${paymentAppointmentPhone.slice(2, 3)} ${paymentAppointmentPhone.slice(3, 7)} ${paymentAppointmentPhone.slice(7)}`
+      : paymentAppointmentPhone
+    : "";
+
+  const paymentAppointmentWhatsappUrl = paymentAppointmentPhone
+    ? `https://wa.me/${paymentAppointmentPhone}`
+    : "";
+
   const isClientFormComplete =
     name.trim() &&
     phone.trim() &&
@@ -1923,6 +2153,7 @@ paymentHistoryItem: {
                     selectSlot={selectSlot}
                     setDate={setDate}
                     setTime={setTime}
+                    setBarber={setBarber}
                     getAppointmentsForSlot={getAppointmentsForSlot}
                     getBarberColors={getBarberColors}
                     isClientMode={true}
@@ -2093,6 +2324,7 @@ updateAppointment={updateAppointment}
                 selectSlot={selectSlot}
                 setDate={setDate}
                 setTime={setTime}
+                setBarber={setBarber}
                 getAppointmentsForSlot={getAppointmentsForSlot}
                 getBarberColors={getBarberColors}
                 isClientMode={false}
@@ -2120,12 +2352,89 @@ updateAppointment={updateAppointment}
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: "12px",
-                  marginBottom: "8px",
+                  alignItems: "flex-start",
+                  gap: "16px",
+                  marginBottom: "18px",
+                  flexWrap: "wrap",
                 }}
               >
-                <h3 style={{ margin: 0 }}>Pagos de la reserva</h3>
+                <div style={{ minWidth: 0 }}>
+                  <h3
+                    style={{
+                      margin: 0,
+                      fontSize: "22px",
+                      fontWeight: "900",
+                      color: "#111827",
+                    }}
+                  >
+                    Pagos de la reserva
+                  </h3>
+
+                  <p
+                    style={{
+                      margin: "8px 0 0",
+                      color: "#64748b",
+                      fontSize: "15px",
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    <strong style={{ color: "#111827" }}>
+                      {paymentAppointment?.name}
+                    </strong>{" "}
+                    · {paymentAppointment?.service} ·{" "}
+                    {paymentAppointment?.date
+                      ? new Date(paymentAppointment.date).toLocaleDateString(
+                          "es-CL"
+                        )
+                      : ""}{" "}
+                    · {String(paymentAppointment?.time || "").slice(0, 5)}
+                  </p>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "8px",
+                      flexWrap: "wrap",
+                      marginTop: "12px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        backgroundColor: activeReservationStatusMeta.background,
+                        border: `1px solid ${activeReservationStatusMeta.border}`,
+                        color: activeReservationStatusMeta.color,
+                        borderRadius: "999px",
+                        padding: "6px 10px",
+                        fontSize: "12px",
+                        fontWeight: "900",
+                      }}
+                    >
+                      <span>{activeReservationStatusMeta.icon}</span>
+                      Reserva: {activeReservationStatusMeta.label}
+                    </span>
+
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        backgroundColor: activePaymentStatusMeta.background,
+                        border: `1px solid ${activePaymentStatusMeta.border}`,
+                        color: activePaymentStatusMeta.color,
+                        borderRadius: "999px",
+                        padding: "6px 10px",
+                        fontSize: "12px",
+                        fontWeight: "900",
+                      }}
+                    >
+                      <span>{activePaymentStatusMeta.icon}</span>
+                      Pago: {activePaymentStatusMeta.label}
+                    </span>
+                  </div>
+                </div>
 
                 <button
                   type="button"
@@ -2136,40 +2445,42 @@ updateAppointment={updateAppointment}
                 </button>
               </div>
 
-              <p style={{ marginTop: 0, marginBottom: "16px", color: "#6b7280" }}>
-                {paymentAppointment?.name} · {paymentAppointment?.service} ·{" "}
-                {paymentAppointment?.date
-                  ? new Date(paymentAppointment.date).toLocaleDateString("es-CL")
-                  : ""}{" "}
-                · {String(paymentAppointment?.time || "").slice(0, 5)}
-              </p>
-
               {paymentPanelError && (
                 <p
                   style={{
                     marginTop: 0,
                     marginBottom: "16px",
                     color: "#b42318",
-                    fontWeight: "700",
+                    fontWeight: "800",
                   }}
                 >
                   {paymentPanelError}
                 </p>
               )}
 
-              <div style={styles.paymentSummaryGrid}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile
+                    ? "1fr"
+                    : "repeat(4, minmax(0, 1fr))",
+                  gap: "10px",
+                  marginBottom: "14px",
+                }}
+              >
                 <div style={styles.paymentSummaryCard}>
                   <div
                     style={{
                       fontSize: "12px",
-                      color: "#6b7280",
+                      color: "#64748b",
                       marginBottom: "4px",
+                      fontWeight: "700",
                     }}
                   >
                     Total
                   </div>
-                  <div style={{ fontWeight: "700", fontSize: "18px" }}>
-                    ${selectedReservationTotal.toLocaleString("es-CL")}
+                  <div style={{ fontWeight: "900", fontSize: "20px" }}>
+                    {formatCurrency(selectedReservationTotal)}
                   </div>
                 </div>
 
@@ -2177,14 +2488,15 @@ updateAppointment={updateAppointment}
                   <div
                     style={{
                       fontSize: "12px",
-                      color: "#6b7280",
+                      color: "#64748b",
                       marginBottom: "4px",
+                      fontWeight: "700",
                     }}
                   >
                     Pagado
                   </div>
-                  <div style={{ fontWeight: "700", fontSize: "18px" }}>
-                    ${selectedPaymentTotal.toLocaleString("es-CL")}
+                  <div style={{ fontWeight: "900", fontSize: "20px" }}>
+                    {formatCurrency(selectedPaymentTotal)}
                   </div>
                 </div>
 
@@ -2192,14 +2504,15 @@ updateAppointment={updateAppointment}
                   <div
                     style={{
                       fontSize: "12px",
-                      color: "#6b7280",
+                      color: "#64748b",
                       marginBottom: "4px",
+                      fontWeight: "700",
                     }}
                   >
                     Saldo
                   </div>
-                  <div style={{ fontWeight: "700", fontSize: "18px" }}>
-                    ${selectedPendingBalance.toLocaleString("es-CL")}
+                  <div style={{ fontWeight: "900", fontSize: "20px" }}>
+                    {formatCurrency(selectedPendingBalance)}
                   </div>
                 </div>
 
@@ -2207,46 +2520,240 @@ updateAppointment={updateAppointment}
                   <div
                     style={{
                       fontSize: "12px",
-                      color: "#6b7280",
+                      color: "#64748b",
                       marginBottom: "4px",
+                      fontWeight: "700",
                     }}
                   >
                     Estado
                   </div>
-                  <div style={{ fontWeight: "700", fontSize: "16px" }}>
+                  <div
+                    style={{
+                      fontWeight: "900",
+                      fontSize: "16px",
+                      color: activePaymentStatusMeta.color,
+                    }}
+                  >
                     {selectedPaymentStatusLabel}
                   </div>
                 </div>
               </div>
 
               {depositFeatureEnabled && (
-                <p style={{ marginTop: 0, marginBottom: "16px", color: "#6b7280" }}>
+                <p
+                  style={{
+                    marginTop: 0,
+                    marginBottom: "16px",
+                    color: "#64748b",
+                    fontSize: "14px",
+                  }}
+                >
                   Abono sugerido/requerido:{" "}
-                  <strong>${selectedRequiredDeposit.toLocaleString("es-CL")}</strong>
+                  <strong>{formatCurrency(selectedRequiredDeposit)}</strong>
                 </p>
               )}
 
               <div
                 style={{
+                  border: "1px solid #e2e8f0",
+                  borderRadius: "14px",
+                  padding: "12px",
+                  backgroundColor: "#f8fafc",
+                  marginBottom: "16px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: isMobile
+                      ? "1fr 1fr"
+                      : "repeat(5, minmax(0, 1fr))",
+                    gap: "10px",
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#64748b" }}>
+                      Cliente
+                    </div>
+                    <div style={{ fontWeight: "900", color: "#111827" }}>
+                      {paymentAppointment?.name || "-"}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#64748b" }}>
+                      Celular
+                    </div>
+                    {paymentAppointmentWhatsappUrl ? (
+                      <a
+                        href={paymentAppointmentWhatsappUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          fontWeight: "900",
+                          color: "#166534",
+                          textDecoration: "none",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {paymentAppointmentPhoneDisplay}
+                      </a>
+                    ) : (
+                      <div style={{ fontWeight: "900", color: "#111827" }}>
+                        -
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#64748b" }}>
+                      Fecha
+                    </div>
+                    <div style={{ fontWeight: "900", color: "#111827" }}>
+                      {paymentAppointment?.date
+                        ? new Date(paymentAppointment.date).toLocaleDateString(
+                            "es-CL"
+                          )
+                        : "-"}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#64748b" }}>
+                      Hora
+                    </div>
+                    <div style={{ fontWeight: "900", color: "#111827" }}>
+                      {String(paymentAppointment?.time || "").slice(0, 5) || "-"}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: "11px", color: "#64748b" }}>
+                      Servicio
+                    </div>
+                    <div
+                      style={{
+                        fontWeight: "900",
+                        color: "#111827",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {paymentAppointment?.service || "-"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile
+                    ? "1fr 1fr"
+                    : "repeat(4, minmax(0, 1fr))",
+                  gap: "10px",
+                  marginBottom: "18px",
+                }}
+              >
+                <button
+                  type="button"
+                  style={{
+                    ...styles.button,
+                    backgroundColor: "#dcfce7",
+                    color: "#166534",
+                    border: "1px solid #86efac",
+                    opacity: submitting ? 0.7 : 1,
+                  }}
+                  onClick={() =>
+                    handleReservationStatusFromPaymentPanel("atendida")
+                  }
+                  disabled={submitting}
+                >
+                  ✓ Atendida
+                </button>
+
+                <button
+                  type="button"
+                  style={{
+                    ...styles.button,
+                    backgroundColor: "#fee2e2",
+                    color: "#991b1b",
+                    border: "1px solid #fca5a5",
+                    opacity: submitting ? 0.7 : 1,
+                  }}
+                  onClick={() =>
+                    handleReservationStatusFromPaymentPanel("no_asistio")
+                  }
+                  disabled={submitting}
+                >
+                  ✕ No asistió
+                </button>
+
+                <button
+                  type="button"
+                  style={{
+                    ...styles.button,
+                    ...styles.editButton,
+                    opacity: submitting ? 0.7 : 1,
+                  }}
+                  onClick={handleEditReservationFromPaymentPanel}
+                  disabled={submitting}
+                >
+                  Editar reserva
+                </button>
+
+                <button
+                  type="button"
+                  style={{
+                    ...styles.button,
+                    ...styles.dangerButton,
+                    opacity: submitting ? 0.7 : 1,
+                  }}
+                  onClick={handleDeleteReservationFromPaymentPanel}
+                  disabled={submitting}
+                >
+                  Eliminar reserva
+                </button>
+              </div>
+
+              <div
+                style={{
                   display: "grid",
                   gridTemplateColumns: isMobile ? "1fr" : "1.05fr 0.95fr",
-                  gap: "16px",
+                  gap: "18px",
                   alignItems: "start",
                 }}
               >
                 <div>
-                  <h4 style={{ margin: "0 0 10px" }}>Historial de pagos</h4>
+                  <h4 style={{ margin: "0 0 10px", fontSize: "17px" }}>
+                    Historial de pagos
+                  </h4>
 
                   {loadingPayments ? (
                     <p style={{ marginTop: 0 }}>Cargando pagos...</p>
                   ) : selectedAppointmentPayments.length === 0 ? (
-                    <p style={{ marginTop: 0, color: "#6b7280" }}>
+                    <div
+                      style={{
+                        border: "1px dashed #cbd5e1",
+                        borderRadius: "14px",
+                        padding: "16px",
+                        backgroundColor: "#f8fafc",
+                        color: "#64748b",
+                        fontWeight: "700",
+                      }}
+                    >
                       Aún no hay pagos registrados para esta reserva.
-                    </p>
+                    </div>
                   ) : (
                     <div style={{ display: "grid", gap: "10px" }}>
                       {selectedAppointmentPayments.map((payment) => {
-                        const isEditingThisPayment = editingPaymentId === payment.id;
+                        const isEditingThisPayment =
+                          editingPaymentId === payment.id;
+                        const stageLabel = getPaymentStageLabel(
+                          payment.payment_stage
+                        );
+                        const isDeposit = payment.payment_stage === "deposit";
 
                         return (
                           <div
@@ -2255,25 +2762,100 @@ updateAppointment={updateAppointment}
                               ...styles.paymentHistoryItem,
                               border: isEditingThisPayment
                                 ? "2px solid #2563eb"
-                                : styles.paymentHistoryItem.border,
-                              backgroundColor: isEditingThisPayment ? "#eff6ff" : "#ffffff",
+                                : "1px solid #e2e8f0",
+                              backgroundColor: isEditingThisPayment
+                                ? "#eff6ff"
+                                : "#ffffff",
+                              boxShadow: "0 4px 14px rgba(15,23,42,0.05)",
                             }}
                           >
-                            <div style={{ fontWeight: "bold", fontSize: "16px" }}>
-                              ${Number(payment.amount || 0).toLocaleString("es-CL")}
-                            </div>
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                gap: "10px",
+                                alignItems: "flex-start",
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              <div>
+                                <div
+                                  style={{
+                                    fontWeight: "900",
+                                    fontSize: "22px",
+                                    lineHeight: 1,
+                                    color: "#111827",
+                                  }}
+                                >
+                                  {formatCurrency(payment.amount)}
+                                </div>
 
-                            <div style={{ fontSize: "14px", color: "#4b5563" }}>
-                              Método: {payment.method}
-                            </div>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    gap: "7px",
+                                    flexWrap: "wrap",
+                                    marginTop: "10px",
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      backgroundColor: "#eff6ff",
+                                      border: "1px solid #bfdbfe",
+                                      color: "#1d4ed8",
+                                      borderRadius: "999px",
+                                      padding: "4px 9px",
+                                      fontSize: "12px",
+                                      fontWeight: "900",
+                                    }}
+                                  >
+                                    {getPaymentMethodLabel(payment.method)}
+                                  </span>
 
-                            <div style={{ fontSize: "14px", color: "#4b5563" }}>
-                              Etapa: {payment.payment_stage}
+                                  <span
+                                    style={{
+                                      backgroundColor: isDeposit
+                                        ? "#fef3c7"
+                                        : "#dcfce7",
+                                      border: isDeposit
+                                        ? "1px solid #fcd34d"
+                                        : "1px solid #86efac",
+                                      color: isDeposit ? "#92400e" : "#166534",
+                                      borderRadius: "999px",
+                                      padding: "4px 9px",
+                                      fontSize: "12px",
+                                      fontWeight: "900",
+                                    }}
+                                  >
+                                    {stageLabel}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {payment.created_at && (
+                                <div
+                                  style={{
+                                    fontSize: "11px",
+                                    color: "#94a3b8",
+                                    fontWeight: "800",
+                                    textAlign: "right",
+                                  }}
+                                >
+                                  {String(payment.created_at).slice(0, 10)}
+                                </div>
+                              )}
                             </div>
 
                             {payment.notes ? (
-                              <div style={{ fontSize: "14px", color: "#4b5563" }}>
-                                Nota: {payment.notes}
+                              <div
+                                style={{
+                                  marginTop: "10px",
+                                  color: "#475569",
+                                  fontSize: "14px",
+                                  lineHeight: 1.3,
+                                }}
+                              >
+                                📝 {payment.notes}
                               </div>
                             ) : null}
 
@@ -2281,7 +2863,7 @@ updateAppointment={updateAppointment}
                               style={{
                                 display: "flex",
                                 gap: "8px",
-                                marginTop: "10px",
+                                marginTop: "12px",
                                 flexWrap: "wrap",
                               }}
                             >
@@ -2295,7 +2877,7 @@ updateAppointment={updateAppointment}
                                 }}
                                 onClick={() => handleEditPaymentClick(payment)}
                               >
-                                Editar
+                                Editar pago
                               </button>
 
                               <button
@@ -2308,7 +2890,7 @@ updateAppointment={updateAppointment}
                                 }}
                                 onClick={() => handleDeletePayment(payment)}
                               >
-                                Eliminar
+                                Eliminar pago
                               </button>
                             </div>
                           </div>
@@ -2318,8 +2900,16 @@ updateAppointment={updateAppointment}
                   )}
                 </div>
 
-                <div>
-                  <h4 style={{ margin: "0 0 10px" }}>
+                <div
+                  style={{
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "16px",
+                    padding: "16px",
+                    backgroundColor: "#ffffff",
+                    boxShadow: "0 4px 14px rgba(15,23,42,0.05)",
+                  }}
+                >
+                  <h4 style={{ margin: "0 0 12px", fontSize: "17px" }}>
                     {editingPaymentId ? "Editar pago" : "Registrar nuevo pago"}
                   </h4>
 
@@ -2341,7 +2931,7 @@ updateAppointment={updateAppointment}
                     >
                       {paymentMethods.map((method) => (
                         <option key={method} value={method}>
-                          {method}
+                          {getPaymentMethodLabel(method)}
                         </option>
                       ))}
                     </select>

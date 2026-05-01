@@ -40,54 +40,109 @@ function WeeklyCalendar({
   const isGiocata = business?.id === "giocata";
   const isSportsBusiness = ["giocata", "pinguino-club"].includes(business?.id);
 
+  const sportsResources =
+    business?.barbers && business.barbers.length > 0
+      ? business.barbers
+      : ["Cancha 1", "Cancha 2", "Cancha 3", "Cancha 4", "Cancha 5", "Cancha 6"];
+
   const getPaymentStatusInfo = (paymentStatus) => {
     switch (paymentStatus) {
       case "paid":
         return {
           label: "Pagado",
+          shortLabel: "Pagado",
           icon: "✅",
           background: "#dcfce7",
           border: "#86efac",
           color: "#166534",
+          dot: "#22c55e",
         };
 
       case "partially_paid":
         return {
           label: "Parcial",
+          shortLabel: "Parcial",
           icon: "🟡",
           background: "#fef9c3",
           border: "#fde047",
           color: "#854d0e",
+          dot: "#eab308",
         };
 
       case "deposit_paid":
         return {
           label: "Abono",
+          shortLabel: "Abono",
           icon: "🟠",
           background: "#ffedd5",
           border: "#fdba74",
           color: "#9a3412",
+          dot: "#f97316",
         };
 
       case "deposit_pending":
         return {
           label: "Pendiente",
+          shortLabel: "Pend.",
           icon: "⏳",
           background: "#e0f2fe",
           border: "#7dd3fc",
           color: "#075985",
+          dot: "#0ea5e9",
         };
 
       case "unpaid":
       default:
         return {
           label: "Sin pago",
+          shortLabel: "Sin pago",
           icon: "🔴",
           background: "#fee2e2",
           border: "#fecaca",
           color: "#991b1b",
+          dot: "#ef4444",
         };
     }
+  };
+
+  const getReservationStatusInfo = (status) => {
+    if (!status || status === "reservada") {
+      return {
+        label: "Reservada",
+        icon: "🟡",
+        background: "#fef3c7",
+        border: "#fcd34d",
+        color: "#92400e",
+      };
+    }
+
+    if (status === "atendida") {
+      return {
+        label: "Atendida",
+        icon: "🟢",
+        background: "#dcfce7",
+        border: "#86efac",
+        color: "#166534",
+      };
+    }
+
+    if (status === "no_asistio") {
+      return {
+        label: "No asistió",
+        icon: "🔴",
+        background: "#fee2e2",
+        border: "#fecaca",
+        color: "#991b1b",
+      };
+    }
+
+    return {
+      label: "",
+      icon: "",
+      background: "#f3f4f6",
+      border: "#d1d5db",
+      color: "#374151",
+    };
   };
 
   const renderPaymentStatus = (appointment, extraStyle = {}) => {
@@ -120,6 +175,321 @@ function WeeklyCalendar({
           {paymentInfo.icon}
         </span>
         <span>{paymentInfo.label}</span>
+      </div>
+    );
+  };
+
+  const renderReservationStatus = (appointment, extraStyle = {}) => {
+    const statusInfo = getReservationStatusInfo(appointment?.status);
+
+    if (!statusInfo.label) return null;
+
+    return (
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "5px",
+          width: "fit-content",
+          maxWidth: "100%",
+          padding: "4px 7px",
+          borderRadius: "999px",
+          backgroundColor: statusInfo.background,
+          border: `1px solid ${statusInfo.border}`,
+          color: statusInfo.color,
+          fontWeight: "800",
+          fontSize: "11px",
+          lineHeight: 1,
+          whiteSpace: "nowrap",
+          ...extraStyle,
+        }}
+      >
+        <span style={{ fontSize: "10px", lineHeight: 1 }}>
+          {statusInfo.icon}
+        </span>
+        <span>{statusInfo.label}</span>
+      </div>
+    );
+  };
+
+  const getShortResourceName = (resourceName) => {
+    const match = String(resourceName || "").match(/cancha\s*(\d+)/i);
+    return match ? `C${match[1]}` : String(resourceName || "");
+  };
+
+  const getAppointmentDisplayName = (appointment) => {
+    if (!appointment) return "";
+
+    if (appointment.opponent_name) {
+      return `${appointment.name || "Equipo 1"} vs ${appointment.opponent_name}`;
+    }
+
+    return appointment.name || "Reservado";
+  };
+
+  const isLookingForOpponent = (appointment) => {
+    return (
+      Boolean(appointment?.needs_opponent) &&
+      !appointment?.opponent_name &&
+      !appointment?.opponent_phone
+    );
+  };
+
+  const getSportsAppointmentForResource = (appointments, resourceName) => {
+    return appointments.find(
+      (appointment) =>
+        String(appointment.barber || "").trim().toLowerCase() ===
+        String(resourceName || "").trim().toLowerCase()
+    );
+  };
+
+  const handleSportsOccupiedClick = (appointment) => {
+    if (!appointment) return;
+
+    if (business?.paymentsEnabled && openPaymentPanel) {
+      openPaymentPanel(appointment);
+      return;
+    }
+
+    editAppointment(appointment);
+  };
+
+  const handleSportsAvailableClick = (day, hour, resourceName) => {
+  if (isClientMode) return;
+
+  selectSlot(day, hour);
+
+  if (setBarber && resourceName) {
+    setBarber(resourceName);
+  }
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+  const renderSportsResourceBox = ({ resourceName, appointment, day, hour }) => {
+  const paymentInfo = getPaymentStatusInfo(appointment?.payment_status);
+  const occupied = Boolean(appointment);
+  const lookingOpponent = isLookingForOpponent(appointment);
+
+  return (
+    <button
+      key={resourceName}
+      type="button"
+      onClick={() =>
+        occupied
+          ? handleSportsOccupiedClick(appointment)
+          : handleSportsAvailableClick(day, hour, resourceName)
+      }
+      title={
+        occupied
+          ? `${resourceName} - ${getAppointmentDisplayName(appointment)}`
+          : `${resourceName} libre`
+      }
+      style={{
+        width: "100%",
+        border: occupied
+          ? `1px solid ${paymentInfo.border}`
+          : "1px solid #e5e7eb",
+        borderLeft: occupied
+          ? `5px solid ${paymentInfo.dot}`
+          : "5px solid #d1d5db",
+        backgroundColor: occupied ? "#ffffff" : "#f8fafc",
+        color: "#0f172a",
+        borderRadius: "10px",
+        padding: "7px 8px",
+        minHeight: "38px",
+        textAlign: "left",
+        cursor: "pointer",
+        boxShadow: occupied
+          ? "0 3px 10px rgba(15, 23, 42, 0.08)"
+          : "none",
+        display: "grid",
+        gridTemplateColumns: "34px minmax(0, 1fr) auto",
+        alignItems: "center",
+        gap: "8px",
+      }}
+    >
+      <span
+        style={{
+          fontWeight: "900",
+          fontSize: "12px",
+          color: occupied ? "#064e3b" : "#475569",
+        }}
+      >
+        {getShortResourceName(resourceName)}
+      </span>
+
+      <span
+        style={{
+          fontSize: "12px",
+          fontWeight: occupied ? "800" : "700",
+          color: occupied ? "#111827" : "#64748b",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {occupied ? getAppointmentDisplayName(appointment) : "Libre"}
+      </span>
+
+      {occupied ? (
+        <span
+          style={{
+            fontSize: "10px",
+            fontWeight: "900",
+            color: paymentInfo.color,
+            backgroundColor: paymentInfo.background,
+            border: `1px solid ${paymentInfo.border}`,
+            borderRadius: "999px",
+            padding: "3px 6px",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {paymentInfo.shortLabel}
+        </span>
+      ) : lookingOpponent ? (
+        <span
+          style={{
+            fontSize: "10px",
+            fontWeight: "900",
+            color: "#1d4ed8",
+            backgroundColor: "#dbeafe",
+            border: "1px solid #93c5fd",
+            borderRadius: "999px",
+            padding: "3px 6px",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Rival
+        </span>
+      ) : (
+        <span />
+      )}
+    </button>
+  );
+};
+
+  const renderSportsAdminMatrix = () => {
+    return (
+      <div
+        style={{
+          overflowX: "auto",
+          width: "100%",
+          border: "1px solid #d1fae5",
+          borderRadius: "14px",
+          backgroundColor: "#ffffff",
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: isMobile
+              ? "72px repeat(7, minmax(230px, 1fr))"
+              : "82px repeat(7, minmax(210px, 1fr))",
+            minWidth: isMobile ? "1680px" : "1550px",
+          }}
+        >
+          <div
+            style={{
+              position: "sticky",
+              left: 0,
+              zIndex: 4,
+              backgroundColor: business?.theme?.primary || "#166534",
+              color: "#ffffff",
+              padding: "12px",
+              fontWeight: "900",
+              borderRight: "1px solid rgba(255,255,255,0.18)",
+              borderBottom: "1px solid rgba(255,255,255,0.18)",
+            }}
+          >
+            Hora
+          </div>
+
+          {weekDays.map((day) => (
+            <div
+              key={formatDateToInput(day)}
+              style={{
+                backgroundColor: business?.theme?.primaryDark || "#14532d",
+                color: "#ffffff",
+                padding: "12px",
+                fontWeight: "900",
+                borderRight: "1px solid rgba(255,255,255,0.18)",
+                borderBottom: "1px solid rgba(255,255,255,0.18)",
+                textTransform: "capitalize",
+              }}
+            >
+              <div>
+                {day.toLocaleDateString("es-CL", { weekday: "long" })}
+              </div>
+              <div style={{ fontSize: "12px", opacity: 0.9 }}>
+                {day.toLocaleDateString("es-CL")}
+              </div>
+            </div>
+          ))}
+
+          {hours.map((hour) => (
+            <React.Fragment key={hour}>
+              <div
+                style={{
+                  position: "sticky",
+                  left: 0,
+                  zIndex: 3,
+                  backgroundColor: "#ecfdf5",
+                  color: "#064e3b",
+                  padding: "12px",
+                  fontWeight: "900",
+                  borderRight: "1px solid #d1fae5",
+                  borderBottom: "1px solid #e5e7eb",
+                  minHeight: "275px",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "center",
+                }}
+              >
+                {formatHourLabel(hour)}
+              </div>
+
+              {weekDays.map((day) => {
+                const slotAppointments = getAppointmentsForSlot(day, hour);
+
+                return (
+                  <div
+                    key={`${formatDateToInput(day)}-${hour}`}
+                    style={{
+                      padding: "10px",
+                      borderRight: "1px solid #e5e7eb",
+                      borderBottom: "1px solid #e5e7eb",
+                      backgroundColor: "#ffffff",
+                      minHeight: "275x",
+                    }}
+                  >
+                    <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: "6px",
+  }}
+>
+                      {sportsResources.map((resourceName) => {
+                        const appointment = getSportsAppointmentForResource(
+                          slotAppointments,
+                          resourceName
+                        );
+
+                        return renderSportsResourceBox({
+                          resourceName,
+                          appointment,
+                          day,
+                          hour,
+                        });
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          ))}
+        </div>
       </div>
     );
   };
@@ -197,6 +567,8 @@ function WeeklyCalendar({
           <div style={styles.spinnerBox}>
             <div style={styles.spinner}></div>
           </div>
+        ) : isSportsBusiness && !isClientMode ? (
+          renderSportsAdminMatrix()
         ) : isMobile ? (
           isClientMode ? (
             <div style={styles.mobileSlotsWrapper}>
