@@ -2566,7 +2566,7 @@ updateAppointment={updateAppointment}
                   style={{
                     display: "grid",
                     gridTemplateColumns: isMobile
-                      ? "1fr 1fr"
+                      ? "1fr"
                       : "repeat(5, minmax(0, 1fr))",
                     gap: "10px",
                   }}
@@ -2593,7 +2593,11 @@ updateAppointment={updateAppointment}
                           fontWeight: "900",
                           color: "#166534",
                           textDecoration: "none",
-                          whiteSpace: "nowrap",
+                          display: "inline-block",
+maxWidth: "100%",
+whiteSpace: "normal",
+wordBreak: "break-word",
+lineHeight: 1.2,
                         }}
                       >
                         {paymentAppointmentPhoneDisplay}
@@ -2605,27 +2609,46 @@ updateAppointment={updateAppointment}
                     )}
                   </div>
 
-                  <div>
-                    <div style={{ fontSize: "11px", color: "#64748b" }}>
-                      Fecha
-                    </div>
-                    <div style={{ fontWeight: "900", color: "#111827" }}>
-                      {paymentAppointment?.date
-                        ? new Date(paymentAppointment.date).toLocaleDateString(
-                            "es-CL"
-                          )
-                        : "-"}
-                    </div>
-                  </div>
+                  {isMobile && (
+  <div>
+    <div style={{ fontSize: "11px", color: "#64748b" }}>
+      Fecha · Hora
+    </div>
 
-                  <div>
-                    <div style={{ fontSize: "11px", color: "#64748b" }}>
-                      Hora
-                    </div>
-                    <div style={{ fontWeight: "900", color: "#111827" }}>
-                      {String(paymentAppointment?.time || "").slice(0, 5) || "-"}
-                    </div>
-                  </div>
+    <div style={{ fontWeight: "900", color: "#111827" }}>
+      {paymentAppointment?.date
+        ? new Date(paymentAppointment.date).toLocaleDateString("es-CL")
+        : "—"}{" "}
+      · {String(paymentAppointment?.time || "").slice(0, 5) || "—"}
+    </div>
+  </div>
+)}
+
+                  {!isMobile && (
+  <div>
+    <div style={{ fontSize: "11px", color: "#64748b" }}>
+      Fecha
+    </div>
+
+    <div style={{ fontWeight: "900", color: "#111827" }}>
+      {paymentAppointment?.date
+        ? new Date(paymentAppointment.date).toLocaleDateString("es-CL")
+        : "—"}
+    </div>
+  </div>
+)}
+
+                  {!isMobile && (
+  <div>
+    <div style={{ fontSize: "11px", color: "#64748b" }}>
+      Hora
+    </div>
+
+    <div style={{ fontWeight: "900", color: "#111827" }}>
+      {String(paymentAppointment?.time || "").slice(0, 5) || "—"}
+    </div>
+  </div>
+)}
 
                   <div>
                     <div style={{ fontSize: "11px", color: "#64748b" }}>

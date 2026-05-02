@@ -1,4 +1,10 @@
 import React from "react";
+import {
+  FaWhatsapp,
+  FaPhoneAlt,
+  FaMapMarkerAlt,
+  FaRegClock,
+} from "react-icons/fa";
 
 function BusinessHeader({ isMobile, business }) {
   if (!business) return null;
@@ -163,7 +169,7 @@ function BusinessHeader({ isMobile, business }) {
       >
         <div>
           <p style={{ margin: "0 0 14px", fontSize: "18px", color: "#374151" }}>
-            📍 {business.location}
+          <FaMapMarkerAlt style={{ color: "#e11d48", fontSize: "18px" }} /> {business.location}
           </p>
 
           <div style={{ margin: "0 0 14px" }}>
@@ -191,21 +197,59 @@ function BusinessHeader({ isMobile, business }) {
                 textDecoration: "none",
               }}
             >
-              📍 {business.address}
+              <FaMapMarkerAlt style={{ color: "#e11d48", fontSize: "18px" }} /> {business.address}
             </a>
           </div>
 
-          <p style={{ margin: "0 0 14px", fontSize: "18px", color: "#374151" }}>
-            📞 {business.phone}
-          </p>
+          {business?.phone && (
+  <a
+    href={business?.whatsappUrl || `https://wa.me/${String(business.phone).replace(/\D/g, "")}`}
+    target="_blank"
+    rel="noreferrer"
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: "10px",
+      margin: "0 0 14px",
+      fontSize: "18px",
+      color: "#374151",
+      textDecoration: "none",
+    }}
+  >
+    <FaPhoneAlt style={{ color: "#16a34a", fontSize: "19px" }} />
+    <span>{business.phone}</span>
+  </a>
+)}
 
-          <p style={{ margin: "0 0 14px", fontSize: "18px", color: "#374151" }}>
-            💬 {business.whatsappLabel}
-          </p>
+          {business?.whatsappLabel && (
+  <a
+    href={business?.whatsappUrl || `https://wa.me/${String(business.phone || "").replace(/\D/g, "")}`}
+    target="_blank"
+    rel="noreferrer"
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "10px",
+      margin: "0 0 14px",
+      padding: "10px 14px",
+      borderRadius: "999px",
+      backgroundColor: "#dcfce7",
+      border: "1px solid #86efac",
+      color: "#166534",
+      textDecoration: "none",
+      fontSize: "16px",
+      fontWeight: "800",
+      width: "fit-content",
+    }}
+  >
+    <FaWhatsapp style={{ color: "#16a34a", fontSize: "22px" }} />
+    <span>{business.whatsappLabel}</span>
+  </a>
+)}
 
           <div style={{ margin: "0 0 18px" }}>
             <p style={{ margin: "0 0 6px", fontSize: "18px", color: "#374151" }}>
-              🕒 {business.hours || "Horario por confirmar"}
+              <FaRegClock style={{ color: "#64748b", fontSize: "19px" }} /> {business.hours || "Horario por confirmar"}
             </p>
           </div>
 

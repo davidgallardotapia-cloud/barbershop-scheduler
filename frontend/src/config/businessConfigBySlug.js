@@ -168,14 +168,15 @@ export const businessConfigBySlug = {
     subtitle: "Arriendo de canchas de fútbol",
     logoWidth: "150px",
     logoHeight: "150px",
-    phone: "Por definir",
-    hours: "Lun a Dom, 19:00 a 22:00",
+    phone: "+56 9 9323 9412",
+    hours: "Lun a Dom, 19:00 a 23:00",
     location: "La Serena",
     address: "Hortensia Bustamante 52",
     image: "/giocata-hero.png",
     logo: "/giocata-logo.png",
     description:
       "Reserva tu cancha online en La Serena de forma rápida y simple. Elige la cancha, selecciona el horario disponible y confirma tu reserva fácilmente por WhatsApp.",
+    whatsappUrl: "https://wa.me/56993239412",
     whatsappLabel: "Confirma tu reserva por WhatsApp",
     mapLink: "https://maps.google.com/?q=Hortensia+Bustamante+52,+La+Serena",
     mapEmbedUrl:
@@ -263,7 +264,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
       "Fútbol 8 - Cancha 6 ($30.000)",
     ],
 
-    scheduleSlots: ["19:00", "20:00", "21:00", "22:00"],
+    scheduleSlots: ["19:00", "20:00", "21:00", "22:00", "23:00"],
 
     professionals: [
       { name: "Fútbol 6", image: "/giocata-logo.png" },

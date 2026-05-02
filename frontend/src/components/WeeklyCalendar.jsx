@@ -20,6 +20,7 @@ function WeeklyCalendar({
   selectSlot,
   setDate,
   setTime,
+  setBarber,
   getAppointmentsForSlot,
   getBarberColors,
   isClientMode,
@@ -255,119 +256,120 @@ function WeeklyCalendar({
   };
 
   const handleSportsAvailableClick = (day, hour, resourceName) => {
-  if (isClientMode) return;
+    if (isClientMode) return;
 
-  selectSlot(day, hour);
+    selectSlot(day, hour);
 
-  if (setBarber && resourceName) {
-    setBarber(resourceName);
-  }
+    if (setBarber && resourceName) {
+      setBarber(resourceName);
+    }
 
-  window.scrollTo({ top: 0, behavior: "smooth" });
-};
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const renderSportsResourceBox = ({ resourceName, appointment, day, hour }) => {
-  const paymentInfo = getPaymentStatusInfo(appointment?.payment_status);
-  const occupied = Boolean(appointment);
-  const lookingOpponent = isLookingForOpponent(appointment);
+    const paymentInfo = getPaymentStatusInfo(appointment?.payment_status);
+    const occupied = Boolean(appointment);
+    const lookingOpponent = isLookingForOpponent(appointment);
 
-  return (
-    <button
-      key={resourceName}
-      type="button"
-      onClick={() =>
-        occupied
-          ? handleSportsOccupiedClick(appointment)
-          : handleSportsAvailableClick(day, hour, resourceName)
-      }
-      title={
-        occupied
-          ? `${resourceName} - ${getAppointmentDisplayName(appointment)}`
-          : `${resourceName} libre`
-      }
-      style={{
-        width: "100%",
-        border: occupied
-          ? `1px solid ${paymentInfo.border}`
-          : "1px solid #e5e7eb",
-        borderLeft: occupied
-          ? `5px solid ${paymentInfo.dot}`
-          : "5px solid #d1d5db",
-        backgroundColor: occupied ? "#ffffff" : "#f8fafc",
-        color: "#0f172a",
-        borderRadius: "10px",
-        padding: "7px 8px",
-        minHeight: "38px",
-        textAlign: "left",
-        cursor: "pointer",
-        boxShadow: occupied
-          ? "0 3px 10px rgba(15, 23, 42, 0.08)"
-          : "none",
-        display: "grid",
-        gridTemplateColumns: "34px minmax(0, 1fr) auto",
-        alignItems: "center",
-        gap: "8px",
-      }}
-    >
-      <span
+    return (
+      <button
+        key={resourceName}
+        type="button"
+        onClick={() =>
+          occupied
+            ? handleSportsOccupiedClick(appointment)
+            : handleSportsAvailableClick(day, hour, resourceName)
+        }
+        title={
+          occupied
+            ? `${resourceName} - ${getAppointmentDisplayName(appointment)}`
+            : `${resourceName} libre`
+        }
         style={{
-          fontWeight: "900",
-          fontSize: "12px",
-          color: occupied ? "#064e3b" : "#475569",
-        }}
-      >
-        {getShortResourceName(resourceName)}
-      </span>
-
-      <span
-        style={{
-          fontSize: "12px",
-          fontWeight: occupied ? "800" : "700",
-          color: occupied ? "#111827" : "#64748b",
-          whiteSpace: "nowrap",
+          width: "100%",
+          border: occupied
+            ? `1px solid ${paymentInfo.border}`
+            : "1px solid #e5e7eb",
+          borderLeft: occupied
+            ? `5px solid ${paymentInfo.dot}`
+            : "5px solid #d1d5db",
+          backgroundColor: occupied ? "#ffffff" : "#f8fafc",
+          color: "#0f172a",
+          borderRadius: "10px",
+          padding: "7px 8px",
+          minHeight: "38px",
+          textAlign: "left",
+          cursor: "pointer",
+          boxShadow: occupied
+            ? "0 3px 10px rgba(15, 23, 42, 0.08)"
+            : "none",
+          display: "grid",
+          gridTemplateColumns: "34px minmax(0, 1fr) auto",
+          alignItems: "center",
+          gap: "8px",
           overflow: "hidden",
-          textOverflow: "ellipsis",
         }}
       >
-        {occupied ? getAppointmentDisplayName(appointment) : "Libre"}
-      </span>
+        <span
+          style={{
+            fontWeight: "900",
+            fontSize: "12px",
+            color: occupied ? "#064e3b" : "#475569",
+          }}
+        >
+          {getShortResourceName(resourceName)}
+        </span>
 
-      {occupied ? (
         <span
           style={{
-            fontSize: "10px",
-            fontWeight: "900",
-            color: paymentInfo.color,
-            backgroundColor: paymentInfo.background,
-            border: `1px solid ${paymentInfo.border}`,
-            borderRadius: "999px",
-            padding: "3px 6px",
+            fontSize: "12px",
+            fontWeight: occupied ? "800" : "700",
+            color: occupied ? "#111827" : "#64748b",
             whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
           }}
         >
-          {paymentInfo.shortLabel}
+          {occupied ? getAppointmentDisplayName(appointment) : "Libre"}
         </span>
-      ) : lookingOpponent ? (
-        <span
-          style={{
-            fontSize: "10px",
-            fontWeight: "900",
-            color: "#1d4ed8",
-            backgroundColor: "#dbeafe",
-            border: "1px solid #93c5fd",
-            borderRadius: "999px",
-            padding: "3px 6px",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Rival
-        </span>
-      ) : (
-        <span />
-      )}
-    </button>
-  );
-};
+
+        {occupied ? (
+          <span
+            style={{
+              fontSize: "10px",
+              fontWeight: "900",
+              color: paymentInfo.color,
+              backgroundColor: paymentInfo.background,
+              border: `1px solid ${paymentInfo.border}`,
+              borderRadius: "999px",
+              padding: "3px 6px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {paymentInfo.shortLabel}
+          </span>
+        ) : lookingOpponent ? (
+          <span
+            style={{
+              fontSize: "10px",
+              fontWeight: "900",
+              color: "#1d4ed8",
+              backgroundColor: "#dbeafe",
+              border: "1px solid #93c5fd",
+              borderRadius: "999px",
+              padding: "3px 6px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Rival
+          </span>
+        ) : (
+          <span />
+        )}
+      </button>
+    );
+  };
 
   const renderSportsAdminMatrix = () => {
     return (
@@ -460,16 +462,16 @@ function WeeklyCalendar({
                       borderRight: "1px solid #e5e7eb",
                       borderBottom: "1px solid #e5e7eb",
                       backgroundColor: "#ffffff",
-                      minHeight: "275x",
+                      minHeight: "275px",
                     }}
                   >
                     <div
-  style={{
-    display: "grid",
-    gridTemplateColumns: "1fr",
-    gap: "6px",
-  }}
->
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr",
+                        gap: "6px",
+                      }}
+                    >
                       {sportsResources.map((resourceName) => {
                         const appointment = getSportsAppointmentForResource(
                           slotAppointments,
@@ -490,6 +492,132 @@ function WeeklyCalendar({
             </React.Fragment>
           ))}
         </div>
+      </div>
+    );
+  };
+
+  const renderSportsAdminMobileDayView = () => {
+    const activeDay = selectedMobileDay || weekDays[0];
+
+    if (!activeDay) return null;
+
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "14px",
+        }}
+      >
+        <div
+          style={{
+            border: "1px solid #d1fae5",
+            borderRadius: "14px",
+            padding: "14px",
+            backgroundColor: "#ffffff",
+            boxShadow: "0 4px 14px rgba(15, 23, 42, 0.06)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "12px",
+              fontWeight: "900",
+              color: "#64748b",
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+              marginBottom: "4px",
+            }}
+          >
+            Día seleccionado
+          </div>
+
+          <div
+            style={{
+              fontSize: "20px",
+              fontWeight: "900",
+              color: business?.theme?.primaryDark || "#14532d",
+              textTransform: "capitalize",
+            }}
+          >
+            {activeDay.toLocaleDateString("es-CL", {
+              weekday: "long",
+              day: "2-digit",
+              month: "2-digit",
+            })}
+          </div>
+        </div>
+
+        {hours.map((hour) => {
+          const slotAppointments = getAppointmentsForSlot(activeDay, hour);
+
+          return (
+            <div
+              key={hour}
+              style={{
+                border: "1px solid #e5e7eb",
+                borderRadius: "16px",
+                backgroundColor: "#ffffff",
+                overflow: "hidden",
+                boxShadow: "0 4px 14px rgba(15, 23, 42, 0.06)",
+              }}
+            >
+              <div
+                style={{
+                  padding: "12px 14px",
+                  backgroundColor: "#ecfdf5",
+                  borderBottom: "1px solid #d1fae5",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "10px",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: "900",
+                    color: "#064e3b",
+                  }}
+                >
+                  {formatHourLabel(hour)}
+                </div>
+
+                <div
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: "800",
+                    color: "#64748b",
+                  }}
+                >
+                  {slotAppointments.length} ocupada(s)
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr",
+                  gap: "7px",
+                  padding: "10px",
+                }}
+              >
+                {sportsResources.map((resourceName) => {
+                  const appointment = getSportsAppointmentForResource(
+                    slotAppointments,
+                    resourceName
+                  );
+
+                  return renderSportsResourceBox({
+                    resourceName,
+                    appointment,
+                    day: activeDay,
+                    hour,
+                  });
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -567,6 +695,8 @@ function WeeklyCalendar({
           <div style={styles.spinnerBox}>
             <div style={styles.spinner}></div>
           </div>
+        ) : isSportsBusiness && !isClientMode && isMobile ? (
+          renderSportsAdminMobileDayView()
         ) : isSportsBusiness && !isClientMode ? (
           renderSportsAdminMatrix()
         ) : isMobile ? (
