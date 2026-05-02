@@ -243,6 +243,18 @@ const createTables = async () => {
 
     await pool.query(`
       INSERT INTO businesses (id, name, slug)
+      VALUES ('agendasmart-demo', 'AgendaSmart Demo', 'agendasmart-demo')
+      ON CONFLICT (id) DO NOTHING;
+    `);
+
+    await pool.query(`
+      UPDATE businesses
+      SET name = 'AgendaSmart Demo', slug = 'agendasmart-demo'
+      WHERE id = 'agendasmart-demo';
+    `);
+
+    await pool.query(`
+      INSERT INTO businesses (id, name, slug)
       VALUES ('giocata', 'Centro Deportivo La Giocata', 'giocata')
       ON CONFLICT (id) DO NOTHING;
     `);
@@ -298,6 +310,24 @@ const createTables = async () => {
       await pool.query(
         "UPDATE users SET business_id = $1 WHERE username = $2",
         ["barberia-junior", "junior"]
+      );
+    }
+
+    const demoUser = await pool.query(
+      "SELECT * FROM users WHERE username = $1",
+      ["demo"]
+    );
+
+    if (demoUser.rows.length === 0) {
+      const hashedPassword = await bcrypt.hash("1234", 10);
+      await pool.query(
+        "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
+        ["demo", hashedPassword, "agendasmart-demo"]
+      );
+    } else if (!demoUser.rows[0].business_id) {
+      await pool.query(
+        "UPDATE users SET business_id = $1 WHERE username = $2",
+        ["agendasmart-demo", "demo"]
       );
     }
 

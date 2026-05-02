@@ -388,4 +388,132 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
       { name: "Cancha 3", image: "/giocata-logo.png" },
     ],
   },
+      "agendasmart-demo": {
+    id: "agendasmart-demo",
+    tabTitle: "AgendaSmart Demo | Plataforma de Reservas",
+    favicon: "/agendasmart-favicon.png",
+
+    name: "AgendaSmart Demo",
+    subtitle: "Demo interactiva de la plataforma",
+    phone: "+56 9 0000 0000",
+    hours: "Demo disponible 24/7",
+    location: "Demo comercial",
+    address: "Plataforma de reservas para negocios",
+
+    image: "/agendasmart-hero.png",
+    logo: "/agendasmart-logo.png",
+    logoWidth: "120px",
+    logoHeight: "120px",
+
+    description:
+      "Explora cómo AgendaSmart ayuda a negocios a gestionar reservas, clientes, horarios, pagos y disponibilidad desde una sola plataforma.",
+
+    whatsappUrl: "https://wa.me/56900000000",
+    whatsappLabel: "Solicitar demo por WhatsApp",
+
+    instagram: "agendasmart.cl",
+    instagramUrl: "https://www.instagram.com/",
+
+    mapLink: "https://agendasmart.cl",
+    mapEmbedUrl: "https://www.google.com/maps?q=Chile&output=embed",
+
+    bookingTitle: "AgendaSmart Demo",
+    adminTitle: "Panel Demo AgendaSmart",
+
+    bookingPanelTitle: "Prueba una reserva online",
+    bookingPanelDescription:
+      "Simula el flujo que vería un cliente: elige un servicio, selecciona un horario disponible y registra una reserva de prueba.",
+
+    calendarHelpText:
+      "Selecciona un horario disponible para simular una reserva.",
+
+    resourceLabelSingle: "Profesional / Recurso",
+    resourceLabelPlural: "Profesionales / Recursos",
+    serviceLabel: "servicio",
+
+    clientNamePlaceholder: "Nombre cliente",
+    clientPhonePlaceholder: "Celular cliente (ej: 912345678)",
+
+    submitButtonLabel: "Crear reserva demo",
+    submittingLabel: "Creando reserva...",
+    updateButtonLabel: "Actualizar reserva demo",
+    updatingLabel: "Actualizando...",
+    cancelEditLabel: "Cancelar edición",
+
+    createButtonLabel: "Crear reserva",
+    creatingLabel: "Creando...",
+    newItemTitle: "Nueva reserva demo",
+    editItemTitle: "Editar reserva demo",
+
+    whatsappButtonLabel: "Abrir WhatsApp",
+    resourceSelectedLabel: "Profesional / recurso seleccionado",
+    resourceSelectPrompt: "Selecciona un profesional o recurso arriba",
+    resourceSelectOption: "Selecciona un profesional o recurso",
+    serviceSelectOption: "Selecciona un servicio",
+
+    blockedWeekdays: [],
+    takenSlotLabel: "Ocupado",
+    pastSlotLabel: "Pasó",
+    availableSlotLabel: "Disponible",
+
+    paymentsEnabled: true,
+    depositFeatureEnabled: false,
+    depositOptional: false,
+    defaultDepositRate: 0.5,
+    paymentMethods: ["transferencia", "efectivo", "debito"],
+
+    barbers: ["Recurso 1", "Recurso 2", "Recurso 3"],
+
+    phones: {
+      "Recurso 1": "56900000000",
+      "Recurso 2": "56900000000",
+      "Recurso 3": "56900000000",
+    },
+
+    services: [
+      "Consulta inicial ($15.000)",
+      "Sesión personalizada ($25.000)",
+      "Reserva de espacio ($30.000)",
+      "Servicio premium ($40.000)",
+      "Atención completa ($50.000)",
+    ],
+
+    scheduleSlots: [
+      "09:00",
+      "09:30",
+      "10:00",
+      "10:30",
+      "11:00",
+      "11:30",
+      "12:00",
+      "12:30",
+      "13:00",
+      "13:30",
+      "15:00",
+      "15:30",
+      "16:00",
+      "16:30",
+      "17:00",
+      "17:30",
+      "18:00",
+      "18:30",
+      "19:00",
+      "19:30",
+    ],
+
+    professionals: [
+      { name: "Recurso 1", image: "/agendasmart-favicon.png" },
+      { name: "Recurso 2", image: "/agendasmart-favicon.png" },
+      { name: "Recurso 3", image: "/agendasmart-favicon.png" },
+    ],
+
+    theme: {
+      primary: "#16a34a",
+      primaryDark: "#166534",
+      primarySoft: "#dcfce7",
+      pageBackground: "#f8fafc",
+      cardBackground: "#ffffff",
+      border: "#d1fae5",
+    },
+  },
 };

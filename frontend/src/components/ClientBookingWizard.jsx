@@ -4,7 +4,6 @@ import {
   formatDateToInput,
   getMonday,
   isPastDayOnly,
-  isSunday,
 } from "../utils/dateUtils";
 
 function ClientBookingWizard({
@@ -25,6 +24,7 @@ function ClientBookingWizard({
   phone,
   setPhone,
   availableTimes = [],
+  blockedWeekdays = [],
   createAppointment,
   submitting,
   isClientFormComplete,
@@ -107,11 +107,11 @@ function ClientBookingWizard({
       const value = formatDateToInput(day);
 
       return {
-        date: day,
-        value,
-        isSunday: isSunday(day),
-        isPast: isPastDayOnly(day),
-        labelShort: day.toLocaleDateString("es-CL", {
+  date: day,
+  value,
+  isBlocked: blockedWeekdays.includes(day.getDay()),
+  isPast: isPastDayOnly(day),
+  labelShort: day.toLocaleDateString("es-CL", {
           weekday: "short",
         }),
         dayNumber: day.toLocaleDateString("es-CL", {
@@ -119,7 +119,7 @@ function ClientBookingWizard({
         }),
       };
     });
-  }, [currentWeekStart]);
+  }, [currentWeekStart, blockedWeekdays]);
 
   useEffect(() => {
     if (!date) return;
@@ -602,7 +602,7 @@ function ClientBookingWizard({
               >
                 {weekDays.map((day) => {
                   const isSelected = date === day.value;
-                  const isDisabled = day.isSunday || day.isPast;
+                  const isDisabled = day.isBlocked || day.isPast;
 
                   return (
                     <button
