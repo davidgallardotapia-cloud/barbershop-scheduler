@@ -394,14 +394,14 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     favicon: "/agendasmart-favicon.png",
 
     name: "AgendaSmart Demo",
-    subtitle: "Demo interactiva de la plataforma",
+    subtitle: "Explora la plataforma en acción",
     phone: "+56 9 0000 0000",
     hours: "Demo disponible 24/7",
     location: "Demo comercial",
     address: "Plataforma de reservas para negocios",
 
     image: "/agendasmart-hero.png",
-    logo: "/agendasmart-logo.png",
+    logo: "/agendasmart.png",
     logoWidth: "120px",
     logoHeight: "120px",
 

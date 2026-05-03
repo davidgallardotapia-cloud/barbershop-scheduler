@@ -84,7 +84,7 @@ function PrimaryButton() {
 function SecondaryButton() {
   return (
     <a
-      href="/urban-district-barber"
+      href="/agendasmart-demo"
       style={{
         backgroundColor: "#ffffff",
         color: "#111827",
@@ -98,7 +98,7 @@ function SecondaryButton() {
         gap: "10px",
       }}
     >
-      Ver ejemplo real
+      Ver ejemplos reales
       <FaArrowRight size={14} />
     </a>
   );
@@ -285,302 +285,63 @@ function BrowserMockup() {
   return (
     <div
       style={{
-        backgroundColor: "#ffffff",
-        borderRadius: "28px",
-        border: "1px solid #e5e7eb",
-        boxShadow: "0 28px 70px rgba(15,23,42,0.12)",
-        padding: "18px",
+        position: "relative",
+        width: "100%",
+        maxWidth: "720px",
+        margin: "0 auto",
       }}
     >
       <div
         style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: "16px",
+          position: "absolute",
+          inset: "6% 4% auto 4%",
+          height: "82%",
+          borderRadius: "40px",
+          background:
+            "radial-gradient(circle at center, rgba(34,197,94,0.14) 0%, rgba(255,255,255,0) 72%)",
+          zIndex: 0,
+        }}
+      />
+
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          backgroundColor: "#ffffff",
+          border: "1px solid #e5e7eb",
+          borderRadius: "28px",
+          boxShadow: "0 28px 70px rgba(15,23,42,0.12)",
+          overflow: "hidden",
         }}
       >
-        <div style={{ display: "flex", gap: "8px" }}>
-          <div
-            style={{
-              width: "10px",
-              height: "10px",
-              borderRadius: "50%",
-              backgroundColor: "#ef4444",
-            }}
-          />
-          <div
-            style={{
-              width: "10px",
-              height: "10px",
-              borderRadius: "50%",
-              backgroundColor: "#f59e0b",
-            }}
-          />
-          <div
-            style={{
-              width: "10px",
-              height: "10px",
-              borderRadius: "50%",
-              backgroundColor: "#22c55e",
-            }}
-          />
-        </div>
-
-        <div
+        <img
+          src="/agendasmart-demo-preview.png"
+          alt="Vista demo AgendaSmart"
           style={{
-            fontSize: "13px",
-            color: "#6b7280",
-            fontWeight: "bold",
+            width: "100%",
+            display: "block",
+            objectFit: "cover",
           }}
-        >
-          AgendaSmart
-        </div>
+        />
       </div>
 
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "220px 1fr",
-          gap: "16px",
+          position: "absolute",
+          top: "18px",
+          right: "18px",
+          zIndex: 2,
+          backgroundColor: "#ffffff",
+          border: "1px solid #e5e7eb",
+          borderRadius: "999px",
+          padding: "8px 14px",
+          fontSize: "13px",
+          fontWeight: "bold",
+          color: "#166534",
+          boxShadow: "0 10px 24px rgba(15,23,42,0.08)",
         }}
       >
-        <div
-          style={{
-            backgroundColor: "#f8fafc",
-            border: "1px solid #e5e7eb",
-            borderRadius: "20px",
-            padding: "16px",
-          }}
-        >
-          <div
-            style={{
-              fontWeight: "bold",
-              fontSize: "18px",
-              marginBottom: "18px",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <FaStore color="#22c55e" />
-            AgendaSmart
-          </div>
-
-          {[
-            "Panel principal",
-            "Calendario",
-            "Clientes",
-            "Servicios",
-            "Reportes",
-            "Configuración",
-          ].map((item) => (
-            <div
-              key={item}
-              style={{
-                padding: "12px 12px",
-                borderRadius: "12px",
-                color: item === "Calendario" ? "#111827" : "#6b7280",
-                backgroundColor:
-                  item === "Calendario" ? "#ffffff" : "transparent",
-                fontWeight: item === "Calendario" ? "bold" : 500,
-                marginBottom: "8px",
-                border: item === "Calendario" ? "1px solid #e5e7eb" : "none",
-              }}
-            >
-              {item}
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display: "grid", gap: "16px" }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, 1fr)",
-              gap: "12px",
-            }}
-          >
-            <StatCard title="Reservas" value="1.205" />
-            <StatCard title="Clientes" value="320" />
-            <StatCard title="Ingresos" value="$3.250.000" />
-            <StatCard title="Turnos hoy" value="44" />
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1.15fr 0.85fr",
-              gap: "16px",
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: "#ffffff",
-                border: "1px solid #e5e7eb",
-                borderRadius: "18px",
-                padding: "18px",
-                boxShadow: "0 8px 20px rgba(15,23,42,0.04)",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "16px",
-                }}
-              >
-                <div style={{ fontWeight: "bold", fontSize: "18px" }}>
-                  Agenda del día
-                </div>
-                <div style={{ color: "#6b7280", fontSize: "14px" }}>
-                  Abril 2026
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(5, 1fr)",
-                  gap: "8px",
-                  marginBottom: "16px",
-                }}
-              >
-                {["Lun", "Mar", "Mié", "Jue", "Vie"].map((day) => (
-                  <div
-                    key={day}
-                    style={{
-                      backgroundColor: "#f8fafc",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: "12px",
-                      padding: "10px 6px",
-                      textAlign: "center",
-                      fontWeight: "bold",
-                      fontSize: "13px",
-                    }}
-                  >
-                    {day}
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ display: "grid", gap: "10px" }}>
-                {[
-                  "10:00 Corte premium - Matías",
-                  "11:30 Barba - Cristian",
-                  "13:00 Reserva cancha - Giocata",
-                  "16:00 Corte + Barba - James",
-                ].map((item, index) => (
-                  <div
-                    key={item}
-                    style={{
-                      backgroundColor: index % 2 === 0 ? "#eefbf2" : "#eff6ff",
-                      border:
-                        index % 2 === 0
-                          ? "1px solid #bbf7d0"
-                          : "1px solid #bfdbfe",
-                      color: "#1f2937",
-                      borderRadius: "14px",
-                      padding: "12px 14px",
-                      fontSize: "14px",
-                      fontWeight: 500,
-                    }}
-                  >
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ display: "grid", gap: "16px" }}>
-              <div
-                style={{
-                  backgroundColor: "#ffffff",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: "18px",
-                  padding: "18px",
-                  boxShadow: "0 8px 20px rgba(15,23,42,0.04)",
-                }}
-              >
-                <div
-                  style={{
-                    fontWeight: "bold",
-                    marginBottom: "14px",
-                    fontSize: "17px",
-                  }}
-                >
-                  Ingresos mensuales
-                </div>
-
-                <div
-                  style={{
-                    height: "150px",
-                    display: "flex",
-                    alignItems: "flex-end",
-                    gap: "10px",
-                  }}
-                >
-                  {[38, 56, 48, 72, 84, 92, 110].map((h, index) => (
-                    <div
-                      key={index}
-                      style={{
-                        flex: 1,
-                        height: `${h}px`,
-                        borderRadius: "10px 10px 0 0",
-                        background:
-                          index === 6
-                            ? "linear-gradient(180deg, #22c55e 0%, #16a34a 100%)"
-                            : "linear-gradient(180deg, #c7d2fe 0%, #93c5fd 100%)",
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  backgroundColor: "#ffffff",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: "18px",
-                  padding: "18px",
-                  boxShadow: "0 8px 20px rgba(15,23,42,0.04)",
-                }}
-              >
-                <div
-                  style={{
-                    fontWeight: "bold",
-                    marginBottom: "12px",
-                    fontSize: "17px",
-                  }}
-                >
-                  Top clientes
-                </div>
-
-                {["Valentina Soto", "Joaquín Herrera", "Camila Rojas"].map(
-                  (name) => (
-                    <div
-                      key={name}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        padding: "10px 0",
-                        borderBottom: "1px solid #f3f4f6",
-                        fontSize: "14px",
-                        color: "#374151",
-                      }}
-                    >
-                      <span>{name}</span>
-                      <span style={{ color: "#16a34a", fontWeight: "bold" }}>
-                        Activo
-                      </span>
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        Demo AgendaSmart
       </div>
     </div>
   );
@@ -820,21 +581,25 @@ function FixedHeader() {
           flexWrap: "wrap",
         }}
       >
-        <a
-          href="/"
-          style={{
-            textDecoration: "none",
-            color: "#111827",
-            fontWeight: "bold",
-            fontSize: "22px",
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-          }}
-        >
-          <FaCalendarAlt color="#22c55e" />
-          AgendaSmart
-        </a>
+       <a
+  href="/"
+  style={{
+    textDecoration: "none",
+    display: "flex",
+    alignItems: "center",
+  }}
+>
+  <img
+    src="/agendasmart-horizontal.png"
+    alt="AgendaSmart"
+    style={{
+      height: "60px",
+      width: "auto",
+      display: "block",
+      objectFit: "contain",
+    }}
+  />
+</a>
 
         <nav
           style={{
@@ -884,7 +649,7 @@ function FixedHeader() {
           </a>
 
           <a
-            href="/urban-district-barber"
+            href="/agendasmart-demo"
             style={{
               backgroundColor: "#22c55e",
               color: "#ffffff",
