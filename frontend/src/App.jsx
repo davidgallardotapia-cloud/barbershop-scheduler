@@ -734,21 +734,27 @@ const handleDeleteReservationFromPaymentPanel = async () => {
     if (!businessId) return;
 
     const savedUser = localStorage.getItem("user");
+const savedToken = localStorage.getItem("authToken");
 
-    if (savedUser) {
-      try {
-        const parsedUser = JSON.parse(savedUser);
+if (savedUser && savedToken) {
+  try {
+    const parsedUser = JSON.parse(savedUser);
 
-        if (!parsedUser.business_id || parsedUser.business_id === businessId) {
-          setIsLoggedIn(true);
-          setAppMode("admin");
-        } else {
-          localStorage.removeItem("user");
-        }
-      } catch {
-        localStorage.removeItem("user");
-      }
+    if (!parsedUser.business_id || parsedUser.business_id === businessId) {
+      setIsLoggedIn(true);
+      setAppMode("admin");
+    } else {
+      localStorage.removeItem("user");
+      localStorage.removeItem("authToken");
     }
+  } catch {
+    localStorage.removeItem("user");
+    localStorage.removeItem("authToken");
+  }
+} else {
+  localStorage.removeItem("user");
+  localStorage.removeItem("authToken");
+}
 
     getAppointments();
   }, [businessId]);
@@ -1310,6 +1316,13 @@ setEditingId(appointment.id);
       });
 
       const loggedUser = res.data.user;
+const token = res.data.token;
+
+if (!token) {
+  setLoginError("No se recibió token de seguridad. Revisa el backend.");
+  setLoggingIn(false);
+  return;
+}
 
       if (loggedUser.business_id && loggedUser.business_id !== businessId) {
         setLoginError("Este usuario no pertenece a este negocio");
@@ -1321,6 +1334,7 @@ setEditingId(appointment.id);
       setLoginError("");
       setAppMode("admin");
       localStorage.setItem("user", JSON.stringify(loggedUser));
+localStorage.setItem("authToken", token);
     } catch (err) {
       if (err.response?.data?.message) {
         setLoginError(err.response.data.message);
@@ -1333,13 +1347,14 @@ setEditingId(appointment.id);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("user");
-    setIsLoggedIn(false);
-    setUsername("");
-    setPassword("");
-    setLoginError("");
-    setAppMode("client");
-  };
+  localStorage.removeItem("user");
+  localStorage.removeItem("authToken");
+  setIsLoggedIn(false);
+  setUsername("");
+  setPassword("");
+  setLoginError("");
+  setAppMode("client");
+};
 
   const getBarberColors = (barberName) => {
     if (mergedBusiness?.id === "giocata") {

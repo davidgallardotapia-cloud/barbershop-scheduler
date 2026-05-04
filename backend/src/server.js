@@ -6,6 +6,7 @@ console.log("JWT_SECRET cargado:", !!process.env.JWT_SECRET);
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const pool = require("./config/database");
 
 const app = express();
@@ -14,6 +15,63 @@ console.log("PAYMENTS BACKEND VERSION OK");
 
 app.use(cors());
 app.use(express.json());
+
+const getJwtSecret = () => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error("JWT_SECRET no está configurado");
+  }
+
+  return process.env.JWT_SECRET;
+};
+
+const createAuthToken = (user) => {
+  return jwt.sign(
+    {
+      id: user.id,
+      username: user.username,
+      business_id: user.business_id,
+    },
+    getJwtSecret(),
+    { expiresIn: "7d" }
+  );
+};
+
+const requireAuth = (req, res, next) => {
+  const authHeader = req.headers.authorization || "";
+
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : null;
+
+  if (!token) {
+    return res.status(401).json({
+      message: "Token requerido. Inicia sesión nuevamente.",
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(token, getJwtSecret());
+    req.user = decoded;
+
+    const requestedBusinessId = req.body?.businessId || req.query?.businessId;
+
+    if (
+      requestedBusinessId &&
+      decoded.business_id &&
+      requestedBusinessId !== decoded.business_id
+    ) {
+      return res.status(403).json({
+        message: "No tienes permiso para modificar este negocio",
+      });
+    }
+
+    return next();
+  } catch (error) {
+    return res.status(401).json({
+      message: "Token inválido o expirado. Inicia sesión nuevamente.",
+    });
+  }
+};
 
 const normalizeChilePhone = (rawPhone) => {
   const digits = String(rawPhone || "").replace(/\D/g, "");
@@ -451,14 +509,18 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    return res.json({
-      message: "Login correcto",
-      user: {
-        id: user.id,
-        username: user.username,
-        business_id: user.business_id,
-      },
-    });
+    const token = createAuthToken(user);
+
+return res.json({
+  message: "Login correcto",
+  token,
+  user: {
+    id: user.id,
+    username: user.username,
+    business_id: user.business_id,
+  },
+});
+
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Error al iniciar sesión" });
@@ -573,7 +635,7 @@ app.post("/appointments", async (req, res) => {
   }
 });
 
-app.put("/appointments/:id", async (req, res) => {
+app.put("/appointments/:id", requireAuth, async (req, res) => {
   const { id } = req.params;
   const {
     name,
@@ -694,7 +756,7 @@ console.log("REGISTERING POST /appointments/:id/payments");
 console.log("REGISTERING PUT /appointments/:appointmentId/payments/:paymentId");
 console.log("REGISTERING DELETE /appointments/:appointmentId/payments/:paymentId");
 
-app.post("/appointments/:id/payments", async (req, res) => {
+app.post("/appointments/:id/payments", requireAuth, async (req, res) => {
   const { id } = req.params;
   const {
     amount,
@@ -780,7 +842,7 @@ app.post("/appointments/:id/payments", async (req, res) => {
   }
 });
 
-app.get("/appointments/:id/payments", async (req, res) => {
+app.get("/appointments/:id/payments", requireAuth, async (req, res) => {
   const { id } = req.params;
   const { businessId } = req.query;
 
@@ -815,7 +877,7 @@ app.get("/appointments/:id/payments", async (req, res) => {
   }
 });
 
-app.put("/appointments/:appointmentId/payments/:paymentId", async (req, res) => {
+app.put("/appointments/:appointmentId/payments/:paymentId", requireAuth, async (req, res) => {
   const { appointmentId, paymentId } = req.params;
   const {
     amount,
@@ -916,7 +978,7 @@ app.put("/appointments/:appointmentId/payments/:paymentId", async (req, res) => 
   }
 });
 
-app.delete("/appointments/:appointmentId/payments/:paymentId", async (req, res) => {
+app.delete("/appointments/:appointmentId/payments/:paymentId", requireAuth, async (req, res) => {
   const { appointmentId, paymentId } = req.params;
   const businessId = req.query.businessId || req.body?.businessId;
 
@@ -965,7 +1027,7 @@ app.delete("/appointments/:appointmentId/payments/:paymentId", async (req, res) 
   }
 });
 
-app.delete("/appointments/:id", async (req, res) => {
+app.delete("/appointments/:id", requireAuth, async (req, res) => {
   const { id } = req.params;
   const { businessId } = req.query;
 
