@@ -155,40 +155,6 @@ function FeatureMini({ icon, title, text }) {
   );
 }
 
-function StatCard({ title, value }) {
-  return (
-    <div
-      style={{
-        backgroundColor: "#ffffff",
-        border: "1px solid #e5e7eb",
-        borderRadius: "16px",
-        padding: "16px",
-        boxShadow: "0 8px 20px rgba(15,23,42,0.04)",
-      }}
-    >
-      <div
-        style={{
-          fontSize: "13px",
-          color: "#6b7280",
-          marginBottom: "8px",
-        }}
-      >
-        {title}
-      </div>
-
-      <div
-        style={{
-          fontSize: "26px",
-          fontWeight: "bold",
-          color: "#111827",
-        }}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
-
 function StepItem({ number, text }) {
   return (
     <div
@@ -287,7 +253,7 @@ function BrowserMockup() {
       style={{
         position: "relative",
         width: "100%",
-        maxWidth: "720px",
+        maxWidth: "620px",
         margin: "0 auto",
       }}
     >
@@ -312,36 +278,19 @@ function BrowserMockup() {
           borderRadius: "28px",
           boxShadow: "0 28px 70px rgba(15,23,42,0.12)",
           overflow: "hidden",
+          aspectRatio: "4 / 3",
         }}
       >
         <img
-          src="/agendasmart-demo-preview.png"
-          alt="Vista demo AgendaSmart"
+          src="/agendasmart-hero-right.png"
+          alt="Vista de AgendaSmart"
           style={{
             width: "100%",
+            height: "100%",
             display: "block",
             objectFit: "cover",
           }}
         />
-      </div>
-
-      <div
-        style={{
-          position: "absolute",
-          top: "18px",
-          right: "18px",
-          zIndex: 2,
-          backgroundColor: "#ffffff",
-          border: "1px solid #e5e7eb",
-          borderRadius: "999px",
-          padding: "8px 14px",
-          fontSize: "13px",
-          fontWeight: "bold",
-          color: "#166534",
-          boxShadow: "0 10px 24px rgba(15,23,42,0.08)",
-        }}
-      >
-        Demo AgendaSmart
       </div>
     </div>
   );
@@ -581,25 +530,25 @@ function FixedHeader() {
           flexWrap: "wrap",
         }}
       >
-       <a
-  href="/"
-  style={{
-    textDecoration: "none",
-    display: "flex",
-    alignItems: "center",
-  }}
->
-  <img
-    src="/agendasmart-horizontal.png"
-    alt="AgendaSmart"
-    style={{
-      height: "60px",
-      width: "auto",
-      display: "block",
-      objectFit: "contain",
-    }}
-  />
-</a>
+        <a
+          href="/"
+          style={{
+            textDecoration: "none",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <img
+            src="/agendasmart-horizontal.png"
+            alt="AgendaSmart"
+            style={{
+              height: "58px",
+              width: "auto",
+              display: "block",
+              objectFit: "contain",
+            }}
+          />
+        </a>
 
         <nav
           style={{
@@ -691,8 +640,8 @@ function HomeLanding() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-            gap: "36px",
+            gridTemplateColumns: "1fr 1.05fr",
+            gap: "44px",
             alignItems: "center",
           }}
         >
@@ -771,35 +720,6 @@ function HomeLanding() {
             alignItems: "center",
           }}
         >
-          <div>
-            <h2
-              style={{
-                fontSize: "42px",
-                lineHeight: 1.1,
-                margin: "0 0 18px 0",
-              }}
-            >
-              Reserva fácil para clientes
-            </h2>
-
-            <p
-              style={{
-                ...textStyle,
-                maxWidth: "520px",
-                marginBottom: "28px",
-              }}
-            >
-              Tus clientes pueden reservar en segundos desde su teléfono,
-              eligiendo servicio, fecha y hora de forma simple y rápida.
-            </p>
-
-            <div style={{ display: "grid", gap: "18px" }}>
-              <StepItem number="1" text="Elige el servicio" />
-              <StepItem number="2" text="Selecciona la fecha" />
-              <StepItem number="3" text="Reserva y confirma" />
-            </div>
-          </div>
-
           <div
             style={{
               position: "relative",
@@ -864,6 +784,35 @@ function HomeLanding() {
             </div>
 
             <PhoneMockup />
+          </div>
+
+          <div>
+            <h2
+              style={{
+                fontSize: "42px",
+                lineHeight: 1.1,
+                margin: "0 0 18px 0",
+              }}
+            >
+              Reserva fácil para clientes
+            </h2>
+
+            <p
+              style={{
+                ...textStyle,
+                maxWidth: "520px",
+                marginBottom: "28px",
+              }}
+            >
+              Tus clientes pueden reservar en segundos desde su teléfono,
+              eligiendo servicio, fecha y hora de forma simple y rápida.
+            </p>
+
+            <div style={{ display: "grid", gap: "18px" }}>
+              <StepItem number="1" text="Elige el servicio" />
+              <StepItem number="2" text="Selecciona la fecha" />
+              <StepItem number="3" text="Reserva y confirma" />
+            </div>
           </div>
         </div>
       </section>
