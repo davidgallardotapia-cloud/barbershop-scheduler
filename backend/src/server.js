@@ -435,6 +435,30 @@ app.get("/", async (_req, res) => {
   res.json({ ok: true, message: "Backend AgendaSmart operativo" });
 });
 
+app.get("/admin/appointments", requireAuth, async (req, res) => {
+  const businessId = req.user?.business_id;
+
+  if (!businessId) {
+    return res.status(403).json({
+      message: "Usuario sin negocio asociado",
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      "SELECT * FROM appointments WHERE business_id = $1 ORDER BY date ASC, time ASC",
+      [businessId]
+    );
+
+    return res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "Error al obtener reservas admin",
+    });
+  }
+});
+
 app.get("/appointments", async (req, res) => {
   const { businessId } = req.query;
 
@@ -443,12 +467,37 @@ app.get("/appointments", async (req, res) => {
 
     if (businessId) {
       result = await pool.query(
-        "SELECT * FROM appointments WHERE business_id = $1 ORDER BY date ASC, time ASC",
+        `SELECT 
+          id,
+          date,
+          time,
+          service,
+          barber,
+          status,
+          business_id,
+          needs_opponent,
+          opponent_name,
+          opponent_phone
+        FROM appointments
+        WHERE business_id = $1
+        ORDER BY date ASC, time ASC`,
         [businessId]
       );
     } else {
       result = await pool.query(
-        "SELECT * FROM appointments ORDER BY date ASC, time ASC"
+        `SELECT 
+          id,
+          date,
+          time,
+          service,
+          barber,
+          status,
+          business_id,
+          needs_opponent,
+          opponent_name,
+          opponent_phone
+        FROM appointments
+        ORDER BY date ASC, time ASC`
       );
     }
 

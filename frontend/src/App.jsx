@@ -21,6 +21,7 @@ import {
 } from "./utils/whatsapp";
 import {
   getAppointments as fetchAppointments,
+  getAdminAppointments,
   createAppointment as createAppointmentService,
   updateAppointment as updateAppointmentService,
   deleteAppointment as deleteAppointmentService,
@@ -425,20 +426,31 @@ const [barber, setBarber] = useState("");
     }
   }, [weekDays, selectedMobileDay]);
 
-  const getAppointments = async () => {
-    if (!businessId) return;
+  const getAppointments = async (mode = "auto") => {
+  if (!businessId) return;
 
-    setLoading(true);
-    try {
-      const res = await fetchAppointments(businessId);
-      setAppointments(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error(err);
-      setMessage("Error al cargar reservas");
-    } finally {
-      setLoading(false);
-    }
-  };
+  setLoading(true);
+
+  try {
+    const shouldUseAdminRoute =
+      mode === "admin"
+        ? true
+        : mode === "public"
+        ? false
+        : appMode === "admin" && isLoggedIn;
+
+    const res = shouldUseAdminRoute
+      ? await getAdminAppointments()
+      : await fetchAppointments(businessId);
+
+    setAppointments(Array.isArray(res.data) ? res.data : []);
+  } catch (err) {
+    console.error(err);
+    setMessage("Error al cargar reservas");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const loadAppointmentPayments = async (appointmentId) => {
     if (!paymentsEnabled || !businessId || !appointmentId) return;
@@ -743,20 +755,23 @@ if (savedUser && savedToken) {
     if (!parsedUser.business_id || parsedUser.business_id === businessId) {
       setIsLoggedIn(true);
       setAppMode("admin");
+      getAppointments("admin");
     } else {
       localStorage.removeItem("user");
       localStorage.removeItem("authToken");
+      getAppointments("public");
     }
   } catch {
     localStorage.removeItem("user");
     localStorage.removeItem("authToken");
+    getAppointments("public");
   }
 } else {
   localStorage.removeItem("user");
   localStorage.removeItem("authToken");
+  getAppointments("public");
 }
 
-    getAppointments();
   }, [businessId]);
 
   const resetForm = () => {
@@ -1331,10 +1346,12 @@ if (!token) {
       }
 
       setIsLoggedIn(true);
-      setLoginError("");
-      setAppMode("admin");
-      localStorage.setItem("user", JSON.stringify(loggedUser));
+setLoginError("");
+setAppMode("admin");
+localStorage.setItem("user", JSON.stringify(loggedUser));
 localStorage.setItem("authToken", token);
+
+await getAppointments("admin");
     } catch (err) {
       if (err.response?.data?.message) {
         setLoginError(err.response.data.message);
@@ -1346,7 +1363,7 @@ localStorage.setItem("authToken", token);
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
   localStorage.removeItem("user");
   localStorage.removeItem("authToken");
   setIsLoggedIn(false);
@@ -1354,6 +1371,8 @@ localStorage.setItem("authToken", token);
   setPassword("");
   setLoginError("");
   setAppMode("client");
+
+  await getAppointments("public");
 };
 
   const getBarberColors = (barberName) => {

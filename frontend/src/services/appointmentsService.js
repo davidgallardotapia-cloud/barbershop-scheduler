@@ -6,6 +6,10 @@ export const getAppointments = (businessId) => {
   });
 };
 
+export const getAdminAppointments = () => {
+  return api.get("/admin/appointments");
+};
+
 export const createAppointment = (data) => {
   return api.post("/appointments", data);
 };
