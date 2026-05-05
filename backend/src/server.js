@@ -13,7 +13,32 @@ const app = express();
 
 console.log("PAYMENTS BACKEND VERSION OK");
 
-app.use(cors());
+const allowedOrigins = [
+  "https://agendasmart.cl",
+  "https://www.agendasmart.cl",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Permite requests sin origin, por ejemplo Postman, PowerShell o health checks
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error("Origen no permitido por CORS"));
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json());
 
 const getJwtSecret = () => {
