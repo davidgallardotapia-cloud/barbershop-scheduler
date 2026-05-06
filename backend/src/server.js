@@ -3,6 +3,7 @@ require("dotenv").config();
 console.log("DATABASE_URL cargada:", !!process.env.DATABASE_URL);
 console.log("JWT_SECRET cargado:", !!process.env.JWT_SECRET);
 
+const rateLimit = require("express-rate-limit");
 const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
@@ -10,6 +11,9 @@ const jwt = require("jsonwebtoken");
 const pool = require("./config/database");
 
 const app = express();
+
+// Render/proxies: necesario para que express-rate-limit lea correctamente la IP real.
+app.set("trust proxy", 1);
 
 console.log("PAYMENTS BACKEND VERSION OK");
 
@@ -22,7 +26,7 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Permite requests sin origin, por ejemplo Postman, PowerShell o health checks
+    // Permite requests sin origin, por ejemplo Postman, PowerShell o health checks.
     if (!origin) {
       return callback(null, true);
     }
@@ -40,6 +44,28 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 app.use(express.json());
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    message:
+      "Demasiados intentos de inicio de sesión. Intenta nuevamente en 15 minutos.",
+  },
+});
+
+const createAppointmentLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    message:
+      "Demasiadas reservas creadas desde esta conexión. Intenta nuevamente más tarde.",
+  },
+});
 
 const getJwtSecret = () => {
   if (!process.env.JWT_SECRET) {
@@ -553,7 +579,7 @@ app.get("/business/:slug", async (req, res) => {
   }
 });
 
-app.post("/login", async (req, res) => {
+app.post("/login", loginLimiter, async (req, res) => {
   const { username, password, businessId } = req.body;
 
   if (!username || !password) {
@@ -585,23 +611,22 @@ app.post("/login", async (req, res) => {
 
     const token = createAuthToken(user);
 
-return res.json({
-  message: "Login correcto",
-  token,
-  user: {
-    id: user.id,
-    username: user.username,
-    business_id: user.business_id,
-  },
-});
-
+    return res.json({
+      message: "Login correcto",
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        business_id: user.business_id,
+      },
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Error al iniciar sesión" });
   }
 });
 
-app.post("/appointments", async (req, res) => {
+app.post("/appointments", createAppointmentLimiter, async (req, res) => {
   const {
     name,
     phone,
