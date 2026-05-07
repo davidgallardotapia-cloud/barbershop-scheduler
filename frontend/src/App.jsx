@@ -848,7 +848,7 @@ setEditingId(null);
     if (submitting || !businessId) return;
 
     const resolvedBarber = mergedBusiness?.hideResourceSelector
-      ? getResourceFromService(service)
+      ? barber || getResourceFromService(service)
       : barber;
 
     if (
@@ -1279,19 +1279,46 @@ setEditingId(appointment.id);
     }
   };
 
-  const selectSlot = (day, hour) => {
-    setDate(formatDateToInput(day));
+ const selectSlot = (day, hour, selectedResource = "") => {
+  setDate(formatDateToInput(day));
 
-    if (typeof hour === "string") {
-      setTime(hour);
-    } else {
-      setTime(`${String(hour).padStart(2, "0")}:00`);
+  if (typeof hour === "string") {
+    setTime(hour);
+  } else {
+    setTime(`${String(hour).padStart(2, "0")}:00`);
+  }
+
+  if (selectedResource) {
+    setBarber(selectedResource);
+
+    if (mergedBusiness?.hideResourceSelector) {
+      const normalizeText = (value) =>
+        String(value || "")
+          .toLowerCase()
+          .replace(/^c(\d+)$/, "cancha $1")
+          .replace(/\s+/g, " ")
+          .trim();
+
+      const normalizedResource = normalizeText(selectedResource);
+
+      const matchedService = SERVICES.find((serviceOption) =>
+        normalizeText(serviceOption).includes(normalizedResource)
+      );
+
+      if (matchedService) {
+        setService(matchedService);
+      }
     }
+  }
 
-    setEditingId(null);
-    setMessage("Bloque horario seleccionado.");
-    setWhatsappUrl("");
-  };
+  setEditingId(null);
+  setMessage(
+    selectedResource
+      ? `Bloque seleccionado: ${selectedResource}`
+      : "Bloque horario seleccionado."
+  );
+  setWhatsappUrl("");
+};
 
   const handleLogin = async () => {
     if (loggingIn || !businessId) return;

@@ -256,16 +256,12 @@ function WeeklyCalendar({
   };
 
   const handleSportsAvailableClick = (day, hour, resourceName) => {
-    if (isClientMode) return;
+  if (isClientMode) return;
 
-    selectSlot(day, hour);
+  selectSlot(day, hour, resourceName);
 
-    if (setBarber && resourceName) {
-      setBarber(resourceName);
-    }
-
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
 
   const renderSportsResourceBox = ({ resourceName, appointment, day, hour }) => {
     const paymentInfo = getPaymentStatusInfo(appointment?.payment_status);
