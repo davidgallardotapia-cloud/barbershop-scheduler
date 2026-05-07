@@ -14,6 +14,10 @@ export const createAppointment = (data) => {
   return api.post("/appointments", data);
 };
 
+export const joinOpponentAppointment = (appointmentId, data) => {
+  return api.put(`/appointments/${appointmentId}/opponent`, data);
+};
+
 export const updateAppointment = (id, data) => {
   return api.put(`/appointments/${id}`, data);
 };

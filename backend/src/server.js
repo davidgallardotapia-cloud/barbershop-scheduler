@@ -709,6 +709,75 @@ app.post("/appointments", async (req, res) => {
   }
 });
 
+app.put("/appointments/:id/opponent", async (req, res) => {
+  const { id } = req.params;
+  const { businessId, opponentName, opponentPhone } = req.body;
+
+  if (!businessId || !opponentName || !opponentPhone) {
+    return res.status(400).json({
+      message: "Faltan datos para sumarse como rival",
+    });
+  }
+
+  if (!isValidChileMobilePhone(opponentPhone)) {
+    return res.status(400).json({
+      message: "Ingresa un celular chileno válido para el rival",
+    });
+  }
+
+  const normalizedOpponentPhone = normalizeChilePhone(opponentPhone);
+
+  try {
+    const appointmentResult = await pool.query(
+      `SELECT *
+       FROM appointments
+       WHERE id = $1 AND business_id = $2`,
+      [id, businessId]
+    );
+
+    if (appointmentResult.rows.length === 0) {
+      return res.status(404).json({
+        message: "Reserva no encontrada o no pertenece a este negocio",
+      });
+    }
+
+    const appointment = appointmentResult.rows[0];
+
+    if (!appointment.needs_opponent) {
+      return res.status(400).json({
+        message: "Esta reserva no está buscando rival",
+      });
+    }
+
+    if (appointment.opponent_name || appointment.opponent_phone) {
+      return res.status(400).json({
+        message: "Este partido ya tiene rival registrado",
+      });
+    }
+
+    const result = await pool.query(
+      `UPDATE appointments
+       SET
+         needs_opponent = false,
+         opponent_name = $1,
+         opponent_phone = $2
+       WHERE id = $3 AND business_id = $4
+       RETURNING *`,
+      [opponentName, normalizedOpponentPhone, id, businessId]
+    );
+
+    return res.json({
+      message: "Rival registrado correctamente",
+      data: result.rows[0],
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "Error al registrar rival",
+    });
+  }
+});
+
 app.put("/appointments/:id", requireAuth, async (req, res) => {
   const { id } = req.params;
   const {

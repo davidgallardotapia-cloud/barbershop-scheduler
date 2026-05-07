@@ -23,6 +23,7 @@ import {
   getAppointments as fetchAppointments,
   getAdminAppointments,
   createAppointment as createAppointmentService,
+  joinOpponentAppointment,
   updateAppointment as updateAppointmentService,
   deleteAppointment as deleteAppointmentService,
   loginUser,
@@ -895,31 +896,11 @@ setEditingId(null);
     : null;
 
   if (openOpponentAppointment) {
-    await updateAppointmentService(openOpponentAppointment.id, {
-      name: openOpponentAppointment.name,
-      phone: openOpponentAppointment.phone,
-      date,
-      time,
-      service: openOpponentAppointment.service || service.trim(),
-      barber: resolvedBarber,
-      businessId,
-      status: openOpponentAppointment.status || "reservada",
-
-      totalAmount:
-        openOpponentAppointment.total_amount ||
-        getServicePrice(openOpponentAppointment.service || service.trim()) ||
-        0,
-      depositRequired: Boolean(openOpponentAppointment.deposit_required),
-      requiredDepositAmount:
-        Number(openOpponentAppointment.required_deposit_amount || 0),
-      paymentStatus: openOpponentAppointment.payment_status || "unpaid",
-      depositReceiptUrl: openOpponentAppointment.deposit_receipt_url || null,
-      notes: openOpponentAppointment.notes || null,
-
-      needsOpponent: false,
-      opponentName: name.trim(),
-      opponentPhone: normalizedPhone,
-    });
+  await joinOpponentAppointment(openOpponentAppointment.id, {
+    businessId,
+    opponentName: name.trim(),
+    opponentPhone: normalizedPhone,
+  });
 
     const barberPhone = BARBER_PHONES[resolvedBarber] || "";
 
