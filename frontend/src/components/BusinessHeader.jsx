@@ -6,12 +6,20 @@ import {
   FaRegClock,
 } from "react-icons/fa";
 
-function BusinessHeader({ isMobile, business }) {
+function BusinessHeader({
+  isMobile,
+  business,
+  onHeaderResourceSelect,
+  selectedBarber,
+  selectedService,
+}) {
   if (!business) return null;
 
   const hasSocialLinks =
     Boolean(business?.socialLinks?.instagram) ||
     Boolean(business?.socialLinks?.facebook);
+
+  const headerSelectionMode = business?.headerSelectionMode || "professional";
 
   const getInstagramHandle = (url) => {
     if (!url) return "";
@@ -32,6 +40,46 @@ function BusinessHeader({ isMobile, business }) {
 
     return lastPart ? lastPart.replace(/-/g, " ") : "Facebook";
   };
+
+  const parseServiceCard = (serviceName) => {
+    const text = String(serviceName || "");
+    const match = text.match(/^(.*?)\s*\((.*?)\)$/);
+
+    return {
+      title: match?.[1] || text,
+      subtitle: match?.[2] || "",
+    };
+  };
+
+  const headerItems =
+    headerSelectionMode === "service"
+      ? (business?.services || []).map((serviceName) => {
+          const parsed = parseServiceCard(serviceName);
+          const resourceMatch = String(serviceName).match(/Cancha\s+\d+/i);
+
+          return {
+            key: serviceName,
+            name: parsed.title,
+            subtitle: parsed.subtitle,
+            image: business?.logo || business?.image || "",
+            service: serviceName,
+            resource: resourceMatch ? resourceMatch[0] : "",
+          };
+        })
+      : (business?.professionals || [])
+          .slice(
+            0,
+            business?.headerProfessionalsLimit ||
+              business?.professionals?.length ||
+              0
+          )
+          .map((pro) => ({
+            key: pro.name,
+            name: pro.name,
+            subtitle: pro.subtitle || "",
+            image: pro.image || business?.logo || business?.image || "",
+            resource: pro.name,
+          }));
 
   return (
     <div
@@ -54,49 +102,49 @@ function BusinessHeader({ isMobile, business }) {
           boxShadow: "0 6px 20px rgba(0,0,0,0.06)",
         }}
       >
-       <div
-  style={{
-    position: "relative",
-    width: "100%",
-    height: isMobile ? "220px" : "420px",
-    overflow: "hidden",
-  }}
->
-  <div
-    style={{
-      position: "absolute",
-      inset: 0,
-      backgroundImage: `url(${business.image})`,
-      backgroundSize: "cover",
-      backgroundPosition: "center",
-      backgroundRepeat: "no-repeat",
-      filter: "blur(18px)",
-      transform: "scale(1.08)",
-      opacity: 0.7,
-    }}
-  />
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            height: isMobile ? "220px" : "420px",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              backgroundImage: `url(${business.image})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+              filter: "blur(18px)",
+              transform: "scale(1.08)",
+              opacity: 0.7,
+            }}
+          />
 
-  <div
-    style={{
-      position: "absolute",
-      inset: 0,
-      background: "rgba(0,0,0,0.20)",
-    }}
-  />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(0,0,0,0.20)",
+            }}
+          />
 
-  <img
-    src={business.image}
-    alt={business.name}
-    style={{
-      position: "relative",
-      zIndex: 1,
-      width: "100%",
-      height: "100%",
-      objectFit: "contain",
-      display: "block",
-    }}
-  />
-</div>
+          <img
+            src={business.image}
+            alt={business.name}
+            style={{
+              position: "relative",
+              zIndex: 1,
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              display: "block",
+            }}
+          />
+        </div>
 
         <div
           style={{
@@ -169,7 +217,8 @@ function BusinessHeader({ isMobile, business }) {
       >
         <div>
           <p style={{ margin: "0 0 14px", fontSize: "18px", color: "#374151" }}>
-          <FaMapMarkerAlt style={{ color: "#e11d48", fontSize: "18px" }} /> {business.location}
+            <FaMapMarkerAlt style={{ color: "#e11d48", fontSize: "18px" }} />{" "}
+            {business.location}
           </p>
 
           <div style={{ margin: "0 0 14px" }}>
@@ -197,59 +246,76 @@ function BusinessHeader({ isMobile, business }) {
                 textDecoration: "none",
               }}
             >
-              <FaMapMarkerAlt style={{ color: "#e11d48", fontSize: "18px" }} /> {business.address}
+              <FaMapMarkerAlt style={{ color: "#e11d48", fontSize: "18px" }} />{" "}
+              {business.address}
             </a>
           </div>
 
           {business?.phone && (
-  <a
-    href={business?.whatsappUrl || `https://wa.me/${String(business.phone).replace(/\D/g, "")}`}
-    target="_blank"
-    rel="noreferrer"
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: "10px",
-      margin: "0 0 14px",
-      fontSize: "18px",
-      color: "#374151",
-      textDecoration: "none",
-    }}
-  >
-    <FaPhoneAlt style={{ color: "#16a34a", fontSize: "19px" }} />
-    <span>{business.phone}</span>
-  </a>
-)}
+            <a
+              href={
+                business?.whatsappUrl ||
+                `https://wa.me/${String(business.phone).replace(/\D/g, "")}`
+              }
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                margin: "0 0 14px",
+                fontSize: "18px",
+                color: "#374151",
+                textDecoration: "none",
+              }}
+            >
+              <FaPhoneAlt style={{ color: "#16a34a", fontSize: "19px" }} />
+              <span>{business.phone}</span>
+            </a>
+          )}
 
           {business?.whatsappLabel && (
-  <a
-    href={business?.whatsappUrl || `https://wa.me/${String(business.phone || "").replace(/\D/g, "")}`}
-    target="_blank"
-    rel="noreferrer"
-    style={{
-      display: "inline-flex",
-      alignItems: "center",
-      gap: "10px",
-      margin: "0 0 14px",
-      padding: "10px 14px",
-      borderRadius: "999px",
-      backgroundColor: "#dcfce7",
-      border: "1px solid #86efac",
-      color: "#166534",
-      textDecoration: "none",
-      fontSize: "16px",
-      fontWeight: "800",
-      width: "fit-content",
-    }}
-  >
-    <FaWhatsapp style={{ color: "#16a34a", fontSize: "22px" }} />
-    <span>{business.whatsappLabel}</span>
-  </a>
-)}
+            <a
+              href={
+                business?.whatsappUrl ||
+                `https://wa.me/${String(business.phone || "").replace(
+                  /\D/g,
+                  ""
+                )}`
+              }
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "10px",
+                margin: "0 0 14px",
+                padding: "10px 14px",
+                borderRadius: "999px",
+                backgroundColor: "#dcfce7",
+                border: "1px solid #86efac",
+                color: "#166534",
+                textDecoration: "none",
+                fontSize: "16px",
+                fontWeight: "800",
+                width: "fit-content",
+              }}
+            >
+              <FaWhatsapp style={{ color: "#16a34a", fontSize: "22px" }} />
+              <span>{business.whatsappLabel}</span>
+            </a>
+          )}
 
           <div style={{ margin: "0 0 18px" }}>
-            <p style={{ margin: "0 0 6px", fontSize: "18px", color: "#374151" }}>
-              <FaRegClock style={{ color: "#64748b", fontSize: "19px" }} /> {business.hours || "Horario por confirmar"}
+            <p
+              style={{
+                margin: "0 0 6px",
+                fontSize: "18px",
+                color: "#374151",
+              }}
+            >
+              <FaRegClock style={{ color: "#64748b", fontSize: "19px" }} />{" "}
+              {business.hours || "Horario por confirmar"}
             </p>
           </div>
 
@@ -426,7 +492,13 @@ function BusinessHeader({ isMobile, business }) {
             paddingTop: "18px",
           }}
         >
-          <h3 style={{ margin: "0 0 16px", fontSize: "18px", color: "#111827" }}>
+          <h3
+            style={{
+              margin: "0 0 16px",
+              fontSize: "18px",
+              color: "#111827",
+            }}
+          >
             {business.headerResourceSectionTitle ||
               business.resourceLabelPlural ||
               "Recursos"}
@@ -435,47 +507,91 @@ function BusinessHeader({ isMobile, business }) {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(2, 1fr)",
+              gridTemplateColumns: isMobile
+                ? "repeat(2, minmax(0, 1fr))"
+                : "repeat(2, 1fr)",
               gap: "16px",
               textAlign: "center",
             }}
           >
-            {(business.professionals || [])
-              .slice(
-                0,
-                business?.headerProfessionalsLimit ||
-                  business?.professionals?.length ||
-                  0
-              )
-              .map((pro) => (
-                <div key={pro.name}>
+            {headerItems.map((item) => {
+              const isSelected =
+                headerSelectionMode === "service"
+                  ? selectedService === item.service
+                  : selectedBarber === item.name;
+
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => onHeaderResourceSelect?.(item)}
+                  style={{
+                    border: isSelected
+                      ? `2px solid ${business?.theme?.primary || "#166534"}`
+                      : "1px solid #e5e7eb",
+                    backgroundColor: isSelected
+                      ? business?.theme?.primarySoft || "#dcfce7"
+                      : "#ffffff",
+                    borderRadius: "16px",
+                    padding: "10px 8px",
+                    cursor: onHeaderResourceSelect ? "pointer" : "default",
+                    boxShadow: isSelected
+                      ? "0 6px 16px rgba(22, 101, 52, 0.14)"
+                      : "0 3px 10px rgba(15,23,42,0.05)",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {item.image && (
+                    <div
+                      style={{
+                        width: "58px",
+                        height: "58px",
+                        borderRadius: "999px",
+                        overflow: "hidden",
+                        margin: "0 auto 8px",
+                        backgroundColor: "#ddd",
+                      }}
+                    >
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          display: "block",
+                        }}
+                      />
+                    </div>
+                  )}
+
                   <div
                     style={{
-                      width: "58px",
-                      height: "58px",
-                      borderRadius: "999px",
-                      overflow: "hidden",
-                      margin: "0 auto 8px",
-                      backgroundColor: "#ddd",
+                      fontSize: "14px",
+                      color: "#374151",
+                      fontWeight: "900",
+                      lineHeight: 1.2,
                     }}
                   >
-                    <img
-                      src={pro.image}
-                      alt={pro.name}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        display: "block",
-                      }}
-                    />
+                    {item.name}
                   </div>
 
-                  <div style={{ fontSize: "14px", color: "#374151" }}>
-                    {pro.name}
-                  </div>
-                </div>
-              ))}
+                  {item.subtitle && (
+                    <div
+                      style={{
+                        marginTop: "4px",
+                        fontSize: "12px",
+                        color: business?.theme?.mutedText || "#64748b",
+                        fontWeight: "700",
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      {item.subtitle}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

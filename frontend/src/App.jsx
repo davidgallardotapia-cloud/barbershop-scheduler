@@ -1428,6 +1428,42 @@ await getAppointments("admin");
   const isClientMode = appMode === "client";
   const isAdminMode = appMode === "admin" && isLoggedIn;
 
+  const handleHeaderResourceSelect = (item) => {
+  if (!item) return;
+
+  if (mergedBusiness?.headerSelectionMode === "service") {
+    const selectedService = item.service || item.name || "";
+    const selectedResource =
+      item.resource || getResourceFromService(selectedService);
+
+    setService(selectedService);
+
+    if (selectedResource) {
+      setBarber(selectedResource);
+    }
+
+    setMessage(`Seleccionaste: ${selectedService}`);
+  } else {
+    const selectedProfessional = item.name || "";
+
+    setBarber(selectedProfessional);
+    setMessage(`Seleccionaste: ${selectedProfessional}`);
+  }
+
+  setWhatsappUrl("");
+
+  setTimeout(() => {
+  const bookingSection = document.getElementById("booking-form-section");
+
+  if (bookingSection) {
+    bookingSection.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+}, 120);
+};
+
   const todayStr = formatDateToInput(new Date());
 
   const dashboardAppointments = useMemo(() => {
@@ -2087,9 +2123,15 @@ paymentHistoryItem: {
 
         {isClientMode ? (
           <div>
-            <BusinessHeader isMobile={isMobile} business={mergedBusiness} />
+            <BusinessHeader
+  isMobile={isMobile}
+  business={mergedBusiness}
+  onHeaderResourceSelect={handleHeaderResourceSelect}
+  selectedBarber={barber}
+  selectedService={service}
+/>
 
-            <div style={styles.card}>
+            <div id="booking-form-section" style={styles.card}>
               <ClientBookingWizard
                 styles={styles}
                 business={mergedBusiness}
