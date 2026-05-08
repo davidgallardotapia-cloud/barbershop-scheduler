@@ -28,6 +28,10 @@ export const deleteAppointment = (id, businessId) => {
   });
 };
 
+export const createMonthlyAppointment = (data) => {
+  return api.post("/appointments/monthly", data);
+};
+
 export const loginUser = (credentials) => {
   return api.post("/login", credentials);
 };

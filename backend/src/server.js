@@ -127,6 +127,71 @@ const isValidChileMobilePhone = (rawPhone) => {
   return /^569\d{8}$/.test(normalized);
 };
 
+const parseDateOnly = (dateString) => {
+  const [year, month, day] = String(dateString || "")
+    .split("-")
+    .map(Number);
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  return new Date(year, month - 1, day, 12, 0, 0, 0);
+};
+
+const formatDateOnly = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+const addDays = (date, days) => {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+};
+
+const addMonthsClamped = (date, months) => {
+  const targetMonthIndex = date.getMonth() + months;
+  const targetYear = date.getFullYear() + Math.floor(targetMonthIndex / 12);
+  const targetMonth = ((targetMonthIndex % 12) + 12) % 12;
+  const lastDayOfTargetMonth = new Date(
+    targetYear,
+    targetMonth + 1,
+    0,
+    12,
+    0,
+    0,
+    0
+  ).getDate();
+
+  const targetDay = Math.min(date.getDate(), lastDayOfTargetMonth);
+
+  return new Date(targetYear, targetMonth, targetDay, 12, 0, 0, 0);
+};
+
+const buildMonthlyReservationDates = (startDateString) => {
+  const startDate = parseDateOnly(startDateString);
+
+  if (!startDate) {
+    return [];
+  }
+
+  const endDate = addMonthsClamped(startDate, 1);
+  const dates = [];
+  let currentDate = new Date(startDate);
+
+  while (currentDate <= endDate) {
+    dates.push(formatDateOnly(currentDate));
+    currentDate = addDays(currentDate, 7);
+  }
+
+  return dates;
+};
+
+
 const recalculateAppointmentPaymentStatus = async (appointmentId) => {
   const appointmentResult = await pool.query(
     "SELECT * FROM appointments WHERE id = $1",
@@ -260,6 +325,21 @@ const createTables = async () => {
     await pool.query(`
       ALTER TABLE appointments
       ADD COLUMN IF NOT EXISTS opponent_phone VARCHAR(30);
+    `);
+
+    await pool.query(`
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS recurrence_group_id VARCHAR(120);
+    `);
+
+    await pool.query(`
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS recurrence_type VARCHAR(30);
+    `);
+
+    await pool.query(`
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS recurrence_index INTEGER;
     `);
 
     await pool.query(`
@@ -502,7 +582,10 @@ app.get("/appointments", async (req, res) => {
           business_id,
           needs_opponent,
           opponent_name,
-          opponent_phone
+          opponent_phone,
+          recurrence_group_id,
+          recurrence_type,
+          recurrence_index
         FROM appointments
         WHERE business_id = $1
         ORDER BY date ASC, time ASC`,
@@ -520,7 +603,10 @@ app.get("/appointments", async (req, res) => {
           business_id,
           needs_opponent,
           opponent_name,
-          opponent_phone
+          opponent_phone,
+          recurrence_group_id,
+          recurrence_type,
+          recurrence_index
         FROM appointments
         ORDER BY date ASC, time ASC`
       );
@@ -706,6 +792,179 @@ app.post("/appointments", async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Error al crear cita" });
+  }
+});
+
+
+app.post("/appointments/monthly", requireAuth, async (req, res) => {
+  const {
+    name,
+    phone,
+    date,
+    time,
+    service,
+    barber,
+    businessId,
+    status,
+    totalAmount,
+    depositRequired,
+    requiredDepositAmount,
+    paymentStatus,
+    depositReceiptUrl,
+    notes,
+    needsOpponent,
+    opponentName,
+    opponentPhone,
+  } = req.body;
+
+  if (!name || !phone || !date || !time || !service || !barber || !businessId) {
+    return res.status(400).json({ message: "Faltan campos obligatorios" });
+  }
+
+  if (!isValidChileMobilePhone(phone)) {
+    return res.status(400).json({
+      message: "Ingresa un celular chileno válido",
+    });
+  }
+
+  if (opponentPhone && !isValidChileMobilePhone(opponentPhone)) {
+    return res.status(400).json({
+      message: "Ingresa un celular chileno válido para el rival",
+    });
+  }
+
+  const monthlyDates = buildMonthlyReservationDates(date);
+
+  if (monthlyDates.length === 0) {
+    return res.status(400).json({
+      message: "Fecha inválida para crear reserva mensual",
+    });
+  }
+
+  const normalizedPhone = normalizeChilePhone(phone);
+  const normalizedOpponentPhone = opponentPhone
+    ? normalizeChilePhone(opponentPhone)
+    : null;
+
+  const recurringGroupId = `monthly-${businessId}-${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
+
+  const finalNotes = notes
+    ? `${notes} | Reserva mensual`
+    : "Reserva mensual";
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const conflicts = await client.query(
+      `SELECT
+         id,
+         name,
+         date::text AS date,
+         time::text AS time,
+         service,
+         barber,
+         status
+       FROM appointments
+       WHERE business_id = $1
+         AND barber = $2
+         AND time = $3
+         AND date = ANY($4::date[])
+       ORDER BY date ASC, time ASC`,
+      [businessId, barber, time, monthlyDates]
+    );
+
+    if (conflicts.rows.length > 0) {
+      await client.query("ROLLBACK");
+
+      return res.status(409).json({
+        message: "No se pudo crear la reserva mensual. Hay horarios ocupados.",
+        conflicts: conflicts.rows,
+      });
+    }
+
+    const createdAppointments = [];
+
+    for (let index = 0; index < monthlyDates.length; index += 1) {
+      const monthlyDate = monthlyDates[index];
+
+      const result = await client.query(
+        `INSERT INTO appointments (
+          name,
+          phone,
+          date,
+          time,
+          service,
+          barber,
+          business_id,
+          status,
+          total_amount,
+          deposit_required,
+          required_deposit_amount,
+          payment_status,
+          deposit_receipt_url,
+          notes,
+          needs_opponent,
+          opponent_name,
+          opponent_phone,
+          recurrence_group_id,
+          recurrence_type,
+          recurrence_index
+        )
+         VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+          $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
+        )
+         RETURNING *`,
+        [
+          name,
+          normalizedPhone,
+          monthlyDate,
+          time,
+          service,
+          barber,
+          businessId,
+          status || "reservada",
+          totalAmount || 0,
+          depositRequired ?? false,
+          requiredDepositAmount || 0,
+          paymentStatus || (depositRequired ? "deposit_pending" : "unpaid"),
+          depositReceiptUrl || null,
+          finalNotes,
+          needsOpponent ?? false,
+          opponentName || null,
+          normalizedOpponentPhone,
+          recurringGroupId,
+          "monthly",
+          index + 1,
+        ]
+      );
+
+      createdAppointments.push(result.rows[0]);
+    }
+
+    await client.query("COMMIT");
+
+    return res.json({
+      message: "Reserva mensual creada correctamente",
+      recurrenceGroupId: recurringGroupId,
+      totalCreated: createdAppointments.length,
+      dates: monthlyDates,
+      data: createdAppointments,
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+
+    console.error(error);
+
+    return res.status(500).json({
+      message: "Error al crear reserva mensual",
+    });
+  } finally {
+    client.release();
   }
 });
 

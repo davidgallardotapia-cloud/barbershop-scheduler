@@ -23,6 +23,7 @@ import {
   getAppointments as fetchAppointments,
   getAdminAppointments,
   createAppointment as createAppointmentService,
+  createMonthlyAppointment as createMonthlyAppointmentService,
   joinOpponentAppointment,
   updateAppointment as updateAppointmentService,
   deleteAppointment as deleteAppointmentService,
@@ -103,6 +104,7 @@ const [barber, setBarber] = useState("");
   const [paymentNotes, setPaymentNotes] = useState("");
   const [editingPaymentId, setEditingPaymentId] = useState(null);
   const [paymentPanelError, setPaymentPanelError] = useState("");
+  const [isMonthlyReservation, setIsMonthlyReservation] = useState(false);
 
   const currentBusinessConfig = useMemo(() => {
     return businessConfigBySlug[slug] || null;
@@ -788,6 +790,7 @@ setCustomServicePrice("");
 setNeedsOpponent(false);
 setOpponentName("");
 setOpponentPhone("");
+setIsMonthlyReservation(false);
 
 setEditingId(null);
     setSelectedAppointmentPayments([]);
@@ -1053,6 +1056,154 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
     }
   };
 
+
+  const createMonthlyAppointment = async () => {
+    if (submitting || !businessId) return;
+
+    const isSportsBusiness = ["giocata", "pinguino-club"].includes(
+      mergedBusiness?.id
+    );
+
+    if (!isSportsBusiness) {
+      setMessage("La reserva mensual solo está disponible para negocios deportivos.");
+      return;
+    }
+
+    if (editingId) {
+      setMessage("Termina o cancela la edición antes de crear una reserva mensual.");
+      return;
+    }
+
+    const resolvedBarber = mergedBusiness?.hideResourceSelector
+      ? barber || getResourceFromService(service)
+      : barber;
+
+    if (
+      !name.trim() ||
+      !phone.trim() ||
+      !date ||
+      !time ||
+      !service.trim() ||
+      !resolvedBarber
+    ) {
+      setMessage("Completa todos los campos para crear la reserva mensual.");
+      return;
+    }
+
+    if (!isValidChileMobilePhone(phone)) {
+      setMessage("Ingresa un celular chileno válido. Ejemplo: 912345678");
+      return;
+    }
+
+    if (opponentPhone.trim() && !isValidChileMobilePhone(opponentPhone)) {
+      setMessage("Ingresa un celular chileno válido para el rival.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Se crearán reservas semanales durante un mes para ${resolvedBarber}, todos los mismos días a las ${time}.\n\nSi alguna fecha está ocupada, no se creará ninguna reserva mensual.\n\n¿Quieres continuar?`
+    );
+
+    if (!confirmed) return;
+
+    setSubmitting(true);
+    setMessage("");
+    setWhatsappUrl("");
+
+    const normalizedPhone = normalizeChilePhone(phone);
+
+    try {
+      const finalService = service.trim();
+      const finalTotalAmount = getServicePrice(finalService) || 0;
+
+      const response = await createMonthlyAppointmentService({
+        name: name.trim(),
+        phone: normalizedPhone,
+        date,
+        time,
+        service: finalService,
+        barber: resolvedBarber,
+        businessId,
+        status: "reservada",
+
+        totalAmount: finalTotalAmount,
+        depositRequired: false,
+        requiredDepositAmount: 0,
+        paymentStatus: "unpaid",
+        depositReceiptUrl: null,
+        notes: null,
+
+        needsOpponent,
+        opponentName: opponentName.trim() || null,
+        opponentPhone: opponentPhone.trim()
+          ? normalizeChilePhone(opponentPhone)
+          : null,
+      });
+
+      const createdAppointments = Array.isArray(response?.data?.data)
+        ? response.data.data
+        : [];
+
+      for (const appointment of createdAppointments) {
+        await syncToGoogleSheets({
+          id: appointment.id,
+          date: String(appointment.date || "").slice(0, 10),
+          time: String(appointment.time || "").slice(0, 5),
+          name: appointment.name || name.trim(),
+          phone: appointment.phone || normalizedPhone,
+          barber: appointment.barber || resolvedBarber,
+          service: appointment.service || finalService,
+          status: appointment.status || "reservada",
+        });
+      }
+
+      const monthlyDates = createdAppointments.length
+        ? createdAppointments.map((appointment) =>
+            String(appointment.date || "").slice(0, 10)
+          )
+        : Array.isArray(response?.data?.dates)
+        ? response.data.dates
+        : [];
+
+      const selectedDate = new Date(`${date}T00:00:00`);
+      setSelectedWeekStart(getMonday(selectedDate));
+      setSelectedMobileDay(selectedDate);
+
+      await getAppointments("admin");
+
+      setMessage(`✅ Reserva mensual creada correctamente
+
+${
+        response?.data?.totalCreated || createdAppointments.length
+      } reservas creadas para ${resolvedBarber}:
+• ${monthlyDates.join("\n• ")}`);
+
+      resetForm();
+    } catch (err) {
+      console.error(err);
+
+      if (err.response?.status === 409 && Array.isArray(err.response?.data?.conflicts)) {
+        const conflictsText = err.response.data.conflicts
+          .map((conflict) => {
+            const conflictDate = String(conflict.date || "").slice(0, 10);
+            const conflictTime = String(conflict.time || "").slice(0, 5);
+            const conflictClient = conflict.name || "Reserva existente";
+
+            return `• ${conflictDate} ${conflictTime} - ${conflictClient}`;
+          })
+          .join("\n");
+
+        setMessage(`⚠️ No se pudo crear la reserva mensual porque hay horarios ocupados:\n\n${conflictsText}`);
+      } else if (err.response?.data?.message) {
+        setMessage(err.response.data.message);
+      } else {
+        setMessage("Error al crear reserva mensual");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const updateAppointment = async () => {
     if (submitting || !editingId || !businessId) return;
 
@@ -1240,6 +1391,7 @@ setBarber(appointment.barber || "");
 setNeedsOpponent(Boolean(appointment.needs_opponent));
 setOpponentName(appointment.opponent_name || "");
 setOpponentPhone(appointment.opponent_phone || "");
+setIsMonthlyReservation(false);
 
 setEditingId(appointment.id);
     setPaymentAppointment(null);
@@ -1584,8 +1736,13 @@ await getAppointments("admin");
   const availableDays = useMemo(() => {
     const days = [];
     const today = new Date();
+    const clientReservationDays = ["giocata", "pinguino-club"].includes(
+      mergedBusiness?.id
+    )
+      ? 7
+      : 14;
 
-    for (let i = 0; i < 14; i += 1) {
+    for (let i = 0; i < clientReservationDays; i += 1) {
       const day = addDays(today, i);
       const dateValue = formatDateToInput(day);
 
@@ -1603,7 +1760,7 @@ await getAppointments("admin");
     }
 
     return days;
-  }, [blockedWeekdays]);
+  }, [blockedWeekdays, mergedBusiness?.id]);
 
   const availableTimes = useMemo(() => {
   if (!date) return [];
@@ -2291,6 +2448,9 @@ isCustomServiceBusiness={["barberia-james", "barberia-junior"].includes(
 isCustomPriceBusiness={["giocata", "pinguino-club"].includes(
   mergedBusiness?.id
 )}
+isMonthlyReservation={isMonthlyReservation}
+setIsMonthlyReservation={setIsMonthlyReservation}
+createMonthlyAppointment={createMonthlyAppointment}
 
 updateAppointment={updateAppointment}
               createAppointment={createAppointment}

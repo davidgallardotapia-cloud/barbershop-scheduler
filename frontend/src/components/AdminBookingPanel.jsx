@@ -34,6 +34,10 @@ function AdminBookingPanel({
   isCustomServiceBusiness,
   isCustomPriceBusiness,
 
+  isMonthlyReservation,
+  setIsMonthlyReservation,
+  createMonthlyAppointment,
+
   updateAppointment,
   createAppointment,
   resetForm,
@@ -50,6 +54,15 @@ function AdminBookingPanel({
     const formattedPrice = Number(customServicePrice).toLocaleString("es-CL");
 
     setService(`${serviceWithoutPrice} ($${formattedPrice})`);
+  };
+
+  const handleCreateClick = () => {
+    if (isMonthlyReservation && createMonthlyAppointment) {
+      createMonthlyAppointment();
+      return;
+    }
+
+    createAppointment();
   };
 
   return (
@@ -337,6 +350,54 @@ function AdminBookingPanel({
           </div>
         )}
 
+        {isSportsBusiness && !editingId && (
+          <div
+            style={{
+              border: "1px solid #fde68a",
+              borderRadius: "12px",
+              padding: "12px",
+              backgroundColor: "#fffbeb",
+            }}
+          >
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                fontWeight: "bold",
+                color: "#92400e",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={Boolean(isMonthlyReservation)}
+                onChange={(e) => setIsMonthlyReservation(e.target.checked)}
+                style={{
+                  width: "18px",
+                  height: "18px",
+                  cursor: "pointer",
+                }}
+              />
+
+              Reserva mensual
+            </label>
+
+            <p
+              style={{
+                margin: "8px 0 0 0",
+                color: "#92400e",
+                fontSize: "13px",
+                lineHeight: 1.4,
+              }}
+            >
+              Crea reservas semanales para el mismo día, hora y cancha durante
+              un mes. Si alguna fecha está ocupada, no se creará la reserva
+              mensual.
+            </p>
+          </div>
+        )}
+
         {editingId ? (
           <>
             <button
@@ -367,11 +428,15 @@ function AdminBookingPanel({
               ...styles.primaryButton,
               ...(submitting ? styles.disabledButton : {}),
             }}
-            onClick={createAppointment}
+            onClick={handleCreateClick}
             disabled={submitting}
           >
             {submitting
-              ? business?.creatingLabel || "Creando..."
+              ? isMonthlyReservation
+                ? "Creando reserva mensual..."
+                : business?.creatingLabel || "Creando..."
+              : isMonthlyReservation
+              ? "Crear reserva mensual"
               : business?.createButtonLabel || "Crear reserva"}
           </button>
         )}

@@ -23,6 +23,7 @@ function ClientBookingWizard({
   setName,
   phone,
   setPhone,
+  availableDays = [],
   availableTimes = [],
   blockedWeekdays = [],
   createAppointment,
@@ -46,6 +47,20 @@ function ClientBookingWizard({
 
   const resolvedBarber =
     showResourceStep && BARBERS.length === 1 ? BARBERS[0] : barber;
+
+  const allowedDateValues = useMemo(() => {
+    return new Set((availableDays || []).map((day) => day.value));
+  }, [availableDays]);
+
+  const hasBookingWindow = allowedDateValues.size > 0;
+
+  const weekHasAllowedDay = (weekStart) => {
+    if (!hasBookingWindow) return true;
+
+    return Array.from({ length: 7 }, (_, index) => {
+      return formatDateToInput(addDays(weekStart, index));
+    }).some((value) => allowedDateValues.has(value));
+  };
 
   const steps = showResourceStep
     ? [
@@ -107,11 +122,13 @@ function ClientBookingWizard({
       const value = formatDateToInput(day);
 
       return {
-  date: day,
-  value,
-  isBlocked: blockedWeekdays.includes(day.getDay()),
-  isPast: isPastDayOnly(day),
-  labelShort: day.toLocaleDateString("es-CL", {
+        date: day,
+        value,
+        isBlocked: blockedWeekdays.includes(day.getDay()),
+        isPast: isPastDayOnly(day),
+        isOutsideBookingWindow:
+          hasBookingWindow && !allowedDateValues.has(value),
+        labelShort: day.toLocaleDateString("es-CL", {
           weekday: "short",
         }),
         dayNumber: day.toLocaleDateString("es-CL", {
@@ -119,7 +136,10 @@ function ClientBookingWizard({
         }),
       };
     });
-  }, [currentWeekStart, blockedWeekdays]);
+  }, [currentWeekStart, blockedWeekdays, hasBookingWindow, allowedDateValues]);
+
+  const canGoPreviousWeek = weekOffset > 0;
+  const canGoNextWeek = weekHasAllowedDay(addDays(currentWeekStart, 7));
 
   useEffect(() => {
     if (!date) return;
@@ -542,12 +562,15 @@ function ClientBookingWizard({
               >
                 <button
                   type="button"
+                  disabled={!canGoPreviousWeek}
                   onClick={() => {
+                    if (!canGoPreviousWeek) return;
                     setWeekOffset((prev) => prev - 1);
                   }}
                   style={{
                     ...styles.button,
                     ...styles.secondaryButton,
+                    ...(!canGoPreviousWeek ? styles.disabledButton : {}),
                     flex: isMobile ? "1 1 calc(50% - 5px)" : "0 0 auto",
                     minHeight: "48px",
                     borderRadius: "12px",
@@ -576,12 +599,15 @@ function ClientBookingWizard({
 
                 <button
                   type="button"
+                  disabled={!canGoNextWeek}
                   onClick={() => {
+                    if (!canGoNextWeek) return;
                     setWeekOffset((prev) => prev + 1);
                   }}
                   style={{
                     ...styles.button,
                     ...styles.secondaryButton,
+                    ...(!canGoNextWeek ? styles.disabledButton : {}),
                     flex: isMobile ? "1 1 100%" : "0 0 auto",
                     minHeight: "48px",
                     borderRadius: "12px",
@@ -602,7 +628,10 @@ function ClientBookingWizard({
               >
                 {weekDays.map((day) => {
                   const isSelected = date === day.value;
-                  const isDisabled = day.isBlocked || day.isPast;
+                  const isDisabled =
+                    day.isBlocked ||
+                    day.isPast ||
+                    day.isOutsideBookingWindow;
 
                   return (
                     <button
