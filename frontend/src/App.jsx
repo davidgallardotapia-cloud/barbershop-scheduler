@@ -891,9 +891,7 @@ setEditingId(null);
           appointmentDate === date &&
           appointmentTime === String(time || "").slice(0, 5) &&
           appointment.barber === resolvedBarber &&
-          Boolean(appointment.needs_opponent) &&
-          !appointment.opponent_name &&
-          !appointment.opponent_phone
+          Boolean(appointment.needs_opponent)
         );
       })
     : null;
@@ -1792,10 +1790,7 @@ await getAppointments("admin");
       : slotAppointments;
 
     const opponentAppointment = relevantAppointments.find(
-      (appointment) =>
-        Boolean(appointment.needs_opponent) &&
-        !appointment.opponent_name &&
-        !appointment.opponent_phone
+      (appointment) => Boolean(appointment.needs_opponent)
     );
 
     const isTaken = relevantAppointments.length > 0;

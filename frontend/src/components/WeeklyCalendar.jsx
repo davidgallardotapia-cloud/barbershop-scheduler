@@ -229,11 +229,7 @@ function WeeklyCalendar({
   };
 
   const isLookingForOpponent = (appointment) => {
-    return (
-      Boolean(appointment?.needs_opponent) &&
-      !appointment?.opponent_name &&
-      !appointment?.opponent_phone
-    );
+    return Boolean(appointment?.needs_opponent);
   };
 
   const getSportsAppointmentForResource = (appointments, resourceName) => {

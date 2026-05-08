@@ -98,6 +98,29 @@ const requireAuth = (req, res, next) => {
   }
 };
 
+const optionalAuth = (req, res, next) => {
+  const authHeader = req.headers.authorization || "";
+
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : null;
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, getJwtSecret());
+    req.user = decoded;
+
+    return next();
+  } catch (error) {
+    return res.status(401).json({
+      message: "Token invalido o expirado. Inicia sesion nuevamente.",
+    });
+  }
+};
+
 const normalizeChilePhone = (rawPhone) => {
   const digits = String(rawPhone || "").replace(/\D/g, "");
 
@@ -189,6 +212,22 @@ const buildMonthlyReservationDates = (startDateString) => {
   }
 
   return dates;
+};
+
+const toPublicAppointment = (appointment) => {
+  return {
+    id: appointment.id,
+    date: appointment.date,
+    time: appointment.time,
+    service: appointment.service,
+    barber: appointment.barber,
+    status: appointment.status,
+    business_id: appointment.business_id,
+    needs_opponent: Boolean(appointment.needs_opponent),
+    recurrence_group_id: appointment.recurrence_group_id,
+    recurrence_type: appointment.recurrence_type,
+    recurrence_index: appointment.recurrence_index,
+  };
 };
 
 
@@ -567,52 +606,31 @@ app.get("/admin/appointments", requireAuth, async (req, res) => {
 app.get("/appointments", async (req, res) => {
   const { businessId } = req.query;
 
+  if (!businessId) {
+    return res.status(400).json({ message: "businessId requerido" });
+  }
+
   try {
-    let result;
+    const result = await pool.query(
+      `SELECT
+        id,
+        date,
+        time,
+        service,
+        barber,
+        status,
+        business_id,
+        needs_opponent,
+        recurrence_group_id,
+        recurrence_type,
+        recurrence_index
+      FROM appointments
+      WHERE business_id = $1
+      ORDER BY date ASC, time ASC`,
+      [businessId]
+    );
 
-    if (businessId) {
-      result = await pool.query(
-        `SELECT 
-          id,
-          date,
-          time,
-          service,
-          barber,
-          status,
-          business_id,
-          needs_opponent,
-          opponent_name,
-          opponent_phone,
-          recurrence_group_id,
-          recurrence_type,
-          recurrence_index
-        FROM appointments
-        WHERE business_id = $1
-        ORDER BY date ASC, time ASC`,
-        [businessId]
-      );
-    } else {
-      result = await pool.query(
-        `SELECT 
-          id,
-          date,
-          time,
-          service,
-          barber,
-          status,
-          business_id,
-          needs_opponent,
-          opponent_name,
-          opponent_phone,
-          recurrence_group_id,
-          recurrence_type,
-          recurrence_index
-        FROM appointments
-        ORDER BY date ASC, time ASC`
-      );
-    }
-
-    return res.json(result.rows);
+    return res.json(result.rows.map(toPublicAppointment));
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Error al obtener citas" });
@@ -687,7 +705,7 @@ return res.json({
   }
 });
 
-app.post("/appointments", async (req, res) => {
+app.post("/appointments", optionalAuth, async (req, res) => {
   const {
     name,
     phone,
@@ -712,6 +730,14 @@ app.post("/appointments", async (req, res) => {
     return res.status(400).json({ message: "Faltan campos obligatorios" });
   }
 
+  const isAdminRequest = Boolean(req.user?.business_id);
+
+  if (isAdminRequest && req.user.business_id !== businessId) {
+    return res.status(403).json({
+      message: "No tienes permiso para modificar este negocio",
+    });
+  }
+
   if (!isValidChileMobilePhone(phone)) {
     return res.status(400).json({
       message: "Ingresa un celular chileno válido",
@@ -725,9 +751,26 @@ app.post("/appointments", async (req, res) => {
   }
 
   const normalizedPhone = normalizeChilePhone(phone);
-  const normalizedOpponentPhone = opponentPhone
+  const normalizedOpponentPhone = isAdminRequest && opponentPhone
     ? normalizeChilePhone(opponentPhone)
     : null;
+  const finalStatus = isAdminRequest ? status || "reservada" : "reservada";
+  const finalTotalAmount = isAdminRequest ? totalAmount || 0 : 0;
+  const finalDepositRequired = isAdminRequest
+    ? depositRequired ?? false
+    : false;
+  const finalRequiredDepositAmount = isAdminRequest
+    ? requiredDepositAmount || 0
+    : 0;
+  const finalPaymentStatus = isAdminRequest
+    ? paymentStatus || (depositRequired ? "deposit_pending" : "unpaid")
+    : "unpaid";
+  const finalDepositReceiptUrl = isAdminRequest
+    ? depositReceiptUrl || null
+    : null;
+  const finalNotes = isAdminRequest ? notes || null : null;
+  const finalNeedsOpponent = isAdminRequest ? needsOpponent ?? false : false;
+  const finalOpponentName = isAdminRequest ? opponentName || null : null;
 
   try {
     const exists = await pool.query(
@@ -772,22 +815,24 @@ app.post("/appointments", async (req, res) => {
         service,
         barber,
         businessId,
-        status || "reservada",
-        totalAmount || 0,
-        depositRequired ?? false,
-        requiredDepositAmount || 0,
-        paymentStatus || (depositRequired ? "deposit_pending" : "unpaid"),
-        depositReceiptUrl || null,
-        notes || null,
-        needsOpponent ?? false,
-        opponentName || null,
+        finalStatus,
+        finalTotalAmount,
+        finalDepositRequired,
+        finalRequiredDepositAmount,
+        finalPaymentStatus,
+        finalDepositReceiptUrl,
+        finalNotes,
+        finalNeedsOpponent,
+        finalOpponentName,
         normalizedOpponentPhone,
       ]
     );
 
     return res.json({
       message: "Cita creada",
-      data: result.rows[0],
+      data: isAdminRequest
+        ? result.rows[0]
+        : toPublicAppointment(result.rows[0]),
     });
   } catch (error) {
     console.error(error);
@@ -1027,7 +1072,7 @@ app.put("/appointments/:id/opponent", async (req, res) => {
 
     return res.json({
       message: "Rival registrado correctamente",
-      data: result.rows[0],
+      data: toPublicAppointment(result.rows[0]),
     });
   } catch (error) {
     console.error(error);
