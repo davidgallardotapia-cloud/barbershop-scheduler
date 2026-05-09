@@ -1614,6 +1614,53 @@ await getAppointments("admin");
 }, 120);
 };
 
+  const handleOpponentAppointmentSelect = (appointment) => {
+    if (!appointment) return;
+
+    const nextDate = String(appointment.date || "").slice(0, 10);
+    const nextTime = String(appointment.time || "").slice(0, 5);
+    const nextService = appointment.service || "";
+    const nextResource = appointment.barber || getResourceFromService(nextService);
+    const selectedDay = new Date(`${nextDate}T00:00:00`);
+
+    if (!nextDate || !nextTime || !nextService || !nextResource) return;
+
+    setName("");
+    setPhone("");
+    setService(nextService);
+    setBarber(nextResource);
+    setDate(nextDate);
+    setTime(nextTime);
+    setCustomServiceName("");
+    setCustomServicePrice("");
+    setNeedsOpponent(false);
+    setOpponentName("");
+    setOpponentPhone("");
+    setIsMonthlyReservation(false);
+    setEditingId(null);
+    setPaymentAppointment(null);
+    setSelectedAppointmentPayments([]);
+    setPaymentPanelError("");
+    setWhatsappUrl("");
+    setMessage("Completa tus datos como equipo 2 para unirte al partido.");
+
+    if (!Number.isNaN(selectedDay.getTime())) {
+      setSelectedWeekStart(getMonday(selectedDay));
+      setSelectedMobileDay(selectedDay);
+    }
+
+    setTimeout(() => {
+      const bookingSection = document.getElementById("booking-form-section");
+
+      if (bookingSection) {
+        bookingSection.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+    }, 120);
+  };
+
   const todayStr = formatDateToInput(new Date());
 
   const dashboardAppointments = useMemo(() => {
@@ -1759,6 +1806,47 @@ await getAppointments("admin");
 
     return days;
   }, [blockedWeekdays, mergedBusiness?.id]);
+
+  const openOpponentAppointments = useMemo(() => {
+    const isSportsBusiness = ["giocata", "pinguino-club"].includes(
+      mergedBusiness?.id
+    );
+
+    if (!isSportsBusiness) return [];
+
+    const allowedDateValues = new Set(
+      (availableDays || []).map((day) => day.value)
+    );
+
+    return appointments
+      .filter((appointment) => {
+        const appointmentDate = String(appointment.date || "").slice(0, 10);
+        const appointmentTime = String(appointment.time || "").slice(0, 5);
+
+        if (!Boolean(appointment.needs_opponent)) return false;
+        if (!appointmentDate || !appointmentTime) return false;
+        if (allowedDateValues.size > 0 && !allowedDateValues.has(appointmentDate)) {
+          return false;
+        }
+
+        const slotDate = new Date(`${appointmentDate}T00:00:00`);
+
+        if (Number.isNaN(slotDate.getTime())) return false;
+
+        return !isPastSlot(slotDate, appointmentTime);
+      })
+      .sort((left, right) => {
+        const leftValue = `${String(left.date || "").slice(0, 10)} ${String(
+          left.time || ""
+        ).slice(0, 5)} ${left.barber || ""}`;
+        const rightValue = `${String(right.date || "").slice(0, 10)} ${String(
+          right.time || ""
+        ).slice(0, 5)} ${right.barber || ""}`;
+
+        return leftValue.localeCompare(rightValue);
+      })
+      .slice(0, 6);
+  }, [appointments, availableDays, mergedBusiness?.id]);
 
   const availableTimes = useMemo(() => {
   if (!date) return [];
@@ -2279,8 +2367,12 @@ paymentHistoryItem: {
   isMobile={isMobile}
   business={mergedBusiness}
   onHeaderResourceSelect={handleHeaderResourceSelect}
+  openOpponentAppointments={openOpponentAppointments}
+  onOpponentAppointmentSelect={handleOpponentAppointmentSelect}
   selectedBarber={barber}
   selectedService={service}
+  selectedDate={date}
+  selectedTime={time}
 />
 
             <div id="booking-form-section" style={styles.card}>

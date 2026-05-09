@@ -4,14 +4,19 @@ import {
   FaPhoneAlt,
   FaMapMarkerAlt,
   FaRegClock,
+  FaUsers,
 } from "react-icons/fa";
 
 function BusinessHeader({
   isMobile,
   business,
   onHeaderResourceSelect,
+  openOpponentAppointments = [],
+  onOpponentAppointmentSelect,
   selectedBarber,
   selectedService,
+  selectedDate,
+  selectedTime,
 }) {
   if (!business) return null;
 
@@ -49,6 +54,50 @@ function BusinessHeader({
       title: match?.[1] || text,
       subtitle: match?.[2] || "",
     };
+  };
+
+  const isSportsBusiness = ["giocata", "pinguino-club"].includes(
+    business?.id
+  );
+
+  const visibleOpponentAppointments = isSportsBusiness
+    ? openOpponentAppointments.slice(0, 4)
+    : [];
+
+  const capitalize = (value) => {
+    const text = String(value || "");
+    return text ? text.charAt(0).toUpperCase() + text.slice(1) : "";
+  };
+
+  const formatOpponentDate = (dateValue) => {
+    const normalizedDate = String(dateValue || "").slice(0, 10);
+    const parts = normalizedDate.split("-");
+
+    if (parts.length !== 3) return "";
+
+    const [year, month, day] = parts.map(Number);
+    const localDate = new Date(year, month - 1, day);
+
+    if (Number.isNaN(localDate.getTime())) return "";
+
+    const weekday = capitalize(
+      localDate.toLocaleDateString("es-CL", { weekday: "long" })
+    );
+    const monthLabel = localDate.toLocaleDateString("es-CL", {
+      month: "long",
+    });
+
+    return `${weekday} ${String(day).padStart(2, "0")} de ${monthLabel}`;
+  };
+
+  const formatOpponentTime = (timeValue) => String(timeValue || "").slice(0, 5);
+
+  const getOpponentResourceLabel = (appointment) => {
+    const serviceResource = String(appointment?.service || "").match(
+      /Cancha\s+\d+/i
+    );
+
+    return appointment?.barber || serviceResource?.[0] || "Cancha";
   };
 
   const headerItems =
@@ -318,6 +367,160 @@ function BusinessHeader({
               {business.hours || "Horario por confirmar"}
             </p>
           </div>
+
+          {visibleOpponentAppointments.length > 0 && (
+            <div
+              style={{
+                margin: "0 0 24px",
+                padding: "16px",
+                borderRadius: "16px",
+                backgroundColor: "#fff7ed",
+                border: "1px solid #fed7aa",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  gap: "10px",
+                  alignItems: "flex-start",
+                  marginBottom: "12px",
+                }}
+              >
+                <span
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "999px",
+                    backgroundColor: "#ffedd5",
+                    color: "#9a3412",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <FaUsers />
+                </span>
+
+                <div>
+                  <div
+                    style={{
+                      fontWeight: "900",
+                      color: "#9a3412",
+                      fontSize: "18px",
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    Se busca rival
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: "4px",
+                      color: "#7c2d12",
+                      fontSize: "13px",
+                      lineHeight: 1.35,
+                      fontWeight: "700",
+                    }}
+                  >
+                    Elige un partido abierto y completa tus datos como equipo 2.
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gap: "10px" }}>
+                {visibleOpponentAppointments.map((appointment) => {
+                  const appointmentDate = String(
+                    appointment.date || ""
+                  ).slice(0, 10);
+                  const appointmentTime = formatOpponentTime(appointment.time);
+                  const dateLabel = formatOpponentDate(appointmentDate);
+                  const resourceLabel = getOpponentResourceLabel(appointment);
+                  const isSelected =
+                    selectedDate === appointmentDate &&
+                    String(selectedTime || "").slice(0, 5) ===
+                      appointmentTime &&
+                    selectedBarber === appointment.barber &&
+                    (!appointment.service ||
+                      selectedService === appointment.service);
+
+                  return (
+                    <button
+                      key={
+                        appointment.id ||
+                        `${appointmentDate}-${appointmentTime}-${resourceLabel}`
+                      }
+                      type="button"
+                      onClick={() => onOpponentAppointmentSelect?.(appointment)}
+                      style={{
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "12px",
+                        border: isSelected
+                          ? `2px solid ${business?.theme?.primary || "#166534"}`
+                          : "1px solid #fdba74",
+                        backgroundColor: isSelected ? "#ecfdf5" : "#ffffff",
+                        borderRadius: "12px",
+                        padding: "12px",
+                        cursor: onOpponentAppointmentSelect
+                          ? "pointer"
+                          : "default",
+                        fontFamily: "inherit",
+                        textAlign: "left",
+                        boxShadow: isSelected
+                          ? "0 6px 16px rgba(22, 101, 52, 0.14)"
+                          : "0 3px 10px rgba(154, 52, 18, 0.08)",
+                      }}
+                    >
+                      <span style={{ minWidth: 0 }}>
+                        <span
+                          style={{
+                            display: "block",
+                            color: "#111827",
+                            fontWeight: "900",
+                            lineHeight: 1.25,
+                          }}
+                        >
+                          {resourceLabel} el {dateLabel} a las{" "}
+                          {appointmentTime} hrs
+                        </span>
+
+                        <span
+                          style={{
+                            display: "block",
+                            marginTop: "4px",
+                            color: "#7c2d12",
+                            fontSize: "12px",
+                            fontWeight: "800",
+                            lineHeight: 1.25,
+                          }}
+                        >
+                          Completar como equipo 2
+                        </span>
+                      </span>
+
+                      <span
+                        style={{
+                          flexShrink: 0,
+                          borderRadius: "999px",
+                          backgroundColor:
+                            business?.theme?.primary || "#166534",
+                          color: "#ffffff",
+                          fontWeight: "900",
+                          fontSize: "12px",
+                          padding: "7px 10px",
+                        }}
+                      >
+                        Unirme
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {hasSocialLinks && (
             <div
