@@ -1,13 +1,15 @@
 import api from "./api";
 
-export const getAppointments = (businessId) => {
+export const getAppointments = (businessId, filters = {}) => {
   return api.get("/appointments", {
-    params: { businessId },
+    params: { businessId, ...filters },
   });
 };
 
-export const getAdminAppointments = () => {
-  return api.get("/admin/appointments");
+export const getAdminAppointments = (filters = {}) => {
+  return api.get("/admin/appointments", {
+    params: filters,
+  });
 };
 
 export const createAppointment = (data) => {

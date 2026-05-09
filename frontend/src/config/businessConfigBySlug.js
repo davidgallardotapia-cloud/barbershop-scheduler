@@ -163,7 +163,7 @@ export const businessConfigBySlug = {
   "giocata": {
     id: "giocata",
     tabTitle: "Canchas Giocata | AgendaSmart",
-    favicon: "/giocata-logo.png",
+    favicon: "/giocata-favicon.png",
     name: "Canchas Giocata",
     subtitle: "Arriendo de canchas de fútbol",
     logoWidth: "150px",
@@ -172,8 +172,8 @@ export const businessConfigBySlug = {
     hours: "Lun a Dom, 19:00 a 23:00",
     location: "La Serena",
     address: "Hortensia Bustamante 52",
-    image: "/giocata-hero.png",
-    logo: "/giocata-logo.png",
+    image: "/giocata-hero-optimized.jpg",
+    logo: "/giocata-logo-optimized.jpg",
     description:
       "Reserva tu cancha online en La Serena de forma rápida y simple. Elige la cancha, selecciona el horario disponible y confirma tu reserva fácilmente por WhatsApp.",
     whatsappUrl: "https://wa.me/56993239412",

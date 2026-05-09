@@ -400,6 +400,27 @@ const [barber, setBarber] = useState("");
     return Array.from({ length: 7 }, (_, i) => addDays(selectedWeekStart, i));
   }, [selectedWeekStart]);
 
+  const getAppointmentsDateRange = (shouldUseAdminRoute) => {
+    if (shouldUseAdminRoute) {
+      return {
+        startDate: formatDateToInput(selectedWeekStart),
+        endDate: formatDateToInput(addDays(selectedWeekStart, 6)),
+      };
+    }
+
+    const today = new Date();
+    const publicReservationDays = ["giocata", "pinguino-club"].includes(
+      mergedBusiness?.id
+    )
+      ? 7
+      : 14;
+
+    return {
+      startDate: formatDateToInput(today),
+      endDate: formatDateToInput(addDays(today, publicReservationDays - 1)),
+    };
+  };
+
   useEffect(() => {
     if (weekDays.length > 0) {
       const stillExists = weekDays.some(
@@ -432,9 +453,11 @@ const [barber, setBarber] = useState("");
         ? false
         : appMode === "admin" && isLoggedIn;
 
+    const dateRange = getAppointmentsDateRange(shouldUseAdminRoute);
+
     const res = shouldUseAdminRoute
-      ? await getAdminAppointments()
-      : await fetchAppointments(businessId);
+      ? await getAdminAppointments(dateRange)
+      : await fetchAppointments(businessId, dateRange);
 
     setAppointments(Array.isArray(res.data) ? res.data : []);
   } catch (err) {
@@ -455,7 +478,10 @@ const [barber, setBarber] = useState("");
       setMessage("Tu sesion expiro. Inicia sesion nuevamente.");
 
       try {
-        const publicRes = await fetchAppointments(businessId);
+        const publicRes = await fetchAppointments(
+          businessId,
+          getAppointmentsDateRange(false)
+        );
         setAppointments(Array.isArray(publicRes.data) ? publicRes.data : []);
       } catch (publicErr) {
         console.error(publicErr);
@@ -726,7 +752,7 @@ const handleDeleteReservationFromPaymentPanel = async () => {
       getAppointments("public");
     }
 
-  }, [businessId]);
+  }, [businessId, selectedWeekStart, mergedBusiness?.id]);
 
   const resetForm = () => {
     setName("");

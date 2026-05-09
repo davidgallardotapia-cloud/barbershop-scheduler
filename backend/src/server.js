@@ -381,6 +381,60 @@ const formatDateOnly = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const isValidDateOnlyString = (value) => {
+  const text = String(value || "").trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    return false;
+  }
+
+  const parsedDate = parseDateOnly(text);
+
+  return Boolean(parsedDate) && formatDateOnly(parsedDate) === text;
+};
+
+const getAppointmentDateRange = (query) => {
+  const startDate = String(query.startDate || "").trim();
+  const endDate = String(query.endDate || "").trim();
+
+  if (startDate && !isValidDateOnlyString(startDate)) {
+    return { error: "startDate debe tener formato YYYY-MM-DD" };
+  }
+
+  if (endDate && !isValidDateOnlyString(endDate)) {
+    return { error: "endDate debe tener formato YYYY-MM-DD" };
+  }
+
+  if (startDate && endDate && startDate > endDate) {
+    return { error: "startDate no puede ser posterior a endDate" };
+  }
+
+  return {
+    startDate: startDate || null,
+    endDate: endDate || null,
+  };
+};
+
+const buildAppointmentDateFilter = (businessId, dateRange) => {
+  const conditions = ["business_id = $1"];
+  const values = [businessId];
+
+  if (dateRange.startDate) {
+    values.push(dateRange.startDate);
+    conditions.push(`date >= $${values.length}`);
+  }
+
+  if (dateRange.endDate) {
+    values.push(dateRange.endDate);
+    conditions.push(`date <= $${values.length}`);
+  }
+
+  return {
+    whereClause: conditions.join(" AND "),
+    values,
+  };
+};
+
 const addDays = (date, days) => {
   const nextDate = new Date(date);
   nextDate.setDate(nextDate.getDate() + days);
@@ -648,6 +702,21 @@ const createTables = async () => {
     `);
 
     await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_appointments_business_date_time
+      ON appointments (business_id, date, time);
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_appointments_business_barber_date_time
+      ON appointments (business_id, barber, date, time);
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_appointment_payments_appointment_id
+      ON appointment_payments (appointment_id);
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         username VARCHAR(100) UNIQUE NOT NULL,
@@ -778,9 +847,20 @@ app.get("/admin/appointments", requireAuth, async (req, res) => {
   }
 
   try {
+    const dateRange = getAppointmentDateRange(req.query);
+
+    if (dateRange.error) {
+      return res.status(400).json({ message: dateRange.error });
+    }
+
+    const appointmentFilter = buildAppointmentDateFilter(businessId, dateRange);
+
     const result = await pool.query(
-      "SELECT * FROM appointments WHERE business_id = $1 ORDER BY date ASC, time ASC",
-      [businessId]
+      `SELECT *
+       FROM appointments
+       WHERE ${appointmentFilter.whereClause}
+       ORDER BY date ASC, time ASC`,
+      appointmentFilter.values
     );
 
     return res.json(result.rows);
@@ -800,6 +880,14 @@ app.get("/appointments", async (req, res) => {
   }
 
   try {
+    const dateRange = getAppointmentDateRange(req.query);
+
+    if (dateRange.error) {
+      return res.status(400).json({ message: dateRange.error });
+    }
+
+    const appointmentFilter = buildAppointmentDateFilter(businessId, dateRange);
+
     const result = await pool.query(
       `SELECT
         id,
@@ -813,10 +901,10 @@ app.get("/appointments", async (req, res) => {
         recurrence_group_id,
         recurrence_type,
         recurrence_index
-      FROM appointments
-      WHERE business_id = $1
-      ORDER BY date ASC, time ASC`,
-      [businessId]
+       FROM appointments
+       WHERE ${appointmentFilter.whereClause}
+       ORDER BY date ASC, time ASC`,
+      appointmentFilter.values
     );
 
     return res.json(result.rows.map(toPublicAppointment));
