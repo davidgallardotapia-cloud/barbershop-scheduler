@@ -197,11 +197,21 @@ const syncGoogleSheets = async (payload) => {
     );
   }
 
+  let data;
+
   try {
-    return JSON.parse(text);
+    data = JSON.parse(text);
   } catch {
-    return { raw: text };
+    throw new Error(
+      `Google Sheets respondio texto no JSON: ${text.slice(0, 500)}`
+    );
   }
+
+  if (data?.result === "error") {
+    throw new Error(data.message || "Google Sheets respondio con error");
+  }
+
+  return data;
 };
 
 const syncGoogleSheetsInBackground = (payload, context) => {
