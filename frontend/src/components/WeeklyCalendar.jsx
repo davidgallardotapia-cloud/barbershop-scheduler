@@ -51,7 +51,7 @@ function WeeklyCalendar({
       case "paid":
         return {
           label: "Pagado",
-          shortLabel: "Pagado",
+          shortLabel: "OK",
           icon: "✅",
           background: "#dcfce7",
           border: "#86efac",
@@ -62,7 +62,7 @@ function WeeklyCalendar({
       case "partially_paid":
         return {
           label: "Parcial",
-          shortLabel: "Parcial",
+          shortLabel: "Parc.",
           icon: "🟡",
           background: "#fef9c3",
           border: "#fde047",
@@ -73,7 +73,7 @@ function WeeklyCalendar({
       case "deposit_paid":
         return {
           label: "Abono",
-          shortLabel: "Abono",
+          shortLabel: "Ab.",
           icon: "🟠",
           background: "#ffedd5",
           border: "#fdba74",
@@ -96,7 +96,7 @@ function WeeklyCalendar({
       default:
         return {
           label: "Sin pago",
-          shortLabel: "Sin pago",
+          shortLabel: "S/P",
           icon: "🔴",
           background: "#fee2e2",
           border: "#fecaca",
@@ -114,6 +114,7 @@ function WeeklyCalendar({
         background: "#fef3c7",
         border: "#fcd34d",
         color: "#92400e",
+        dot: "#eab308",
       };
     }
 
@@ -124,6 +125,7 @@ function WeeklyCalendar({
         background: "#dcfce7",
         border: "#86efac",
         color: "#166534",
+        dot: "#22c55e",
       };
     }
 
@@ -134,6 +136,7 @@ function WeeklyCalendar({
         background: "#fee2e2",
         border: "#fecaca",
         color: "#991b1b",
+        dot: "#ef4444",
       };
     }
 
@@ -143,6 +146,7 @@ function WeeklyCalendar({
       background: "#f3f4f6",
       border: "#d1d5db",
       color: "#374151",
+      dot: "#94a3b8",
     };
   };
 
@@ -153,6 +157,7 @@ function WeeklyCalendar({
 
     return (
       <div
+        title={`Pago: ${paymentInfo.label}`}
         style={{
           display: "inline-flex",
           alignItems: "center",
@@ -175,7 +180,7 @@ function WeeklyCalendar({
         <span style={{ fontSize: "10px", lineHeight: 1 }}>
           {paymentInfo.icon}
         </span>
-        <span>{paymentInfo.label}</span>
+        <span>{paymentInfo.shortLabel}</span>
       </div>
     );
   };
@@ -261,6 +266,7 @@ function WeeklyCalendar({
 
   const renderSportsResourceBox = ({ resourceName, appointment, day, hour }) => {
     const paymentInfo = getPaymentStatusInfo(appointment?.payment_status);
+    const reservationInfo = getReservationStatusInfo(appointment?.status);
     const occupied = Boolean(appointment);
     const lookingOpponent = isLookingForOpponent(appointment);
 
@@ -284,7 +290,7 @@ function WeeklyCalendar({
             ? `1px solid ${paymentInfo.border}`
             : "1px solid #e5e7eb",
           borderLeft: occupied
-            ? `5px solid ${paymentInfo.dot}`
+            ? `5px solid ${reservationInfo.dot}`
             : "5px solid #d1d5db",
           backgroundColor: occupied ? "#ffffff" : "#f8fafc",
           color: "#0f172a",
@@ -315,19 +321,46 @@ function WeeklyCalendar({
 
         <span
           style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            minWidth: 0,
             fontSize: "12px",
             fontWeight: occupied ? "800" : "700",
             color: occupied ? "#111827" : "#64748b",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
           }}
         >
-          {occupied ? getAppointmentDisplayName(appointment) : "Libre"}
+          {occupied && (
+            <span
+              title={reservationInfo.label}
+              aria-label={`Estado: ${reservationInfo.label}`}
+              style={{
+                width: "8px",
+                height: "8px",
+                borderRadius: "999px",
+                backgroundColor: reservationInfo.dot,
+                boxShadow: `0 0 0 2px ${reservationInfo.background}`,
+                flexShrink: 0,
+              }}
+            />
+          )}
+
+          <span
+            style={{
+              minWidth: 0,
+              flex: 1,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {occupied ? getAppointmentDisplayName(appointment) : "Libre"}
+          </span>
         </span>
 
         {occupied ? (
           <span
+            title={`Pago: ${paymentInfo.label}`}
             style={{
               fontSize: "10px",
               fontWeight: "900",
