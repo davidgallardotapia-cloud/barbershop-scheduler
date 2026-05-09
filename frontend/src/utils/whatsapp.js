@@ -1,16 +1,4 @@
-const ICONS = {
-  barber: "\u{1F488}", // 💈
-  person: "\u{1F464}", // 👤
-  phone: "\u{1F4DE}", // 📞
-  calendar: "\u{1F4C5}", // 📅
-  clock: "\u{23F0}", // ⏰
-  scissors: "\u{2702}\uFE0F", // ✂️
-  worker: "\u{1F468}\u200D\u{1F527}", // 👨‍🔧
-  soccer: "\u{26BD}", // ⚽
-  pin: "\u{1F4CD}", // 📍
-  search: "\u{1F50E}", // 🔎
-  check: "\u{2705}", // ✅
-};
+const BULLET = "-";
 
 function isSportsBusiness(business) {
   const businessId = business?.id || business?.businessId || "";
@@ -32,32 +20,32 @@ export function buildBarberWhatsappUrl({
   const isSports = isSportsBusiness(business);
 
   const messageText = isSports
-    ? `Nueva reserva de cancha ${ICONS.soccer}
+    ? `Nueva reserva de cancha
 
-${ICONS.person} Cliente / Equipo: ${name}
-${ICONS.phone} Teléfono: ${phone}
+${BULLET} Cliente / Equipo: ${name}
+${BULLET} Telefono: ${phone}
 
-${ICONS.calendar} Fecha: ${date}
-${ICONS.clock} Hora: ${time}
+${BULLET} Fecha: ${date}
+${BULLET} Hora: ${time}
 
-${ICONS.soccer} Tipo de cancha: ${service}
-${ICONS.pin} Cancha: ${barber}${
+${BULLET} Tipo de cancha: ${service}
+${BULLET} Cancha: ${barber}${
         needsOpponent
           ? `
 
-${ICONS.search} Estado: Se busca rival`
+${BULLET} Estado: Se busca rival`
           : ""
       }`
-    : `Nueva cita agendada ${ICONS.barber}
+    : `Nueva cita agendada
 
-${ICONS.person} Cliente: ${name}
-${ICONS.phone} Teléfono: ${phone}
+${BULLET} Cliente: ${name}
+${BULLET} Telefono: ${phone}
 
-${ICONS.calendar} Fecha: ${date}
-${ICONS.clock} Hora: ${time}
+${BULLET} Fecha: ${date}
+${BULLET} Hora: ${time}
 
-${ICONS.scissors} Servicio: ${service}
-${ICONS.worker} Barbero: ${barber}`;
+${BULLET} Servicio: ${service}
+${BULLET} Barbero: ${barber}`;
 
   return `https://wa.me/${barberPhone}?text=${encodeURIComponent(messageText)}`;
 }
@@ -76,23 +64,23 @@ export function buildOpponentWhatsappUrl({
 }) {
   const businessName = business?.name || "AgendaSmart";
 
-  const messageText = `Rival encontrado ${ICONS.soccer}
+  const messageText = `Rival encontrado
 
-${ICONS.pin} Negocio: ${businessName}
+${BULLET} Negocio: ${businessName}
 
-${ICONS.person} Equipo 1: ${teamOneName || "Por definir"}
-${ICONS.phone} Teléfono equipo 1: ${teamOnePhone || "Sin teléfono"}
+${BULLET} Equipo 1: ${teamOneName || "Por definir"}
+${BULLET} Telefono equipo 1: ${teamOnePhone || "Sin telefono"}
 
-${ICONS.person} Equipo 2: ${opponentName}
-${ICONS.phone} Teléfono equipo 2: ${opponentPhone}
+${BULLET} Equipo 2: ${opponentName}
+${BULLET} Telefono equipo 2: ${opponentPhone}
 
-${ICONS.calendar} Fecha: ${date}
-${ICONS.clock} Hora: ${time}
+${BULLET} Fecha: ${date}
+${BULLET} Hora: ${time}
 
-${ICONS.soccer} Tipo de cancha: ${service}
-${ICONS.pin} Cancha: ${barber}
+${BULLET} Tipo de cancha: ${service}
+${BULLET} Cancha: ${barber}
 
-${ICONS.check} Estado: Partido completado`;
+${BULLET} Estado: Partido completado`;
 
   return `https://wa.me/${barberPhone}?text=${encodeURIComponent(messageText)}`;
 }
