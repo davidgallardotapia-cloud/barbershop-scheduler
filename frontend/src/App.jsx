@@ -540,55 +540,14 @@ const handleSavePayment = async () => {
         businessId,
       });
 
-      await syncToGoogleSheets({
-        type: "payment_update",
-        payment_id: editingPaymentId,
-        appointment_id: paymentAppointment.id,
-        businessId,
-        fecha_reserva: paymentAppointment?.date
-          ? String(paymentAppointment.date).slice(0, 10)
-          : "",
-        hora_reserva: String(paymentAppointment?.time || "").slice(0, 5),
-        cliente: paymentAppointment?.name || "",
-        recurso: paymentAppointment?.barber || "",
-        servicio: paymentAppointment?.service || "",
-        monto_pago: Number(paymentAmount),
-        metodo_pago: paymentMethod,
-        tipo_pago: paymentStage,
-        fecha_pago: new Date().toISOString(),
-        observacion: paymentNotes || "",
-        sync_status: "updated",
-      });
-
       setMessage("Pago actualizado correctamente");
     } else {
-      const paymentResponse = await addAppointmentPayment(paymentAppointment.id, {
+      await addAppointmentPayment(paymentAppointment.id, {
         amount: Number(paymentAmount),
         method: paymentMethod,
         paymentStage,
         notes: paymentNotes || null,
         businessId,
-      });
-
-      const createdPayment = paymentResponse?.data?.data;
-
-      await syncToGoogleSheets({
-        type: "payment",
-        payment_id: createdPayment?.id || "",
-        appointment_id: paymentAppointment.id,
-        businessId,
-        fecha_reserva: paymentAppointment?.date
-          ? String(paymentAppointment.date).slice(0, 10)
-          : "",
-        hora_reserva: String(paymentAppointment?.time || "").slice(0, 5),
-        cliente: paymentAppointment?.name || "",
-        recurso: paymentAppointment?.barber || "",
-        servicio: paymentAppointment?.service || "",
-        monto_pago: Number(paymentAmount),
-        metodo_pago: paymentMethod,
-        tipo_pago: paymentStage,
-        fecha_pago: new Date().toISOString(),
-        observacion: paymentNotes || "",
       });
 
       setMessage("Pago registrado correctamente");
@@ -616,26 +575,6 @@ const handleDeletePayment = async (payment) => {
 
   try {
     await deleteAppointmentPayment(paymentAppointment.id, payment.id, businessId);
-
-    await syncToGoogleSheets({
-      type: "payment_delete",
-      payment_id: payment.id,
-      appointment_id: paymentAppointment.id,
-      businessId,
-      fecha_reserva: paymentAppointment?.date
-        ? String(paymentAppointment.date).slice(0, 10)
-        : "",
-      hora_reserva: String(paymentAppointment?.time || "").slice(0, 5),
-      cliente: paymentAppointment?.name || "",
-      recurso: paymentAppointment?.barber || "",
-      servicio: paymentAppointment?.service || "",
-      monto_pago: Number(payment.amount || 0),
-      metodo_pago: payment.method || "",
-      tipo_pago: payment.payment_stage || "",
-      fecha_pago: new Date().toISOString(),
-      observacion: payment.notes || "",
-      sync_status: "deleted",
-    });
 
     if (editingPaymentId === payment.id) {
       resetPaymentForm();

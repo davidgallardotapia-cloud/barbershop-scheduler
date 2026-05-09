@@ -230,6 +230,31 @@ const buildAppointmentSheetsPayload = (appointment) => {
   };
 };
 
+const buildPaymentSheetsPayload = ({
+  type,
+  appointment,
+  payment,
+  syncStatus,
+}) => {
+  return {
+    type,
+    payment_id: payment.id || "",
+    appointment_id: appointment.id || "",
+    businessId: appointment.business_id || "",
+    fecha_reserva: formatDateForSheets(appointment.date),
+    hora_reserva: formatTimeForSheets(appointment.time),
+    cliente: appointment.name || "",
+    recurso: appointment.barber || "",
+    servicio: appointment.service || "",
+    monto_pago: Number(payment.amount || 0),
+    metodo_pago: payment.method || "",
+    tipo_pago: payment.payment_stage || "",
+    fecha_pago: payment.created_at || new Date(),
+    observacion: payment.notes || "",
+    sync_status: syncStatus,
+  };
+};
+
 const requireAuth = (req, res, next) => {
   const token = getAuthTokenFromRequest(req);
 
@@ -1447,6 +1472,8 @@ app.post("/appointments/:id/payments", requireAuth, async (req, res) => {
       });
     }
 
+    const appointment = appointmentResult.rows[0];
+
     const paymentResult = await pool.query(
       `INSERT INTO appointment_payments (
         appointment_id,
@@ -1469,10 +1496,22 @@ app.post("/appointments/:id/payments", requireAuth, async (req, res) => {
     );
 
     const paymentSummary = await recalculateAppointmentPaymentStatus(id);
+    const createdPayment = paymentResult.rows[0];
+
+    syncGoogleSheets(
+      buildPaymentSheetsPayload({
+        type: "payment",
+        appointment,
+        payment: createdPayment,
+        syncStatus: "created",
+      })
+    ).catch((error) => {
+      console.error("Error sincronizando pago creado:", error);
+    });
 
     return res.json({
       message: "Pago registrado correctamente",
-      data: paymentResult.rows[0],
+      data: createdPayment,
       paymentStatus: paymentSummary?.paymentStatus,
       totalPaid: paymentSummary?.totalPaid,
     });
@@ -1568,6 +1607,8 @@ app.put("/appointments/:appointmentId/payments/:paymentId", requireAuth, async (
       });
     }
 
+    const appointment = appointmentResult.rows[0];
+
     const paymentExists = await pool.query(
       `SELECT *
        FROM appointment_payments
@@ -1605,10 +1646,22 @@ app.put("/appointments/:appointmentId/payments/:paymentId", requireAuth, async (
     const paymentSummary = await recalculateAppointmentPaymentStatus(
       appointmentId
     );
+    const payment = updatedPayment.rows[0];
+
+    syncGoogleSheets(
+      buildPaymentSheetsPayload({
+        type: "payment_update",
+        appointment,
+        payment,
+        syncStatus: "updated",
+      })
+    ).catch((error) => {
+      console.error("Error sincronizando pago actualizado:", error);
+    });
 
     return res.json({
       message: "Pago actualizado correctamente",
-      data: updatedPayment.rows[0],
+      data: payment,
       paymentStatus: paymentSummary?.paymentStatus,
       totalPaid: paymentSummary?.totalPaid,
     });
@@ -1638,6 +1691,8 @@ app.delete("/appointments/:appointmentId/payments/:paymentId", requireAuth, asyn
       });
     }
 
+    const appointment = appointmentResult.rows[0];
+
     const deletedPayment = await pool.query(
       `DELETE FROM appointment_payments
        WHERE id = $1 AND appointment_id = $2
@@ -1654,10 +1709,22 @@ app.delete("/appointments/:appointmentId/payments/:paymentId", requireAuth, asyn
     const paymentSummary = await recalculateAppointmentPaymentStatus(
       appointmentId
     );
+    const payment = deletedPayment.rows[0];
+
+    syncGoogleSheets(
+      buildPaymentSheetsPayload({
+        type: "payment_delete",
+        appointment,
+        payment,
+        syncStatus: "deleted",
+      })
+    ).catch((error) => {
+      console.error("Error sincronizando pago eliminado:", error);
+    });
 
     return res.json({
       message: "Pago eliminado correctamente",
-      data: deletedPayment.rows[0],
+      data: payment,
       paymentStatus: paymentSummary?.paymentStatus,
       totalPaid: paymentSummary?.totalPaid,
     });
