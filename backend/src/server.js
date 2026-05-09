@@ -204,6 +204,21 @@ const syncGoogleSheets = async (payload) => {
   }
 };
 
+const syncGoogleSheetsInBackground = (payload, context) => {
+  syncGoogleSheets(payload)
+    .then((data) => {
+      console.log("Google Sheets sincronizado:", {
+        context,
+        mode: data?.mode,
+        result: data?.result,
+        sync_status: data?.sync_status,
+      });
+    })
+    .catch((error) => {
+      console.error(`Error sincronizando Google Sheets (${context}):`, error);
+    });
+};
+
 const formatDateForSheets = (value) => {
   if (value instanceof Date) {
     return value.toISOString().slice(0, 10);
@@ -1032,10 +1047,9 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
     const createdAppointment = result.rows[0];
 
     if (!isAdminRequest) {
-      syncGoogleSheets(buildAppointmentSheetsPayload(createdAppointment)).catch(
-        (error) => {
-          console.error("Error sincronizando reserva publica:", error);
-        }
+      syncGoogleSheetsInBackground(
+        buildAppointmentSheetsPayload(createdAppointment),
+        "reserva_publica"
       );
     }
 
@@ -1282,10 +1296,9 @@ app.put("/appointments/:id/opponent", publicWriteLimiter, async (req, res) => {
     );
 
     const updatedAppointment = result.rows[0];
-    syncGoogleSheets(buildAppointmentSheetsPayload(updatedAppointment)).catch(
-      (error) => {
-        console.error("Error sincronizando rival publico:", error);
-      }
+    syncGoogleSheetsInBackground(
+      buildAppointmentSheetsPayload(updatedAppointment),
+      "rival_publico"
     );
 
     return res.json({
@@ -1498,16 +1511,15 @@ app.post("/appointments/:id/payments", requireAuth, async (req, res) => {
     const paymentSummary = await recalculateAppointmentPaymentStatus(id);
     const createdPayment = paymentResult.rows[0];
 
-    syncGoogleSheets(
+    syncGoogleSheetsInBackground(
       buildPaymentSheetsPayload({
         type: "payment",
         appointment,
         payment: createdPayment,
         syncStatus: "created",
-      })
-    ).catch((error) => {
-      console.error("Error sincronizando pago creado:", error);
-    });
+      }),
+      "pago_creado"
+    );
 
     return res.json({
       message: "Pago registrado correctamente",
@@ -1648,16 +1660,15 @@ app.put("/appointments/:appointmentId/payments/:paymentId", requireAuth, async (
     );
     const payment = updatedPayment.rows[0];
 
-    syncGoogleSheets(
+    syncGoogleSheetsInBackground(
       buildPaymentSheetsPayload({
         type: "payment_update",
         appointment,
         payment,
         syncStatus: "updated",
-      })
-    ).catch((error) => {
-      console.error("Error sincronizando pago actualizado:", error);
-    });
+      }),
+      "pago_actualizado"
+    );
 
     return res.json({
       message: "Pago actualizado correctamente",
@@ -1711,16 +1722,15 @@ app.delete("/appointments/:appointmentId/payments/:paymentId", requireAuth, asyn
     );
     const payment = deletedPayment.rows[0];
 
-    syncGoogleSheets(
+    syncGoogleSheetsInBackground(
       buildPaymentSheetsPayload({
         type: "payment_delete",
         appointment,
         payment,
         syncStatus: "deleted",
-      })
-    ).catch((error) => {
-      console.error("Error sincronizando pago eliminado:", error);
-    });
+      }),
+      "pago_eliminado"
+    );
 
     return res.json({
       message: "Pago eliminado correctamente",
