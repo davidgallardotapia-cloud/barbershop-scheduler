@@ -14,7 +14,6 @@ import {
   isPastSlot,
   isPastDayOnly,
 } from "./utils/dateUtils";
-import { SHEETS_URL } from "./utils/constants";
 import {
   buildBarberWhatsappUrl,
   buildOpponentWhatsappUrl,
@@ -28,11 +27,13 @@ import {
   updateAppointment as updateAppointmentService,
   deleteAppointment as deleteAppointmentService,
   loginUser,
+  logoutUser,
   getBusinessBySlug,
   getAppointmentPayments,
   addAppointmentPayment,
   updateAppointmentPayment,
   deleteAppointmentPayment,
+  syncGoogleSheets as syncGoogleSheetsService,
 } from "./services/appointmentsService";
 import { businessConfigBySlug } from "./config/businessConfigBySlug";
 
@@ -325,26 +326,15 @@ const [barber, setBarber] = useState("");
   };
   async function syncToGoogleSheets(payload) {
     try {
-      const response = await fetch(SHEETS_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "text/plain;charset=utf-8",
-        },
-        body: JSON.stringify({
-          ...payload,
-          businessId,
-        }),
+      await syncGoogleSheetsService({
+        ...payload,
+        businessId,
       });
-
-      const text = await response.text();
-
-      try {
-        const data = JSON.parse(text);
-        console.log("Guardado en Sheets:", data);
-      } catch {
-        console.log("Respuesta Sheets:", text);
-      }
     } catch (error) {
+      if (error.response?.status === 401) {
+        return;
+      }
+
       console.error("Error guardando en Sheets:", error);
     }
   }
@@ -449,6 +439,32 @@ const [barber, setBarber] = useState("");
     setAppointments(Array.isArray(res.data) ? res.data : []);
   } catch (err) {
     console.error(err);
+
+    const shouldUseAdminRoute =
+      mode === "admin"
+        ? true
+        : mode === "public"
+        ? false
+        : appMode === "admin" && isLoggedIn;
+
+    if (shouldUseAdminRoute && err.response?.status === 401) {
+      localStorage.removeItem("user");
+      localStorage.removeItem("authToken");
+      setIsLoggedIn(false);
+      setAppMode("client");
+      setMessage("Tu sesion expiro. Inicia sesion nuevamente.");
+
+      try {
+        const publicRes = await fetchAppointments(businessId);
+        setAppointments(Array.isArray(publicRes.data) ? publicRes.data : []);
+      } catch (publicErr) {
+        console.error(publicErr);
+        setMessage("Error al cargar reservas");
+      }
+
+      return;
+    }
+
     setMessage("Error al cargar reservas");
   } finally {
     setLoading(false);
@@ -749,31 +765,27 @@ const handleDeleteReservationFromPaymentPanel = async () => {
     if (!businessId) return;
 
     const savedUser = localStorage.getItem("user");
-const savedToken = localStorage.getItem("authToken");
+    localStorage.removeItem("authToken");
 
-if (savedUser && savedToken) {
-  try {
-    const parsedUser = JSON.parse(savedUser);
+    if (savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
 
-    if (!parsedUser.business_id || parsedUser.business_id === businessId) {
-      setIsLoggedIn(true);
-      setAppMode("admin");
-      getAppointments("admin");
+        if (!parsedUser.business_id || parsedUser.business_id === businessId) {
+          setIsLoggedIn(true);
+          setAppMode("admin");
+          getAppointments("admin");
+        } else {
+          localStorage.removeItem("user");
+          getAppointments("public");
+        }
+      } catch {
+        localStorage.removeItem("user");
+        getAppointments("public");
+      }
     } else {
-      localStorage.removeItem("user");
-      localStorage.removeItem("authToken");
       getAppointments("public");
     }
-  } catch {
-    localStorage.removeItem("user");
-    localStorage.removeItem("authToken");
-    getAppointments("public");
-  }
-} else {
-  localStorage.removeItem("user");
-  localStorage.removeItem("authToken");
-  getAppointments("public");
-}
 
   }, [businessId]);
 
@@ -1489,13 +1501,12 @@ setEditingId(appointment.id);
       });
 
       const loggedUser = res.data.user;
-const token = res.data.token;
 
-if (!token) {
-  setLoginError("No se recibió token de seguridad. Revisa el backend.");
-  setLoggingIn(false);
-  return;
-}
+      if (!loggedUser) {
+        setLoginError("No se recibio usuario desde el backend.");
+        setLoggingIn(false);
+        return;
+      }
 
       if (loggedUser.business_id && loggedUser.business_id !== businessId) {
         setLoginError("Este usuario no pertenece a este negocio");
@@ -1504,12 +1515,12 @@ if (!token) {
       }
 
       setIsLoggedIn(true);
-setLoginError("");
-setAppMode("admin");
-localStorage.setItem("user", JSON.stringify(loggedUser));
-localStorage.setItem("authToken", token);
+      setLoginError("");
+      setAppMode("admin");
+      localStorage.setItem("user", JSON.stringify(loggedUser));
+      localStorage.removeItem("authToken");
 
-await getAppointments("admin");
+      await getAppointments("admin");
     } catch (err) {
       if (err.response?.data?.message) {
         setLoginError(err.response.data.message);
@@ -1522,16 +1533,22 @@ await getAppointments("admin");
   };
 
   const handleLogout = async () => {
-  localStorage.removeItem("user");
-  localStorage.removeItem("authToken");
-  setIsLoggedIn(false);
-  setUsername("");
-  setPassword("");
-  setLoginError("");
-  setAppMode("client");
+    try {
+      await logoutUser();
+    } catch (err) {
+      console.error(err);
+    }
 
-  await getAppointments("public");
-};
+    localStorage.removeItem("user");
+    localStorage.removeItem("authToken");
+    setIsLoggedIn(false);
+    setUsername("");
+    setPassword("");
+    setLoginError("");
+    setAppMode("client");
+
+    await getAppointments("public");
+  };
 
   const getBarberColors = (barberName) => {
     if (mergedBusiness?.id === "giocata") {

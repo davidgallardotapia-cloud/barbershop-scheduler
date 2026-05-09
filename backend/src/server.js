@@ -71,6 +71,7 @@ const corsOptions = {
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
 };
 
 app.use(helmet());
@@ -110,12 +111,127 @@ const createAuthToken = (user) => {
   );
 };
 
-const requireAuth = (req, res, next) => {
+const AUTH_COOKIE_NAME = "authToken";
+const AUTH_COOKIE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+const shouldUseSecureCookies = () => {
+  return process.env.NODE_ENV === "production" || process.env.RENDER === "true";
+};
+
+const getCookieValue = (req, name) => {
+  const cookieHeader = req.headers.cookie || "";
+  const cookie = cookieHeader
+    .split(";")
+    .map((value) => value.trim())
+    .find((value) => value.startsWith(`${name}=`));
+
+  if (!cookie) {
+    return null;
+  }
+
+  const value = cookie.slice(name.length + 1);
+
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
+const getAuthTokenFromRequest = (req) => {
   const authHeader = req.headers.authorization || "";
 
-  const token = authHeader.startsWith("Bearer ")
-    ? authHeader.slice(7)
-    : null;
+  if (authHeader.startsWith("Bearer ")) {
+    return authHeader.slice(7);
+  }
+
+  return getCookieValue(req, AUTH_COOKIE_NAME);
+};
+
+const getAuthCookieOptions = () => {
+  const secure = shouldUseSecureCookies();
+
+  return {
+    httpOnly: true,
+    secure,
+    sameSite: secure ? "none" : "lax",
+    maxAge: AUTH_COOKIE_MAX_AGE_MS,
+    path: "/",
+  };
+};
+
+const setAuthCookie = (res, token) => {
+  res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
+};
+
+const clearAuthCookie = (res) => {
+  const { maxAge, ...cookieOptions } = getAuthCookieOptions();
+  res.clearCookie(AUTH_COOKIE_NAME, cookieOptions);
+};
+
+const syncGoogleSheets = async (payload) => {
+  const googleSheetsUrl = process.env.GOOGLE_SHEETS_URL;
+  const googleSheetsSecret = process.env.GOOGLE_SHEETS_SECRET;
+
+  if (!googleSheetsUrl) {
+    console.warn("GOOGLE_SHEETS_URL no configurado; se omite sincronizacion.");
+    return { skipped: true };
+  }
+
+  const response = await fetch(googleSheetsUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8",
+    },
+    body: JSON.stringify({
+      ...payload,
+      secret: googleSheetsSecret || undefined,
+    }),
+  });
+
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(
+      `Google Sheets respondio ${response.status}: ${text.slice(0, 200)}`
+    );
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw: text };
+  }
+};
+
+const formatDateForSheets = (value) => {
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  return String(value || "").slice(0, 10);
+};
+
+const formatTimeForSheets = (value) => {
+  return String(value || "").slice(0, 5);
+};
+
+const buildAppointmentSheetsPayload = (appointment) => {
+  return {
+    id: appointment.id,
+    date: formatDateForSheets(appointment.date),
+    time: formatTimeForSheets(appointment.time),
+    name: appointment.name,
+    phone: appointment.phone,
+    barber: appointment.barber,
+    service: appointment.service,
+    status: appointment.status || "reservada",
+    businessId: appointment.business_id,
+  };
+};
+
+const requireAuth = (req, res, next) => {
+  const token = getAuthTokenFromRequest(req);
 
   if (!token) {
     return res.status(401).json({
@@ -148,11 +264,7 @@ const requireAuth = (req, res, next) => {
 };
 
 const optionalAuth = (req, res, next) => {
-  const authHeader = req.headers.authorization || "";
-
-  const token = authHeader.startsWith("Bearer ")
-    ? authHeader.slice(7)
-    : null;
+  const token = getAuthTokenFromRequest(req);
 
   if (!token) {
     return next();
@@ -715,20 +827,57 @@ app.post("/login", loginLimiter, async (req, res) => {
     }
 
     const token = createAuthToken(user);
+    setAuthCookie(res, token);
 
-return res.json({
-  message: "Login correcto",
-  token,
-  user: {
-    id: user.id,
-    username: user.username,
-    business_id: user.business_id,
-  },
-});
+    return res.json({
+      message: "Login correcto",
+      user: {
+        id: user.id,
+        username: user.username,
+        business_id: user.business_id,
+      },
+    });
 
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Error al iniciar sesión" });
+  }
+});
+
+app.post("/logout", (_req, res) => {
+  clearAuthCookie(res);
+  return res.json({ message: "Sesion cerrada" });
+});
+
+app.post("/integrations/google-sheets/sync", requireAuth, async (req, res) => {
+  const payload = req.body || {};
+  const businessId = payload.businessId || req.user?.business_id;
+
+  if (!businessId) {
+    return res.status(400).json({ message: "businessId requerido" });
+  }
+
+  if (req.user?.business_id && req.user.business_id !== businessId) {
+    return res.status(403).json({
+      message: "No tienes permiso para sincronizar este negocio",
+    });
+  }
+
+  try {
+    const data = await syncGoogleSheets({
+      ...payload,
+      businessId,
+    });
+
+    return res.json({
+      message: "Sincronizado con Google Sheets",
+      data,
+    });
+  } catch (error) {
+    console.error("Error sincronizando Google Sheets:", error);
+    return res.status(502).json({
+      message: "No se pudo sincronizar Google Sheets",
+    });
   }
 });
 
@@ -855,11 +1004,21 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
       ]
     );
 
+    const createdAppointment = result.rows[0];
+
+    if (!isAdminRequest) {
+      syncGoogleSheets(buildAppointmentSheetsPayload(createdAppointment)).catch(
+        (error) => {
+          console.error("Error sincronizando reserva publica:", error);
+        }
+      );
+    }
+
     return res.json({
       message: "Cita creada",
       data: isAdminRequest
-        ? result.rows[0]
-        : toPublicAppointment(result.rows[0]),
+        ? createdAppointment
+        : toPublicAppointment(createdAppointment),
     });
   } catch (error) {
     console.error(error);
@@ -1097,9 +1256,16 @@ app.put("/appointments/:id/opponent", publicWriteLimiter, async (req, res) => {
       [opponentName, normalizedOpponentPhone, id, businessId]
     );
 
+    const updatedAppointment = result.rows[0];
+    syncGoogleSheets(buildAppointmentSheetsPayload(updatedAppointment)).catch(
+      (error) => {
+        console.error("Error sincronizando rival publico:", error);
+      }
+    );
+
     return res.json({
       message: "Rival registrado correctamente",
-      data: toPublicAppointment(result.rows[0]),
+      data: toPublicAppointment(updatedAppointment),
     });
   } catch (error) {
     console.error(error);

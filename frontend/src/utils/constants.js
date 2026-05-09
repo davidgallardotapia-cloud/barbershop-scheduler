@@ -1,8 +1,5 @@
 export const API_URL = "https://barbershop-scheduler.onrender.com";
 
-export const SHEETS_URL =
-  "https://script.google.com/macros/s/AKfycbwYenifhbLBZXFMTL8H5Z_98ErR_WZgYSeEaVjwh5lezubvf15JN06MREfiaQ62DfcYkA/exec";
-
 export const BARBER_PHONES = {
   James: "56988287547",
   Jesús: "56957265409",

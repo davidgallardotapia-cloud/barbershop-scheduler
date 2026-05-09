@@ -36,6 +36,14 @@ export const loginUser = (credentials) => {
   return api.post("/login", credentials);
 };
 
+export const logoutUser = () => {
+  return api.post("/logout");
+};
+
+export const syncGoogleSheets = (data) => {
+  return api.post("/integrations/google-sheets/sync", data);
+};
+
 export const getBusinessBySlug = (slug) => {
   return api.get(`/business/${slug}`);
 };
