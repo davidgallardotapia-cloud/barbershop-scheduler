@@ -1,24 +1,60 @@
 require("dotenv").config();
 
-console.log("DATABASE_URL cargada:", !!process.env.DATABASE_URL);
-console.log("JWT_SECRET cargado:", !!process.env.JWT_SECRET);
-
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const pool = require("./config/database");
 
 const app = express();
 
-console.log("PAYMENTS BACKEND VERSION OK");
+app.disable("x-powered-by");
+app.set("trust proxy", 1);
+
+const configuredOrigins = (process.env.FRONTEND_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 const allowedOrigins = [
   "https://agendasmart.cl",
   "https://www.agendasmart.cl",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+  ...configuredOrigins,
 ];
+
+const rateLimitMessage =
+  "Demasiadas solicitudes. Intenta nuevamente en unos minutos.";
+
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: rateLimitMessage },
+});
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 8,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    message: "Demasiados intentos de inicio de sesion. Intenta mas tarde.",
+  },
+});
+
+const publicWriteLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: rateLimitMessage },
+});
 
 const corsOptions = {
   origin: (origin, callback) => {
@@ -37,9 +73,22 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 
+app.use(helmet());
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
-app.use(express.json());
+app.use(generalLimiter);
+app.use(express.json({ limit: "25kb" }));
+
+app.use((err, _req, res, next) => {
+  if (err?.type === "entity.too.large") {
+    return res.status(413).json({ message: "Solicitud demasiado grande" });
+  }
+
+  if (err instanceof SyntaxError && "body" in err) {
+    return res.status(400).json({ message: "JSON invalido" });
+  }
+
+  return next(err);
+});
 
 const getJwtSecret = () => {
   if (!process.env.JWT_SECRET) {
@@ -57,7 +106,7 @@ const createAuthToken = (user) => {
       business_id: user.business_id,
     },
     getJwtSecret(),
-    { expiresIn: "7d" }
+    { expiresIn: "12h" }
   );
 };
 
@@ -293,6 +342,44 @@ const recalculateAppointmentPaymentStatus = async (appointmentId) => {
   };
 };
 
+const seedUserIfConfigured = async ({ username, businessId, passwordEnv }) => {
+  const existingUser = await pool.query(
+    "SELECT * FROM users WHERE username = $1",
+    [username]
+  );
+
+  if (existingUser.rows.length > 0) {
+    if (!existingUser.rows[0].business_id) {
+      await pool.query(
+        "UPDATE users SET business_id = $1 WHERE username = $2",
+        [businessId, username]
+      );
+    }
+
+    return;
+  }
+
+  const seedPassword = process.env[passwordEnv];
+
+  if (!seedPassword) {
+    return;
+  }
+
+  if (seedPassword.length < 10) {
+    console.warn(
+      `No se creo el usuario ${username}: ${passwordEnv} debe tener al menos 10 caracteres.`
+    );
+    return;
+  }
+
+  const hashedPassword = await bcrypt.hash(seedPassword, 12);
+
+  await pool.query(
+    "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
+    [username, hashedPassword, businessId]
+  );
+};
+
 const createTables = async () => {
   try {
     await pool.query(`
@@ -479,95 +566,35 @@ const createTables = async () => {
       WHERE id = 'pinguino-club';
     `);
 
-    const jamesUser = await pool.query(
-      "SELECT * FROM users WHERE username = $1",
-      ["james"]
-    );
+    await seedUserIfConfigured({
+      username: "james",
+      businessId: "barberia-james",
+      passwordEnv: "SEED_PASSWORD_JAMES",
+    });
 
-    if (jamesUser.rows.length === 0) {
-      const hashedPassword = await bcrypt.hash("1234", 10);
-      await pool.query(
-        "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
-        ["james", hashedPassword, "barberia-james"]
-      );
-    } else if (!jamesUser.rows[0].business_id) {
-      await pool.query(
-        "UPDATE users SET business_id = $1 WHERE username = $2",
-        ["barberia-james", "james"]
-      );
-    }
+    await seedUserIfConfigured({
+      username: "junior",
+      businessId: "barberia-junior",
+      passwordEnv: "SEED_PASSWORD_JUNIOR",
+    });
 
-    const juniorUser = await pool.query(
-      "SELECT * FROM users WHERE username = $1",
-      ["junior"]
-    );
+    await seedUserIfConfigured({
+      username: "demo",
+      businessId: "agendasmart-demo",
+      passwordEnv: "SEED_PASSWORD_DEMO",
+    });
 
-    if (juniorUser.rows.length === 0) {
-      const hashedPassword = await bcrypt.hash("1314", 10);
-      await pool.query(
-        "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
-        ["junior", hashedPassword, "barberia-junior"]
-      );
-    } else if (!juniorUser.rows[0].business_id) {
-      await pool.query(
-        "UPDATE users SET business_id = $1 WHERE username = $2",
-        ["barberia-junior", "junior"]
-      );
-    }
+    await seedUserIfConfigured({
+      username: "giocata",
+      businessId: "giocata",
+      passwordEnv: "SEED_PASSWORD_GIOCATA",
+    });
 
-    const demoUser = await pool.query(
-      "SELECT * FROM users WHERE username = $1",
-      ["demo"]
-    );
-
-    if (demoUser.rows.length === 0) {
-      const hashedPassword = await bcrypt.hash("1234", 10);
-      await pool.query(
-        "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
-        ["demo", hashedPassword, "agendasmart-demo"]
-      );
-    } else if (!demoUser.rows[0].business_id) {
-      await pool.query(
-        "UPDATE users SET business_id = $1 WHERE username = $2",
-        ["agendasmart-demo", "demo"]
-      );
-    }
-
-    const giocataUser = await pool.query(
-      "SELECT * FROM users WHERE username = $1",
-      ["giocata"]
-    );
-
-    if (giocataUser.rows.length === 0) {
-      const hashedPassword = await bcrypt.hash("1234", 10);
-      await pool.query(
-        "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
-        ["giocata", hashedPassword, "giocata"]
-      );
-    } else if (!giocataUser.rows[0].business_id) {
-      await pool.query(
-        "UPDATE users SET business_id = $1 WHERE username = $2",
-        ["giocata", "giocata"]
-      );
-    }
-
-    const pinguinoUser = await pool.query(
-      "SELECT * FROM users WHERE username = $1",
-      ["admin_pinguino"]
-    );
-
-    if (pinguinoUser.rows.length === 0) {
-      const hashedPassword = await bcrypt.hash("1234", 10);
-      await pool.query(
-        "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
-        ["admin_pinguino", hashedPassword, "pinguino-club"]
-      );
-    } else if (!pinguinoUser.rows[0].business_id) {
-      await pool.query(
-        "UPDATE users SET business_id = $1 WHERE username = $2",
-        ["pinguino-club", "admin_pinguino"]
-      );
-    }
+    await seedUserIfConfigured({
+      username: "admin_pinguino",
+      businessId: "pinguino-club",
+      passwordEnv: "SEED_PASSWORD_PINGUINO",
+    });
 
     console.log("Tablas verificadas/creadas correctamente");
   } catch (error) {
@@ -657,7 +684,7 @@ app.get("/business/:slug", async (req, res) => {
   }
 });
 
-app.post("/login", async (req, res) => {
+app.post("/login", loginLimiter, async (req, res) => {
   const { username, password, businessId } = req.body;
 
   if (!username || !password) {
@@ -671,14 +698,14 @@ app.post("/login", async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ message: "Usuario no encontrado" });
+      return res.status(401).json({ message: "Credenciales invalidas" });
     }
 
     const user = result.rows[0];
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      return res.status(401).json({ message: "Contraseña incorrecta" });
+      return res.status(401).json({ message: "Credenciales invalidas" });
     }
 
     if (businessId && user.business_id && user.business_id !== businessId) {
@@ -705,7 +732,7 @@ return res.json({
   }
 });
 
-app.post("/appointments", optionalAuth, async (req, res) => {
+app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => {
   const {
     name,
     phone,
@@ -1013,7 +1040,7 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
   }
 });
 
-app.put("/appointments/:id/opponent", async (req, res) => {
+app.put("/appointments/:id/opponent", publicWriteLimiter, async (req, res) => {
   const { id } = req.params;
   const { businessId, opponentName, opponentPhone } = req.body;
 
