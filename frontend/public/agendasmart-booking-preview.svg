@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 850 1880" role="img" aria-labelledby="title desc">
+  <title id="title">Vista previa de reserva AgendaSmart</title>
+  <desc id="desc">Pantalla de seleccion de dia y hora para una reserva online.</desc>
+  <defs>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="28" flood-color="#111827" flood-opacity="0.12"/>
+    </filter>
+    <linearGradient id="greenButton" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#16c784"/>
+      <stop offset="100%" stop-color="#049b45"/>
+    </linearGradient>
+    <linearGradient id="softButton" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#eef2f7"/>
+    </linearGradient>
+    <style>
+      .base { font-family: Arial, Helvetica, sans-serif; fill: #111827; }
+      .muted { fill: #8b95a5; }
+      .faded { fill: #c7ced8; }
+      .green { fill: #06a34f; }
+      .bold { font-weight: 800; }
+      .heavy { font-weight: 900; }
+    </style>
+  </defs>
+
+  <rect width="850" height="1880" rx="0" fill="#ffffff"/>
+  <rect x="31" y="34" width="788" height="1812" rx="30" fill="#ffffff" stroke="#e5e7eb" stroke-width="2" filter="url(#softShadow)"/>
+
+  <text x="65" y="86" class="base muted bold" font-size="28">Paso 4 de 5</text>
+  <text x="725" y="86" class="base bold" font-size="28">Hora</text>
+  <rect x="65" y="111" width="724" height="20" rx="10" fill="#e5e8ee"/>
+  <rect x="65" y="111" width="580" height="20" rx="10" fill="url(#greenButton)"/>
+
+  <text x="101" y="222" class="base heavy" font-size="48">3. Elige un d&#237;a</text>
+
+  <rect x="101" y="263" width="315" height="116" rx="24" fill="url(#softButton)"/>
+  <text x="144" y="332" class="base muted bold" font-size="27">&#8592; Semana anterior</text>
+
+  <rect x="438" y="263" width="315" height="116" rx="24" fill="url(#greenButton)"/>
+  <text x="505" y="332" class="base bold" font-size="27" fill="#ffffff">Semana actual</text>
+
+  <rect x="101" y="407" width="652" height="114" rx="24" fill="url(#softButton)"/>
+  <text x="303" y="477" class="base bold" font-size="27">Semana siguiente &#8594;</text>
+
+  <g font-family="Arial, Helvetica, sans-serif" text-anchor="middle">
+    <rect x="101" y="551" width="146" height="144" rx="22" fill="#ffffff" stroke="#dfe3ea" stroke-width="2"/>
+    <text x="174" y="606" class="faded bold" font-size="28">Lun</text>
+    <text x="174" y="659" class="faded heavy" font-size="44">04</text>
+
+    <rect x="272" y="551" width="146" height="144" rx="22" fill="#ffffff" stroke="#dfe3ea" stroke-width="2"/>
+    <text x="345" y="606" class="faded bold" font-size="28">Mar</text>
+    <text x="345" y="659" class="faded heavy" font-size="44">05</text>
+
+    <rect x="439" y="551" width="146" height="144" rx="22" fill="#ffffff" stroke="#dfe3ea" stroke-width="2"/>
+    <text x="512" y="606" class="faded bold" font-size="28">Mi&#233;</text>
+    <text x="512" y="659" class="faded heavy" font-size="44">06</text>
+
+    <rect x="608" y="551" width="146" height="144" rx="22" fill="#ffffff" stroke="#dfe3ea" stroke-width="2"/>
+    <text x="681" y="606" class="faded bold" font-size="28">Jue</text>
+    <text x="681" y="659" class="faded heavy" font-size="44">07</text>
+
+    <rect x="101" y="724" width="146" height="144" rx="22" fill="#ffffff" stroke="#dfe3ea" stroke-width="2"/>
+    <text x="174" y="779" class="faded bold" font-size="28">Vie</text>
+    <text x="174" y="832" class="faded heavy" font-size="44">08</text>
+
+    <rect x="272" y="724" width="146" height="144" rx="22" fill="#ffffff" stroke="#cfd5df" stroke-width="2"/>
+    <text x="345" y="779" class="base bold" font-size="28">S&#225;b</text>
+    <text x="345" y="832" class="base heavy" font-size="46">09</text>
+
+    <rect x="439" y="724" width="146" height="144" rx="22" fill="url(#greenButton)"/>
+    <text x="512" y="779" class="base bold" font-size="28" fill="#ffffff">Dom</text>
+    <text x="512" y="832" class="base heavy" font-size="46" fill="#ffffff">10</text>
+  </g>
+
+  <text x="101" y="965" class="base heavy" font-size="48">4. Elige una hora</text>
+
+  <g font-family="Arial, Helvetica, sans-serif" text-anchor="middle">
+    <rect x="101" y="1009" width="310" height="145" rx="24" fill="#ffffff" stroke="#d1d5db" stroke-width="2"/>
+    <text x="256" y="1075" class="base heavy" font-size="31">09:00</text>
+    <text x="256" y="1118" class="green heavy" font-size="24">DISPONIBLE</text>
+
+    <rect x="440" y="1009" width="310" height="145" rx="24" fill="#ffffff" stroke="#d1d5db" stroke-width="2"/>
+    <text x="595" y="1075" class="base heavy" font-size="31">09:30</text>
+    <text x="595" y="1118" class="green heavy" font-size="24">DISPONIBLE</text>
+
+    <rect x="101" y="1182" width="310" height="145" rx="24" fill="#ffffff" stroke="#d1d5db" stroke-width="2"/>
+    <text x="256" y="1248" class="base heavy" font-size="31">10:00</text>
+    <text x="256" y="1291" class="green heavy" font-size="24">DISPONIBLE</text>
+
+    <rect x="440" y="1182" width="310" height="145" rx="24" fill="#ffffff" stroke="#d1d5db" stroke-width="2"/>
+    <text x="595" y="1248" class="base heavy" font-size="31">10:30</text>
+    <text x="595" y="1291" class="green heavy" font-size="24">DISPONIBLE</text>
+
+    <rect x="101" y="1355" width="310" height="145" rx="24" fill="#ffffff" stroke="#d1d5db" stroke-width="2"/>
+    <text x="256" y="1421" class="base heavy" font-size="31">11:00</text>
+    <text x="256" y="1464" class="green heavy" font-size="24">DISPONIBLE</text>
+
+    <rect x="440" y="1355" width="310" height="145" rx="24" fill="#ffffff" stroke="#d1d5db" stroke-width="2"/>
+    <text x="595" y="1421" class="base heavy" font-size="31">11:30</text>
+    <text x="595" y="1464" class="green heavy" font-size="24">DISPONIBLE</text>
+
+    <rect x="101" y="1528" width="310" height="145" rx="24" fill="#ffffff" stroke="#d1d5db" stroke-width="2"/>
+    <text x="256" y="1594" class="base heavy" font-size="31">12:00</text>
+    <text x="256" y="1637" class="green heavy" font-size="24">DISPONIBLE</text>
+
+    <rect x="440" y="1528" width="310" height="145" rx="24" fill="#ffffff" stroke="#d1d5db" stroke-width="2"/>
+    <text x="595" y="1594" class="base heavy" font-size="31">12:30</text>
+    <text x="595" y="1637" class="green heavy" font-size="24">DISPONIBLE</text>
+
+    <rect x="101" y="1701" width="310" height="145" rx="24" fill="#ffffff" stroke="#d1d5db" stroke-width="2"/>
+    <text x="256" y="1767" class="base heavy" font-size="31">13:00</text>
+    <text x="256" y="1810" class="green heavy" font-size="24">DISPONIBLE</text>
+
+    <rect x="440" y="1701" width="310" height="145" rx="24" fill="#ffffff" stroke="#d1d5db" stroke-width="2"/>
+    <text x="595" y="1767" class="base heavy" font-size="31">13:30</text>
+    <text x="595" y="1810" class="green heavy" font-size="24">DISPONIBLE</text>
+  </g>
+</svg>

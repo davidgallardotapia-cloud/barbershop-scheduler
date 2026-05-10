@@ -247,7 +247,10 @@ function AdminPoint({ icon, title, text }) {
   );
 }
 
-function BrowserMockup() {
+function BrowserMockup({
+  src = "/agendasmart-hero-right.png",
+  alt = "Vista de AgendaSmart",
+}) {
   return (
     <div
       style={{
@@ -282,8 +285,8 @@ function BrowserMockup() {
         }}
       >
         <img
-          src="/agendasmart-hero-right.png"
-          alt="Vista de AgendaSmart"
+          src={src}
+          alt={alt}
           style={{
             width: "100%",
             height: "100%",
@@ -298,151 +301,18 @@ function BrowserMockup() {
 
 function PhoneMockup() {
   return (
-    <div
+    <img
+      src="/agendasmart-booking-preview.svg"
+      alt="Vista previa del flujo de reserva AgendaSmart"
       style={{
-        width: "250px",
+        width: "310px",
         maxWidth: "100%",
-        backgroundColor: "#111827",
-        borderRadius: "34px",
-        padding: "10px",
-        boxShadow: "0 30px 60px rgba(15,23,42,0.16)",
+        display: "block",
         margin: "0 auto",
+        borderRadius: "28px",
+        boxShadow: "0 30px 70px rgba(15,23,42,0.16)",
       }}
-    >
-      <div
-        style={{
-          backgroundColor: "#ffffff",
-          borderRadius: "26px",
-          padding: "16px 14px",
-          minHeight: "500px",
-        }}
-      >
-        <div
-          style={{
-            width: "90px",
-            height: "8px",
-            borderRadius: "999px",
-            backgroundColor: "#d1d5db",
-            margin: "0 auto 16px",
-          }}
-        />
-
-        <div
-          style={{
-            fontWeight: "bold",
-            fontSize: "18px",
-            marginBottom: "12px",
-            color: "#111827",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-          }}
-        >
-          <FaCalendarAlt color="#22c55e" />
-          AgendaSmart
-        </div>
-
-        <div
-          style={{
-            backgroundColor: "#f8fafc",
-            border: "1px solid #e5e7eb",
-            borderRadius: "18px",
-            padding: "14px",
-            marginBottom: "14px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              marginBottom: "12px",
-              color: "#374151",
-              fontWeight: "bold",
-            }}
-          >
-            <span>Abril 2026</span>
-            <span style={{ color: "#22c55e" }}>Hoy</span>
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(7, 1fr)",
-              gap: "6px",
-            }}
-          >
-            {[21, 22, 23, 24, 25, 26, 27].map((day) => (
-              <div
-                key={day}
-                style={{
-                  aspectRatio: "1 / 1",
-                  borderRadius: "10px",
-                  backgroundColor: day === 24 ? "#22c55e" : "#ffffff",
-                  color: day === 24 ? "#ffffff" : "#374151",
-                  border: day === 24 ? "none" : "1px solid #e5e7eb",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: "bold",
-                  fontSize: "13px",
-                }}
-              >
-                {day}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ display: "grid", gap: "10px", marginBottom: "14px" }}>
-          {["Corte de pelo", "Barba", "Reserva cancha"].map((item, index) => (
-            <div
-              key={item}
-              style={{
-                padding: "14px",
-                borderRadius: "14px",
-                border: "1px solid #e5e7eb",
-                backgroundColor: index === 0 ? "#eefbf2" : "#ffffff",
-                fontWeight: index === 0 ? "bold" : 500,
-                color: "#111827",
-              }}
-            >
-              {item}
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display: "grid", gap: "10px", marginBottom: "16px" }}>
-          {["09:00", "10:30", "11:00"].map((time, index) => (
-            <div
-              key={time}
-              style={{
-                padding: "12px 14px",
-                borderRadius: "14px",
-                border: "1px solid #e5e7eb",
-                backgroundColor: index === 1 ? "#eff6ff" : "#ffffff",
-                color: "#111827",
-                fontWeight: index === 1 ? "bold" : 500,
-              }}
-            >
-              {time}
-            </div>
-          ))}
-        </div>
-
-        <div
-          style={{
-            backgroundColor: "#22c55e",
-            color: "#ffffff",
-            borderRadius: "14px",
-            textAlign: "center",
-            padding: "14px",
-            fontWeight: "bold",
-          }}
-        >
-          Reservar turno
-        </div>
-      </div>
-    </div>
+    />
   );
 }
 
@@ -811,7 +681,9 @@ function HomeLanding() {
             <div style={{ display: "grid", gap: "18px" }}>
               <StepItem number="1" text="Elige el servicio" />
               <StepItem number="2" text="Selecciona la fecha" />
-              <StepItem number="3" text="Reserva y confirma" />
+              <StepItem number="3" text="Elige la hora" />
+              <StepItem number="4" text="Llena tus datos" />
+              <StepItem number="5" text="Reserva y confirma" />
             </div>
           </div>
         </div>
@@ -876,7 +748,10 @@ function HomeLanding() {
           </div>
 
           <div>
-            <BrowserMockup />
+            <BrowserMockup
+              src="/agendasmart-payments-laptop.png"
+              alt="Vista del panel de pagos de AgendaSmart"
+            />
           </div>
         </div>
       </section>
