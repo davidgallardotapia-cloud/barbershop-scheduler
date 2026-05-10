@@ -400,7 +400,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
 
     name: "AgendaSmart Demo",
     subtitle: "Explora la plataforma en acción",
-    phone: "+56 9 0000 0000",
+    phone: "+56 9 8828 7547",
     hours: "Demo disponible 24/7",
     location: "Demo comercial",
     address: "Plataforma de reservas para negocios",
@@ -413,7 +413,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     description:
       "Explora cómo AgendaSmart ayuda a negocios a gestionar reservas, clientes, horarios, pagos y disponibilidad desde una sola plataforma.",
 
-    whatsappUrl: "https://wa.me/56900000000",
+    whatsappUrl: "https://wa.me/56988287547",
     whatsappLabel: "Solicitar demo por WhatsApp",
 
     instagram: "agendasmart.cl",

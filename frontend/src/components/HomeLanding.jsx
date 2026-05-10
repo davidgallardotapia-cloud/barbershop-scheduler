@@ -34,6 +34,23 @@ const textStyle = {
   margin: 0,
 };
 
+const exampleBusinesses = [
+  {
+    name: "Canchas Giocata",
+    category: "Canchas deportivas",
+    description: "Reserva de canchas, pagos, estados y partidos abiertos.",
+    href: "/giocata",
+    logo: "/giocata-logo-optimized.jpg",
+  },
+  {
+    name: "Urban District Barber",
+    category: "Barbería",
+    description: "Flujo de reserva para servicios, horarios y clientes.",
+    href: "/urban-district-barber",
+    logo: "/logo-james.jpg",
+  },
+];
+
 function Badge({ children }) {
   return (
     <div
@@ -59,7 +76,7 @@ function Badge({ children }) {
 function PrimaryButton() {
   return (
     <a
-      href="https://wa.me/56912345678?text=Hola,%20quiero%20una%20demo%20de%20AgendaSmart"
+      href="https://wa.me/56988287547?text=Hola,%20quiero%20una%20demo%20de%20AgendaSmart"
       target="_blank"
       rel="noopener noreferrer"
       style={{
@@ -82,9 +99,22 @@ function PrimaryButton() {
 }
 
 function SecondaryButton() {
+  const scrollToExamples = (event) => {
+    const section = document.getElementById("negocios");
+
+    if (section) {
+      event.preventDefault();
+      section.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  };
+
   return (
     <a
-      href="/agendasmart-demo"
+      href="#negocios"
+      onClick={scrollToExamples}
       style={{
         backgroundColor: "#ffffff",
         color: "#111827",
@@ -313,6 +343,99 @@ function PhoneMockup() {
         boxShadow: "0 30px 70px rgba(15,23,42,0.16)",
       }}
     />
+  );
+}
+
+function BusinessExampleCard({ business }) {
+  return (
+    <a
+      href={business.href}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "14px",
+        minHeight: "210px",
+        padding: "22px",
+        borderRadius: "18px",
+        border: "1px solid #e5e7eb",
+        backgroundColor: "#ffffff",
+        textDecoration: "none",
+        color: "#111827",
+        boxShadow: "0 10px 26px rgba(15,23,42,0.05)",
+      }}
+    >
+      <div
+        style={{
+          width: "62px",
+          height: "62px",
+          borderRadius: "14px",
+          backgroundColor: "#f8fafc",
+          border: "1px solid #e5e7eb",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+        }}
+      >
+        <img
+          src={business.logo}
+          alt={`${business.name} logo`}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
+        />
+      </div>
+
+      <div>
+        <div
+          style={{
+            fontSize: "13px",
+            color: "#16a34a",
+            fontWeight: "bold",
+            marginBottom: "8px",
+          }}
+        >
+          {business.category}
+        </div>
+
+        <div
+          style={{
+            fontSize: "21px",
+            fontWeight: "bold",
+            marginBottom: "8px",
+          }}
+        >
+          {business.name}
+        </div>
+
+        <p
+          style={{
+            margin: 0,
+            color: "#6b7280",
+            lineHeight: 1.55,
+            fontSize: "15px",
+          }}
+        >
+          {business.description}
+        </p>
+      </div>
+
+      <span
+        style={{
+          marginTop: "auto",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "8px",
+          color: "#111827",
+          fontWeight: "bold",
+        }}
+      >
+        Abrir agenda <FaArrowRight size={13} />
+      </span>
+    </a>
   );
 }
 
@@ -1019,6 +1142,52 @@ function HomeLanding() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section
+        id="negocios"
+        style={{
+          ...containerStyle,
+          paddingTop: "10px",
+          paddingBottom: "80px",
+          scrollMarginTop: "110px",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "760px",
+            marginBottom: "24px",
+          }}
+        >
+          <Badge>Negocios en AgendaSmart</Badge>
+
+          <h2
+            style={{
+              fontSize: "38px",
+              lineHeight: 1.12,
+              margin: "0 0 14px 0",
+            }}
+          >
+            Explora agendas reales y demos
+          </h2>
+
+          <p style={{ ...textStyle, maxWidth: "680px" }}>
+            Revisa cómo se ve AgendaSmart aplicado a distintos tipos de negocio.
+            Cada ejemplo abre una agenda independiente.
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+            gap: "18px",
+          }}
+        >
+          {exampleBusinesses.map((business) => (
+            <BusinessExampleCard key={business.href} business={business} />
+          ))}
         </div>
       </section>
 
