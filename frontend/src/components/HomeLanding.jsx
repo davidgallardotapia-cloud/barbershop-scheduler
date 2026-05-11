@@ -34,6 +34,35 @@ const textStyle = {
   margin: 0,
 };
 
+const mobileMediaQuery = "(max-width: 767px)";
+
+function useLandingIsMobile() {
+  const [isMobile, setIsMobile] = React.useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia(mobileMediaQuery).matches
+      : false
+  );
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const mediaQuery = window.matchMedia(mobileMediaQuery);
+    const handleChange = (event) => setIsMobile(event.matches);
+
+    setIsMobile(mediaQuery.matches);
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+
+    mediaQuery.addListener(handleChange);
+    return () => mediaQuery.removeListener(handleChange);
+  }, []);
+
+  return isMobile;
+}
+
 const exampleBusinesses = [
   {
     name: "Canchas Giocata",
@@ -73,7 +102,7 @@ function Badge({ children }) {
   );
 }
 
-function PrimaryButton() {
+function PrimaryButton({ isMobile = false }) {
   return (
     <a
       href="https://wa.me/56988287547?text=Hola,%20quiero%20una%20demo%20de%20AgendaSmart"
@@ -88,8 +117,12 @@ function PrimaryButton() {
         fontWeight: "bold",
         display: "inline-flex",
         alignItems: "center",
+        justifyContent: "center",
         gap: "10px",
         boxShadow: "0 10px 24px rgba(34,197,94,0.22)",
+        width: isMobile ? "100%" : "auto",
+        boxSizing: "border-box",
+        textAlign: "center",
       }}
     >
       <FaWhatsapp size={20} />
@@ -98,7 +131,7 @@ function PrimaryButton() {
   );
 }
 
-function SecondaryButton() {
+function SecondaryButton({ isMobile = false }) {
   const scrollToExamples = (event) => {
     const section = document.getElementById("negocios");
 
@@ -125,7 +158,11 @@ function SecondaryButton() {
         border: "1px solid #d1d5db",
         display: "inline-flex",
         alignItems: "center",
+        justifyContent: "center",
         gap: "10px",
+        width: isMobile ? "100%" : "auto",
+        boxSizing: "border-box",
+        textAlign: "center",
       }}
     >
       Ver ejemplos reales
@@ -280,6 +317,7 @@ function AdminPoint({ icon, title, text }) {
 function BrowserMockup({
   src = "/agendasmart-hero-right.png",
   alt = "Vista de AgendaSmart",
+  isMobile = false,
 }) {
   return (
     <div
@@ -308,8 +346,10 @@ function BrowserMockup({
           zIndex: 1,
           backgroundColor: "#ffffff",
           border: "1px solid #e5e7eb",
-          borderRadius: "28px",
-          boxShadow: "0 28px 70px rgba(15,23,42,0.12)",
+          borderRadius: isMobile ? "18px" : "28px",
+          boxShadow: isMobile
+            ? "0 18px 40px rgba(15,23,42,0.10)"
+            : "0 28px 70px rgba(15,23,42,0.12)",
           overflow: "hidden",
           aspectRatio: "4 / 3",
         }}
@@ -329,13 +369,13 @@ function BrowserMockup({
   );
 }
 
-function PhoneMockup() {
+function PhoneMockup({ isMobile = false }) {
   return (
     <img
       src="/agendasmart-booking-preview.svg"
       alt="Vista previa del flujo de reserva AgendaSmart"
       style={{
-        width: "310px",
+        width: isMobile ? "min(100%, 340px)" : "330px",
         maxWidth: "100%",
         display: "block",
         margin: "0 auto",
@@ -484,7 +524,7 @@ function AnalyticsCard({ title, text, value }) {
   );
 }
 
-function FixedHeader() {
+function FixedHeader({ isMobile = false }) {
   const scrollToSection = (sectionId) => (event) => {
     event.preventDefault();
     const section = document.getElementById(sectionId);
@@ -515,11 +555,11 @@ function FixedHeader() {
         style={{
           maxWidth: "1200px",
           margin: "0 auto",
-          padding: "14px 20px",
+          padding: isMobile ? "10px 16px" : "14px 20px",
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
-          gap: "16px",
+          justifyContent: isMobile ? "center" : "space-between",
+          gap: isMobile ? "10px" : "16px",
           flexWrap: "wrap",
         }}
       >
@@ -535,7 +575,7 @@ function FixedHeader() {
             src="/agendasmart-horizontal.png"
             alt="AgendaSmart"
             style={{
-              height: "58px",
+              height: isMobile ? "44px" : "58px",
               width: "auto",
               display: "block",
               objectFit: "contain",
@@ -547,8 +587,10 @@ function FixedHeader() {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "18px",
+            justifyContent: isMobile ? "center" : "flex-start",
+            gap: isMobile ? "10px" : "18px",
             flexWrap: "wrap",
+            width: isMobile ? "100%" : "auto",
           }}
         >
           <a
@@ -558,7 +600,7 @@ function FixedHeader() {
               textDecoration: "none",
               color: "#4b5563",
               fontWeight: 600,
-              fontSize: "15px",
+              fontSize: isMobile ? "13px" : "15px",
             }}
           >
             Clientes
@@ -571,7 +613,7 @@ function FixedHeader() {
               textDecoration: "none",
               color: "#4b5563",
               fontWeight: 600,
-              fontSize: "15px",
+              fontSize: isMobile ? "13px" : "15px",
             }}
           >
             Admin
@@ -584,7 +626,7 @@ function FixedHeader() {
               textDecoration: "none",
               color: "#4b5563",
               fontWeight: 600,
-              fontSize: "15px",
+              fontSize: isMobile ? "13px" : "15px",
             }}
           >
             Reportes
@@ -596,9 +638,10 @@ function FixedHeader() {
               backgroundColor: "#22c55e",
               color: "#ffffff",
               textDecoration: "none",
-              padding: "10px 16px",
+              padding: isMobile ? "8px 12px" : "10px 16px",
               borderRadius: "10px",
               fontWeight: "bold",
+              fontSize: isMobile ? "13px" : "15px",
               boxShadow: "0 8px 18px rgba(34,197,94,0.18)",
             }}
           >
@@ -611,6 +654,35 @@ function FixedHeader() {
 }
 
 function HomeLanding() {
+  const isMobile = useLandingIsMobile();
+
+  const pageContainerStyle = {
+    ...containerStyle,
+    padding: isMobile ? "0 16px" : containerStyle.padding,
+  };
+
+  const heroTitleStyle = {
+    ...titleStyle,
+    fontSize: isMobile ? "33px" : titleStyle.fontSize,
+  };
+
+  const sectionTitleStyle = {
+    fontSize: isMobile ? "30px" : "42px",
+    lineHeight: 1.1,
+    margin: "0 0 18px 0",
+  };
+
+  const smallSectionTitleStyle = {
+    fontSize: isMobile ? "29px" : "38px",
+    lineHeight: 1.12,
+    margin: "0 0 14px 0",
+  };
+
+  const responsiveTextStyle = {
+    ...textStyle,
+    fontSize: isMobile ? "16px" : textStyle.fontSize,
+  };
+
   return (
     <div
       style={{
@@ -621,33 +693,33 @@ function HomeLanding() {
         color: "#111827",
       }}
     >
-      <FixedHeader />
+      <FixedHeader isMobile={isMobile} />
 
       <section
         style={{
-          ...containerStyle,
-          paddingTop: "118px",
-          paddingBottom: "56px",
+          ...pageContainerStyle,
+          paddingTop: isMobile ? "138px" : "118px",
+          paddingBottom: isMobile ? "42px" : "56px",
         }}
       >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 1.05fr",
-            gap: "44px",
+            gridTemplateColumns: isMobile ? "1fr" : "1fr 1.05fr",
+            gap: isMobile ? "30px" : "44px",
             alignItems: "center",
           }}
         >
           <div>
             <Badge>Plataforma de reservas para negocios</Badge>
 
-            <h1 style={titleStyle}>
+            <h1 style={heroTitleStyle}>
               Simplifica la gestión de tu negocio con AgendaSmart
             </h1>
 
             <p
               style={{
-                ...textStyle,
+                ...responsiveTextStyle,
                 maxWidth: "560px",
                 marginBottom: "22px",
               }}
@@ -665,14 +737,16 @@ function HomeLanding() {
                 marginBottom: "26px",
               }}
             >
-              <PrimaryButton />
-              <SecondaryButton />
+              <PrimaryButton isMobile={isMobile} />
+              <SecondaryButton isMobile={isMobile} />
             </div>
 
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+                gridTemplateColumns: isMobile
+                  ? "1fr"
+                  : "repeat(auto-fit, minmax(150px, 1fr))",
                 gap: "12px",
                 maxWidth: "620px",
               }}
@@ -691,7 +765,7 @@ function HomeLanding() {
           </div>
 
           <div>
-            <BrowserMockup />
+            <BrowserMockup isMobile={isMobile} />
           </div>
         </div>
       </section>
@@ -699,27 +773,30 @@ function HomeLanding() {
       <section
         id="clientes"
         style={{
-          ...containerStyle,
+          ...pageContainerStyle,
           paddingTop: "20px",
-          paddingBottom: "80px",
+          paddingBottom: isMobile ? "56px" : "80px",
           scrollMarginTop: "110px",
         }}
       >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-            gap: "36px",
+            gridTemplateColumns: isMobile
+              ? "1fr"
+              : "repeat(auto-fit, minmax(320px, 1fr))",
+            gap: isMobile ? "28px" : "36px",
             alignItems: "center",
           }}
         >
           <div
             style={{
               position: "relative",
-              minHeight: "500px",
+              minHeight: isMobile ? "350px" : "500px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              order: isMobile ? 2 : 1,
             }}
           >
             <div
@@ -745,7 +822,7 @@ function HomeLanding() {
                 backgroundColor: "#ffffff",
                 border: "1px solid #e5e7eb",
                 boxShadow: "0 18px 40px rgba(15,23,42,0.08)",
-                display: "flex",
+                display: isMobile ? "none" : "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 color: "#6b7280",
@@ -766,7 +843,7 @@ function HomeLanding() {
                 backgroundColor: "#ffffff",
                 border: "1px solid #e5e7eb",
                 boxShadow: "0 18px 40px rgba(15,23,42,0.08)",
-                display: "flex",
+                display: isMobile ? "none" : "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 color: "#22c55e",
@@ -776,23 +853,19 @@ function HomeLanding() {
               <FaCalendarAlt />
             </div>
 
-            <PhoneMockup />
+            <PhoneMockup isMobile={isMobile} />
           </div>
 
-          <div>
+          <div style={{ order: isMobile ? 1 : 2 }}>
             <h2
-              style={{
-                fontSize: "42px",
-                lineHeight: 1.1,
-                margin: "0 0 18px 0",
-              }}
+              style={sectionTitleStyle}
             >
               Reserva fácil para clientes
             </h2>
 
             <p
               style={{
-                ...textStyle,
+                ...responsiveTextStyle,
                 maxWidth: "520px",
                 marginBottom: "28px",
               }}
@@ -815,34 +888,32 @@ function HomeLanding() {
       <section
         id="admin"
         style={{
-          ...containerStyle,
+          ...pageContainerStyle,
           paddingTop: "20px",
-          paddingBottom: "80px",
+          paddingBottom: isMobile ? "56px" : "80px",
           scrollMarginTop: "110px",
         }}
       >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-            gap: "36px",
+            gridTemplateColumns: isMobile
+              ? "1fr"
+              : "repeat(auto-fit, minmax(320px, 1fr))",
+            gap: isMobile ? "28px" : "36px",
             alignItems: "center",
           }}
         >
           <div>
             <h2
-              style={{
-                fontSize: "42px",
-                lineHeight: 1.1,
-                margin: "0 0 18px 0",
-              }}
+              style={sectionTitleStyle}
             >
               Gestión simple para administradores
             </h2>
 
             <p
               style={{
-                ...textStyle,
+                ...responsiveTextStyle,
                 maxWidth: "520px",
                 marginBottom: "28px",
               }}
@@ -874,6 +945,7 @@ function HomeLanding() {
             <BrowserMockup
               src="/agendasmart-payments-laptop.png"
               alt="Vista del panel de pagos de AgendaSmart"
+              isMobile={isMobile}
             />
           </div>
         </div>
@@ -882,16 +954,18 @@ function HomeLanding() {
       <section
         id="reportes"
         style={{
-          ...containerStyle,
+          ...pageContainerStyle,
           paddingTop: "10px",
-          paddingBottom: "80px",
+          paddingBottom: isMobile ? "56px" : "80px",
           scrollMarginTop: "110px",
         }}
       >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gridTemplateColumns: isMobile
+              ? "1fr"
+              : "repeat(auto-fit, minmax(280px, 1fr))",
             gap: "18px",
             alignItems: "stretch",
             marginBottom: "22px",
@@ -900,8 +974,7 @@ function HomeLanding() {
           <div style={{ gridColumn: "1 / -1", marginBottom: "4px" }}>
             <h2
               style={{
-                fontSize: "42px",
-                lineHeight: 1.1,
+                ...sectionTitleStyle,
                 margin: "0 0 14px 0",
               }}
             >
@@ -910,7 +983,7 @@ function HomeLanding() {
 
             <p
               style={{
-                ...textStyle,
+                ...responsiveTextStyle,
                 maxWidth: "720px",
               }}
             >
@@ -940,15 +1013,15 @@ function HomeLanding() {
           style={{
             backgroundColor: "#ffffff",
             border: "1px solid #e5e7eb",
-            borderRadius: "24px",
-            padding: "22px",
+            borderRadius: isMobile ? "18px" : "24px",
+            padding: isMobile ? "14px" : "22px",
             boxShadow: "0 18px 40px rgba(15,23,42,0.06)",
           }}
         >
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "1.1fr 0.9fr",
+              gridTemplateColumns: isMobile ? "1fr" : "1.1fr 0.9fr",
               gap: "18px",
             }}
           >
@@ -957,7 +1030,7 @@ function HomeLanding() {
                 backgroundColor: "#f8fafc",
                 border: "1px solid #e5e7eb",
                 borderRadius: "18px",
-                padding: "20px",
+                padding: isMobile ? "16px" : "20px",
               }}
             >
               <div
@@ -987,10 +1060,10 @@ function HomeLanding() {
 
               <div
                 style={{
-                  height: "220px",
+                  height: isMobile ? "170px" : "220px",
                   display: "flex",
                   alignItems: "flex-end",
-                  gap: "14px",
+                  gap: isMobile ? "8px" : "14px",
                 }}
               >
                 {[52, 78, 96, 84, 110, 138, 160].map((height, index) => (
@@ -1035,7 +1108,7 @@ function HomeLanding() {
                   backgroundColor: "#f8fafc",
                   border: "1px solid #e5e7eb",
                   borderRadius: "18px",
-                  padding: "20px",
+                  padding: isMobile ? "16px" : "20px",
                 }}
               >
                 <div
@@ -1094,7 +1167,7 @@ function HomeLanding() {
                   backgroundColor: "#f8fafc",
                   border: "1px solid #e5e7eb",
                   borderRadius: "18px",
-                  padding: "20px",
+                  padding: isMobile ? "16px" : "20px",
                 }}
               >
                 <div
@@ -1110,7 +1183,7 @@ function HomeLanding() {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
+                    gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
                     gap: "10px",
                   }}
                 >
@@ -1148,9 +1221,9 @@ function HomeLanding() {
       <section
         id="negocios"
         style={{
-          ...containerStyle,
+          ...pageContainerStyle,
           paddingTop: "10px",
-          paddingBottom: "80px",
+          paddingBottom: isMobile ? "56px" : "80px",
           scrollMarginTop: "110px",
         }}
       >
@@ -1163,16 +1236,12 @@ function HomeLanding() {
           <Badge>Negocios en AgendaSmart</Badge>
 
           <h2
-            style={{
-              fontSize: "38px",
-              lineHeight: 1.12,
-              margin: "0 0 14px 0",
-            }}
+            style={smallSectionTitleStyle}
           >
             Explora agendas reales y demos
           </h2>
 
-          <p style={{ ...textStyle, maxWidth: "680px" }}>
+          <p style={{ ...responsiveTextStyle, maxWidth: "680px" }}>
             Revisa cómo se ve AgendaSmart aplicado a distintos tipos de negocio.
             Cada ejemplo abre una agenda independiente.
           </p>
@@ -1181,7 +1250,9 @@ function HomeLanding() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+            gridTemplateColumns: isMobile
+              ? "1fr"
+              : "repeat(auto-fit, minmax(240px, 1fr))",
             gap: "18px",
           }}
         >
@@ -1193,9 +1264,9 @@ function HomeLanding() {
 
       <section
         style={{
-          ...containerStyle,
+          ...pageContainerStyle,
           paddingTop: "10px",
-          paddingBottom: "90px",
+          paddingBottom: isMobile ? "64px" : "90px",
         }}
       >
         <div
@@ -1203,7 +1274,7 @@ function HomeLanding() {
             background:
               "linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #166534 100%)",
             borderRadius: "28px",
-            padding: "42px 28px",
+            padding: isMobile ? "32px 18px" : "42px 28px",
             color: "#ffffff",
             textAlign: "center",
             boxShadow: "0 24px 60px rgba(15,23,42,0.16)",
@@ -1217,7 +1288,7 @@ function HomeLanding() {
           >
             <div
               style={{
-                fontSize: "34px",
+                fontSize: isMobile ? "27px" : "34px",
                 fontWeight: "bold",
                 lineHeight: 1.18,
                 marginBottom: "14px",
@@ -1228,7 +1299,7 @@ function HomeLanding() {
 
             <div
               style={{
-                fontSize: "17px",
+                fontSize: isMobile ? "15px" : "17px",
                 lineHeight: 1.6,
                 color: "rgba(255,255,255,0.82)",
                 marginBottom: "24px",
@@ -1246,8 +1317,8 @@ function HomeLanding() {
                 flexWrap: "wrap",
               }}
             >
-              <PrimaryButton />
-              <SecondaryButton />
+              <PrimaryButton isMobile={isMobile} />
+              <SecondaryButton isMobile={isMobile} />
             </div>
           </div>
         </div>
