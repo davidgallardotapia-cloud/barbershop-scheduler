@@ -7,10 +7,8 @@ import {
   FaChartLine,
   FaUsers,
   FaClock,
-  FaStore,
   FaLaptop,
   FaCut,
-  FaFutbol,
   FaCog,
 } from "react-icons/fa";
 
@@ -987,8 +985,8 @@ function HomeLanding() {
                 maxWidth: "720px",
               }}
             >
-              Analiza el rendimiento de tu negocio con métricas claras para
-              entender demanda, reservas, clientes frecuentes e ingresos.
+              Visualiza reservas, pagos, servicios frecuentes a través de reportes semanales y cierres diarios
+              con información clara para operar mejor. Entregando indicadores para la toma de decisiones, como por ejemplo:
             </p>
           </div>
 
@@ -1042,7 +1040,7 @@ function HomeLanding() {
                 }}
               >
                 <div style={{ fontWeight: "bold", fontSize: "18px" }}>
-                  Rendimiento semanal
+                  Resumen semanal
                 </div>
                 <div
                   style={{
@@ -1054,7 +1052,7 @@ function HomeLanding() {
                   }}
                 >
                   <FaChartLine />
-                  En alza
+                  Al día
                 </div>
               </div>
 
@@ -1122,9 +1120,9 @@ function HomeLanding() {
                 </div>
 
                 {[
-                  { name: "Corte degradado", percent: "82%" },
-                  { name: "Barba premium", percent: "64%" },
-                  { name: "Reserva cancha", percent: "57%" },
+                  { name: "Servicio 1", percent: "82%" },
+                  { name: "Servicio 2", percent: "64%" },
+                  { name: "Servicio 3", percent: "57%" },
                 ].map((item) => (
                   <div key={item.name} style={{ marginBottom: "14px" }}>
                     <div
@@ -1188,9 +1186,9 @@ function HomeLanding() {
                   }}
                 >
                   {[
+                    { icon: <FaUsers />, label: "Centros médicos" },
+                    { icon: <FaCalendarAlt />, label: "Complejos deportivos" },
                     { icon: <FaCut />, label: "Barberías" },
-                    { icon: <FaFutbol />, label: "Canchas" },
-                    { icon: <FaStore />, label: "Servicios" },
                     { icon: <FaCheckCircle />, label: "Más rubros" },
                   ].map((item) => (
                     <div
