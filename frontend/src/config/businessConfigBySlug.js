@@ -466,6 +466,12 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     depositOptional: false,
     defaultDepositRate: 0.5,
     paymentMethods: ["transferencia", "efectivo", "debito"],
+    onlinePaymentsEnabled: true,
+    paymentGateway: {
+      provider: "mercadopago",
+      mode: "full",
+      buttonLabel: "Reservar y pagar demo",
+    },
 
     barbers: ["Recurso 1", "Recurso 2", "Recurso 3"],
 
@@ -476,6 +482,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     },
 
     services: [
+      "Pago de prueba ($1.000)",
       "Consulta inicial ($15.000)",
       "Sesión personalizada ($25.000)",
       "Reserva de espacio ($30.000)",

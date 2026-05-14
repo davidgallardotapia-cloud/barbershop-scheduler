@@ -97,6 +97,10 @@ function ClientBookingWizard({
     steps.find((step) => step.number === activeStep)?.label || "Reserva";
 
   const progressPercent = (activeStep / steps.length) * 100;
+  const submitLabel =
+    business?.onlinePaymentsEnabled && business?.paymentGateway?.buttonLabel
+      ? business.paymentGateway.buttonLabel
+      : business?.submitButtonLabel || "Confirmar reserva";
 
   const scrollToStep = (ref) => {
     if (!ref?.current) return;
@@ -1011,7 +1015,7 @@ const isLookingForOpponent = slot.status === "looking_opponent";
             >
               {submitting
                 ? business?.submittingLabel || "Reservando..."
-                : business?.submitButtonLabel || "Confirmar reserva"}
+                : submitLabel}
             </button>
           </section>
 

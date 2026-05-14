@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
+const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const pool = require("./config/database");
@@ -23,8 +24,114 @@ const allowedOrigins = [
   "https://www.agendasmart.cl",
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5174",
   ...configuredOrigins,
 ];
+
+const securityAlertCooldownMs = Number(
+  process.env.SECURITY_ALERT_COOLDOWN_MS || 5 * 60 * 1000
+);
+const lastSecurityAlertAtByKey = new Map();
+
+const truncateSecurityValue = (value, maxLength = 300) => {
+  const text = String(value || "");
+
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+};
+
+const sanitizeSecurityDetails = (details = {}) => {
+  return Object.entries(details).reduce((acc, [key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return acc;
+    }
+
+    if (/password|token|secret|authorization|cookie/i.test(key)) {
+      acc[key] = "[redacted]";
+      return acc;
+    }
+
+    if (typeof value === "object") {
+      acc[key] = sanitizeSecurityDetails(value);
+      return acc;
+    }
+
+    acc[key] = truncateSecurityValue(value);
+    return acc;
+  }, {});
+};
+
+const getRequestSecurityMeta = (req) => {
+  if (!req) return {};
+
+  return sanitizeSecurityDetails({
+    ip: req.ip,
+    method: req.method,
+    path: req.originalUrl || req.url,
+    origin: req.get("origin"),
+    userAgent: req.get("user-agent"),
+  });
+};
+
+const emitSecurityEvent = async ({
+  type,
+  severity = "medium",
+  req,
+  details = {},
+  alertKey,
+}) => {
+  const safeDetails = sanitizeSecurityDetails({
+    ...getRequestSecurityMeta(req),
+    ...details,
+  });
+  const event = {
+    type,
+    severity,
+    environment: process.env.NODE_ENV || "development",
+    timestamp: new Date().toISOString(),
+    details: safeDetails,
+  };
+
+  console.warn("SECURITY_EVENT", JSON.stringify(event));
+
+  if (process.env.SECURITY_ALERTS_ENABLED !== "true") {
+    return;
+  }
+
+  const webhookUrl = process.env.SECURITY_ALERT_WEBHOOK_URL;
+
+  if (!webhookUrl) {
+    return;
+  }
+
+  const dedupeKey = alertKey || `${type}:${safeDetails.ip || "unknown"}`;
+  const now = Date.now();
+  const lastAlertAt = lastSecurityAlertAtByKey.get(dedupeKey) || 0;
+
+  if (now - lastAlertAt < securityAlertCooldownMs) {
+    return;
+  }
+
+  lastSecurityAlertAtByKey.set(dedupeKey, now);
+
+  try {
+    await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: `[AgendaSmart] SECURITY_EVENT ${severity}: ${type}`,
+        text: `[AgendaSmart] SECURITY_EVENT ${severity}: ${type}`,
+        event,
+      }),
+    });
+  } catch (error) {
+    console.error("Error enviando alerta de seguridad:", error.message);
+  }
+};
+
+const emitSecurityEventSoon = (event) => {
+  void emitSecurityEvent(event);
+};
 
 const rateLimitMessage =
   "Demasiadas solicitudes. Intenta nuevamente en unos minutos.";
@@ -35,6 +142,16 @@ const generalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: rateLimitMessage },
+  handler: (req, res) => {
+    emitSecurityEventSoon({
+      type: "rate_limit_exceeded",
+      severity: "medium",
+      req,
+      details: { limiter: "general" },
+    });
+
+    return res.status(429).json({ message: rateLimitMessage });
+  },
 });
 
 const loginLimiter = rateLimit({
@@ -46,6 +163,18 @@ const loginLimiter = rateLimit({
   message: {
     message: "Demasiados intentos de inicio de sesion. Intenta mas tarde.",
   },
+  handler: (req, res) => {
+    emitSecurityEventSoon({
+      type: "login_rate_limit_exceeded",
+      severity: "high",
+      req,
+      details: { limiter: "login", businessId: req.body?.businessId },
+    });
+
+    return res.status(429).json({
+      message: "Demasiados intentos de inicio de sesion. Intenta mas tarde.",
+    });
+  },
 });
 
 const publicWriteLimiter = rateLimit({
@@ -54,6 +183,16 @@ const publicWriteLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: rateLimitMessage },
+  handler: (req, res) => {
+    emitSecurityEventSoon({
+      type: "public_write_rate_limit_exceeded",
+      severity: "high",
+      req,
+      details: { limiter: "public_write" },
+    });
+
+    return res.status(429).json({ message: rateLimitMessage });
+  },
 });
 
 const corsOptions = {
@@ -67,6 +206,13 @@ const corsOptions = {
       return callback(null, true);
     }
 
+    emitSecurityEventSoon({
+      type: "cors_origin_rejected",
+      severity: "medium",
+      details: { origin },
+      alertKey: `cors:${origin}`,
+    });
+
     return callback(new Error("Origen no permitido por CORS"));
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -79,12 +225,28 @@ app.use(cors(corsOptions));
 app.use(generalLimiter);
 app.use(express.json({ limit: "25kb" }));
 
-app.use((err, _req, res, next) => {
+app.use((err, req, res, next) => {
+  if (err?.message === "Origen no permitido por CORS") {
+    return res.status(403).json({ message: "Origen no permitido" });
+  }
+
   if (err?.type === "entity.too.large") {
+    emitSecurityEventSoon({
+      type: "request_body_too_large",
+      severity: "medium",
+      req,
+    });
+
     return res.status(413).json({ message: "Solicitud demasiado grande" });
   }
 
   if (err instanceof SyntaxError && "body" in err) {
+    emitSecurityEventSoon({
+      type: "invalid_json_body",
+      severity: "low",
+      req,
+    });
+
     return res.status(400).json({ message: "JSON invalido" });
   }
 
@@ -167,6 +329,343 @@ const setAuthCookie = (res, token) => {
 const clearAuthCookie = (res) => {
   const { maxAge, ...cookieOptions } = getAuthCookieOptions();
   res.clearCookie(AUTH_COOKIE_NAME, cookieOptions);
+};
+
+const mercadoPagoGatewayConfigByBusinessId = {
+  "agendasmart-demo": {
+    accessTokenEnv: "MERCADOPAGO_ACCESS_TOKEN_AGENDASMART_DEMO",
+    webhookSecretEnv: "MERCADOPAGO_WEBHOOK_SECRET_AGENDASMART_DEMO",
+    mode: "full",
+  },
+};
+
+const getMercadoPagoGatewayConfig = (businessId) => {
+  const config = mercadoPagoGatewayConfigByBusinessId[businessId];
+
+  if (!config) {
+    return null;
+  }
+
+  return {
+    ...config,
+    accessToken: process.env[config.accessTokenEnv],
+    webhookSecret: process.env[config.webhookSecretEnv],
+  };
+};
+
+const shouldRequireMercadoPagoWebhookSignature = () => {
+  if (process.env.MERCADOPAGO_REQUIRE_WEBHOOK_SIGNATURE === "true") {
+    return true;
+  }
+
+  if (process.env.MERCADOPAGO_REQUIRE_WEBHOOK_SIGNATURE === "false") {
+    return false;
+  }
+
+  return (
+    process.env.NODE_ENV === "production" ||
+    String(process.env.API_PUBLIC_URL || "").startsWith("https://")
+  );
+};
+
+const getMercadoPagoWebhookPaymentId = (req) => {
+  return (
+    req.query?.["data.id"] ||
+    req.query?.id ||
+    req.body?.data?.id ||
+    req.body?.id
+  );
+};
+
+const parseMercadoPagoSignature = (signatureHeader) => {
+  return String(signatureHeader || "")
+    .split(",")
+    .reduce((acc, part) => {
+      const [key, value] = part.split("=");
+
+      if (key && value) {
+        acc[key.trim()] = value.trim();
+      }
+
+      return acc;
+    }, {});
+};
+
+const timingSafeEqualHex = (received, expected) => {
+  try {
+    const receivedBuffer = Buffer.from(String(received || ""), "hex");
+    const expectedBuffer = Buffer.from(String(expected || ""), "hex");
+
+    return (
+      receivedBuffer.length === expectedBuffer.length &&
+      crypto.timingSafeEqual(receivedBuffer, expectedBuffer)
+    );
+  } catch {
+    return false;
+  }
+};
+
+const isValidMercadoPagoWebhookSignature = ({ req, dataId, secret }) => {
+  if (!secret || !dataId) return false;
+
+  const xSignature = req.get("x-signature");
+  const xRequestId = req.get("x-request-id");
+  const { ts, v1 } = parseMercadoPagoSignature(xSignature);
+
+  if (!xRequestId || !ts || !v1) return false;
+
+  const signatureDataId =
+    req.query?.["data.id"] && /^[a-z0-9_-]+$/i.test(String(dataId))
+      ? String(dataId).toLowerCase()
+      : String(dataId);
+  const manifest = `id:${signatureDataId};request-id:${xRequestId};ts:${ts};`;
+  const expectedSignature = crypto
+    .createHmac("sha256", secret)
+    .update(manifest)
+    .digest("hex");
+
+  return timingSafeEqualHex(v1, expectedSignature);
+};
+
+const isProductionLikeEnvironment = () => {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.RENDER === "true" ||
+    String(process.env.API_PUBLIC_URL || "").startsWith("https://")
+  );
+};
+
+const validateStartupSecurityConfig = () => {
+  const productionLike = isProductionLikeEnvironment();
+
+  if (!productionLike) {
+    return;
+  }
+
+  const jwtSecret = process.env.JWT_SECRET || "";
+
+  if (
+    !jwtSecret ||
+    jwtSecret.length < 32 ||
+    /change_me|local_dev|your_/i.test(jwtSecret)
+  ) {
+    emitSecurityEventSoon({
+      type: "startup_insecure_jwt_secret",
+      severity: "critical",
+      details: {
+        configured: Boolean(jwtSecret),
+        length: jwtSecret.length,
+      },
+      alertKey: "startup:jwt_secret",
+    });
+  }
+
+  const apiPublicUrl = process.env.API_PUBLIC_URL || "";
+
+  if (!apiPublicUrl.startsWith("https://")) {
+    emitSecurityEventSoon({
+      type: "startup_api_public_url_not_https",
+      severity: "high",
+      details: {
+        configured: Boolean(apiPublicUrl),
+      },
+      alertKey: "startup:api_public_url",
+    });
+  }
+
+  if (shouldRequireMercadoPagoWebhookSignature() !== true) {
+    emitSecurityEventSoon({
+      type: "startup_webhook_signature_not_required",
+      severity: "high",
+      alertKey: "startup:mp_signature_required",
+    });
+  }
+
+  Object.keys(mercadoPagoGatewayConfigByBusinessId).forEach((businessId) => {
+    const gatewayConfig = getMercadoPagoGatewayConfig(businessId);
+
+    if (!gatewayConfig?.accessToken) {
+      return;
+    }
+
+    if (String(gatewayConfig.accessToken).startsWith("TEST-")) {
+      emitSecurityEventSoon({
+        type: "startup_mercadopago_test_token_in_production",
+        severity: "high",
+        details: { businessId },
+        alertKey: `startup:mp_test_token:${businessId}`,
+      });
+    }
+
+    if (!gatewayConfig.webhookSecret) {
+      emitSecurityEventSoon({
+        type: "startup_mercadopago_webhook_secret_missing",
+        severity: "critical",
+        details: { businessId },
+        alertKey: `startup:mp_webhook_secret:${businessId}`,
+      });
+    }
+  });
+};
+
+const getServicePrice = (serviceName) => {
+  const match = String(serviceName || "").match(/\$([\d.]+)/);
+  if (!match) return 0;
+
+  return Number(match[1].replace(/\./g, ""));
+};
+
+const getPublicApiBaseUrl = (req) => {
+  return (
+    process.env.API_PUBLIC_URL ||
+    `${req.protocol}://${req.get("host")}`.replace(/\/+$/, "")
+  );
+};
+
+const getSafeReturnUrl = (value) => {
+  if (!value) return "https://agendasmart.cl/agendasmart-demo";
+
+  try {
+    const url = new URL(value);
+
+    if (allowedOrigins.includes(url.origin)) {
+      return url.toString();
+    }
+  } catch {
+    return "https://agendasmart.cl/agendasmart-demo";
+  }
+
+  return "https://agendasmart.cl/agendasmart-demo";
+};
+
+const requestMercadoPago = async ({ accessToken, path, method = "GET", body }) => {
+  const response = await fetch(`https://api.mercadopago.com${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const text = await response.text();
+  let data = null;
+
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
+  }
+
+  if (!response.ok) {
+    const detail =
+      typeof data === "string" ? data : data?.message || data?.error || text;
+    throw new Error(`Mercado Pago respondio ${response.status}: ${detail}`);
+  }
+
+  return data;
+};
+
+const upsertMercadoPagoPayment = async ({ payment, businessId, appointmentId }) => {
+  const paymentId = String(payment.id || "");
+  const status = String(payment.status || "");
+  const amount = Number(payment.transaction_amount || 0);
+
+  const transactionResult = await pool.query(
+    `UPDATE payment_gateway_transactions
+     SET
+       provider_payment_id = $1,
+       provider_status = $2,
+       raw_payload = $3,
+       updated_at = NOW()
+     WHERE business_id = $4
+       AND appointment_id = $5
+       AND provider = 'mercadopago'
+     RETURNING payment_stage`,
+    [paymentId, status, payment, businessId, appointmentId]
+  );
+  const paymentStage = transactionResult.rows[0]?.payment_stage || "full";
+
+  if (status !== "approved" || amount <= 0) {
+    return { status, amount, recorded: false };
+  }
+
+  const existingPayment = await pool.query(
+    `SELECT id
+     FROM appointment_payments
+     WHERE provider = 'mercadopago'
+       AND provider_payment_id = $1
+     LIMIT 1`,
+    [paymentId]
+  );
+
+  if (existingPayment.rows.length === 0) {
+    await pool.query(
+      `INSERT INTO appointment_payments (
+        appointment_id,
+        amount,
+        method,
+        payment_stage,
+        receipt_url,
+        notes,
+        provider,
+        provider_payment_id
+      )
+      VALUES ($1, $2, 'mercadopago', $3, $4, $5, 'mercadopago', $6)`,
+      [
+        appointmentId,
+        amount,
+        paymentStage,
+        payment.transaction_details?.external_resource_url || null,
+        "Pago online Mercado Pago",
+        paymentId,
+      ]
+    );
+  }
+
+  await recalculateAppointmentPaymentStatus(appointmentId);
+
+  return { status, amount, recorded: true };
+};
+
+const reconcileMercadoPagoPayment = async ({ paymentId, fallbackBusinessId }) => {
+  const businessIds = fallbackBusinessId
+    ? [fallbackBusinessId]
+    : Object.keys(mercadoPagoGatewayConfigByBusinessId);
+
+  for (const businessId of businessIds) {
+    const gatewayConfig = getMercadoPagoGatewayConfig(businessId);
+
+    if (!gatewayConfig?.accessToken) continue;
+
+    try {
+      const payment = await requestMercadoPago({
+        accessToken: gatewayConfig.accessToken,
+        path: `/v1/payments/${paymentId}`,
+      });
+
+      const [externalBusinessId, rawAppointmentId] = String(
+        payment.external_reference || ""
+      ).split(":");
+      const appointmentId = Number(rawAppointmentId);
+
+      if (!appointmentId || externalBusinessId !== businessId) {
+        continue;
+      }
+
+      return upsertMercadoPagoPayment({
+        payment,
+        businessId,
+        appointmentId,
+      });
+    } catch (error) {
+      console.error("No se pudo conciliar pago Mercado Pago:", error.message);
+    }
+  }
+
+  return { status: "not_found", amount: 0, recorded: false };
 };
 
 const syncGoogleSheets = async (payload) => {
@@ -702,6 +1201,49 @@ const createTables = async () => {
     `);
 
     await pool.query(`
+      ALTER TABLE appointment_payments
+      DROP CONSTRAINT IF EXISTS appointment_payments_method_check;
+    `);
+
+    await pool.query(`
+      ALTER TABLE appointment_payments
+      ADD CONSTRAINT appointment_payments_method_check
+      CHECK (method IN ('transferencia', 'efectivo', 'debito', 'mercadopago'));
+    `);
+
+    await pool.query(`
+      ALTER TABLE appointment_payments
+      ADD COLUMN IF NOT EXISTS provider VARCHAR(30);
+    `);
+
+    await pool.query(`
+      ALTER TABLE appointment_payments
+      ADD COLUMN IF NOT EXISTS provider_payment_id VARCHAR(120);
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS payment_gateway_transactions (
+        id SERIAL PRIMARY KEY,
+        appointment_id INTEGER NOT NULL,
+        business_id VARCHAR(100) NOT NULL,
+        provider VARCHAR(30) NOT NULL,
+        provider_preference_id VARCHAR(120),
+        provider_payment_id VARCHAR(120),
+        provider_status VARCHAR(50),
+        amount NUMERIC(10,2) NOT NULL CHECK (amount >= 0),
+        payment_stage VARCHAR(30) NOT NULL CHECK (payment_stage IN ('deposit', 'balance', 'full')),
+        checkout_url TEXT,
+        raw_payload JSONB,
+        created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+        CONSTRAINT fk_payment_gateway_transactions_appointment
+          FOREIGN KEY (appointment_id)
+          REFERENCES appointments(id)
+          ON DELETE CASCADE
+      );
+    `);
+
+    await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_appointments_business_date_time
       ON appointments (business_id, date, time);
     `);
@@ -714,6 +1256,22 @@ const createTables = async () => {
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_appointment_payments_appointment_id
       ON appointment_payments (appointment_id);
+    `);
+
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_appointment_payments_provider_payment
+      ON appointment_payments (provider, provider_payment_id)
+      WHERE provider_payment_id IS NOT NULL;
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_payment_gateway_transactions_business_appointment
+      ON payment_gateway_transactions (business_id, appointment_id);
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_payment_gateway_transactions_payment_id
+      ON payment_gateway_transactions (provider, provider_payment_id);
     `);
 
     await pool.query(`
@@ -938,6 +1496,17 @@ app.post("/login", loginLimiter, async (req, res) => {
   const { username, password, businessId } = req.body;
 
   if (!username || !password) {
+    emitSecurityEventSoon({
+      type: "login_missing_credentials",
+      severity: "low",
+      req,
+      details: {
+        businessId,
+        hasUsername: Boolean(username),
+        hasPassword: Boolean(password),
+      },
+    });
+
     return res.status(400).json({ message: "Faltan credenciales" });
   }
 
@@ -948,6 +1517,17 @@ app.post("/login", loginLimiter, async (req, res) => {
     );
 
     if (result.rows.length === 0) {
+      emitSecurityEventSoon({
+        type: "login_failed",
+        severity: "medium",
+        req,
+        details: {
+          businessId,
+          reason: "invalid_credentials",
+          usernameProvided: true,
+        },
+      });
+
       return res.status(401).json({ message: "Credenciales invalidas" });
     }
 
@@ -955,10 +1535,31 @@ app.post("/login", loginLimiter, async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
+      emitSecurityEventSoon({
+        type: "login_failed",
+        severity: "medium",
+        req,
+        details: {
+          businessId,
+          reason: "invalid_credentials",
+          usernameProvided: true,
+        },
+      });
+
       return res.status(401).json({ message: "Credenciales invalidas" });
     }
 
     if (businessId && user.business_id && user.business_id !== businessId) {
+      emitSecurityEventSoon({
+        type: "login_business_mismatch",
+        severity: "high",
+        req,
+        details: {
+          requestedBusinessId: businessId,
+          userBusinessId: user.business_id,
+        },
+      });
+
       return res.status(403).json({
         message: "Este usuario no pertenece a este negocio",
       });
@@ -1532,6 +2133,309 @@ console.log("REGISTERING POST /appointments/:id/payments");
 console.log("REGISTERING PUT /appointments/:appointmentId/payments/:paymentId");
 console.log("REGISTERING DELETE /appointments/:appointmentId/payments/:paymentId");
 
+app.post("/payments/mercadopago/preferences", publicWriteLimiter, async (req, res) => {
+  const { appointmentId, businessId, returnUrl } = req.body || {};
+
+  if (!appointmentId || !businessId) {
+    return res.status(400).json({
+      message: "appointmentId y businessId son requeridos",
+    });
+  }
+
+  const gatewayConfig = getMercadoPagoGatewayConfig(businessId);
+
+  if (!gatewayConfig) {
+    emitSecurityEventSoon({
+      type: "mercadopago_preference_business_not_enabled",
+      severity: "medium",
+      req,
+      details: { businessId },
+    });
+
+    return res.status(403).json({
+      message: "Mercado Pago no esta habilitado para este negocio",
+    });
+  }
+
+  if (!gatewayConfig.accessToken) {
+    emitSecurityEventSoon({
+      type: "mercadopago_preference_access_token_missing",
+      severity: "high",
+      req,
+      details: { businessId },
+      alertKey: `mp_token_missing:${businessId}`,
+    });
+
+    return res.status(503).json({
+      message:
+        "Mercado Pago esta configurado para este negocio, pero falta el access token en Render",
+    });
+  }
+
+  try {
+    const appointmentResult = await pool.query(
+      "SELECT * FROM appointments WHERE id = $1 AND business_id = $2",
+      [appointmentId, businessId]
+    );
+
+    if (appointmentResult.rows.length === 0) {
+      emitSecurityEventSoon({
+        type: "mercadopago_preference_appointment_not_found",
+        severity: "medium",
+        req,
+        details: { businessId, appointmentId },
+      });
+
+      return res.status(404).json({
+        message: "Reserva no encontrada o no pertenece a este negocio",
+      });
+    }
+
+    const appointment = appointmentResult.rows[0];
+    const totalAmount =
+      Number(appointment.total_amount || 0) ||
+      Number(getServicePrice(appointment.service) || 0);
+
+    if (totalAmount <= 0) {
+      emitSecurityEventSoon({
+        type: "mercadopago_preference_invalid_amount",
+        severity: "medium",
+        req,
+        details: {
+          businessId,
+          appointmentId,
+          service: appointment.service,
+        },
+      });
+
+      return res.status(400).json({
+        message: "La reserva no tiene un monto valido para pago online",
+      });
+    }
+
+    const paymentStage = gatewayConfig.mode === "deposit" ? "deposit" : "full";
+    const amount =
+      paymentStage === "deposit"
+        ? Math.round(totalAmount * 0.5)
+        : Math.round(totalAmount);
+
+    const apiBaseUrl = getPublicApiBaseUrl(req);
+    const usesHttpsPublicUrl = apiBaseUrl.startsWith("https://");
+    const notificationUrl = usesHttpsPublicUrl
+      ? `${apiBaseUrl}/payments/mercadopago/webhook`
+      : undefined;
+    const safeReturnUrl = getSafeReturnUrl(returnUrl);
+    const returnParams = new URLSearchParams({
+      appointmentId: String(appointment.id),
+      businessId,
+      returnUrl: safeReturnUrl,
+    });
+
+    const preference = await requestMercadoPago({
+      accessToken: gatewayConfig.accessToken,
+      path: "/checkout/preferences",
+      method: "POST",
+      body: {
+        items: [
+          {
+            title: appointment.service,
+            quantity: 1,
+            currency_id: "CLP",
+            unit_price: amount,
+          },
+        ],
+        payer: {
+          name: appointment.name,
+        },
+        external_reference: `${businessId}:${appointment.id}`,
+        metadata: {
+          business_id: businessId,
+          appointment_id: appointment.id,
+          payment_stage: paymentStage,
+        },
+        ...(notificationUrl ? { notification_url: notificationUrl } : {}),
+        ...(usesHttpsPublicUrl
+          ? {
+              back_urls: {
+                success: `${apiBaseUrl}/payments/mercadopago/return/success?${returnParams.toString()}`,
+                failure: `${apiBaseUrl}/payments/mercadopago/return/failure?${returnParams.toString()}`,
+                pending: `${apiBaseUrl}/payments/mercadopago/return/pending?${returnParams.toString()}`,
+              },
+              auto_return: "approved",
+            }
+          : {}),
+      },
+    });
+    const checkoutUrl = String(gatewayConfig.accessToken || "").startsWith("TEST-")
+      ? preference.sandbox_init_point || preference.init_point
+      : preference.init_point || preference.sandbox_init_point;
+
+    await pool.query(
+      `UPDATE appointments
+       SET
+         total_amount = $1,
+         deposit_required = $2,
+         required_deposit_amount = $3,
+         payment_status = $4
+       WHERE id = $5 AND business_id = $6`,
+      [
+        totalAmount,
+        paymentStage === "deposit",
+        paymentStage === "deposit" ? amount : 0,
+        paymentStage === "deposit" ? "deposit_pending" : "unpaid",
+        appointment.id,
+        businessId,
+      ]
+    );
+
+    await pool.query(
+      `INSERT INTO payment_gateway_transactions (
+        appointment_id,
+        business_id,
+        provider,
+        provider_preference_id,
+        provider_status,
+        amount,
+        payment_stage,
+        checkout_url,
+        raw_payload
+      )
+      VALUES ($1, $2, 'mercadopago', $3, $4, $5, $6, $7, $8)`,
+      [
+        appointment.id,
+        businessId,
+        preference.id || null,
+        "created",
+        amount,
+        paymentStage,
+        checkoutUrl || null,
+        preference,
+      ]
+    );
+
+    return res.json({
+      provider: "mercadopago",
+      preferenceId: preference.id,
+      checkoutUrl,
+      initPoint: preference.init_point,
+      sandboxInitPoint: preference.sandbox_init_point,
+      amount,
+      paymentStage,
+    });
+  } catch (error) {
+    console.error("Error creando preferencia Mercado Pago:", error);
+    emitSecurityEventSoon({
+      type: "mercadopago_preference_creation_failed",
+      severity: "high",
+      req,
+      details: {
+        businessId,
+        appointmentId,
+        error: error.message,
+      },
+    });
+
+    return res.status(500).json({
+      message: "Error al iniciar pago con Mercado Pago",
+      detail:
+        process.env.NODE_ENV === "production" ? undefined : error.message,
+    });
+  }
+});
+
+app.get("/payments/mercadopago/return/:result", async (req, res) => {
+  const { result } = req.params;
+  const { businessId, payment_id: paymentId, collection_id: collectionId } =
+    req.query;
+  const safeReturnUrl = getSafeReturnUrl(req.query.returnUrl);
+  const resolvedPaymentId = paymentId || collectionId;
+
+  if (resolvedPaymentId) {
+    await reconcileMercadoPagoPayment({
+      paymentId: resolvedPaymentId,
+      fallbackBusinessId: businessId,
+    });
+  }
+
+  const redirectUrl = new URL(safeReturnUrl);
+  redirectUrl.searchParams.set("payment_result", result);
+
+  return res.redirect(302, redirectUrl.toString());
+});
+
+app.post("/payments/mercadopago/webhook", async (req, res) => {
+  const paymentId = getMercadoPagoWebhookPaymentId(req);
+
+  if (!paymentId) {
+    emitSecurityEventSoon({
+      type: "mercadopago_webhook_without_payment_id",
+      severity: "low",
+      req,
+    });
+
+    return res.status(200).json({ ok: true });
+  }
+
+  const gatewayConfigs = Object.keys(mercadoPagoGatewayConfigByBusinessId).map(
+    (businessId) => ({
+      businessId,
+      ...getMercadoPagoGatewayConfig(businessId),
+    })
+  );
+  const configsWithWebhookSecret = gatewayConfigs.filter(
+    (config) => Boolean(config.webhookSecret)
+  );
+  const requiresSignature = shouldRequireMercadoPagoWebhookSignature();
+
+  if (configsWithWebhookSecret.length > 0 || requiresSignature) {
+    if (configsWithWebhookSecret.length === 0) {
+      console.error(
+        "Mercado Pago webhook recibido, pero falta configurar webhook secret"
+      );
+      emitSecurityEventSoon({
+        type: "mercadopago_webhook_secret_missing",
+        severity: "critical",
+        req,
+        details: { paymentId },
+        alertKey: "mp_webhook_secret_missing",
+      });
+
+      return res.status(503).json({ ok: false });
+    }
+
+    const verifiedConfig = configsWithWebhookSecret.find((config) =>
+      isValidMercadoPagoWebhookSignature({
+        req,
+        dataId: paymentId,
+        secret: config.webhookSecret,
+      })
+    );
+
+    if (!verifiedConfig) {
+      console.warn("Mercado Pago webhook rechazado por firma invalida");
+      emitSecurityEventSoon({
+        type: "mercadopago_webhook_invalid_signature",
+        severity: "critical",
+        req,
+        details: { paymentId },
+      });
+
+      return res.status(401).json({ ok: false });
+    }
+
+    await reconcileMercadoPagoPayment({
+      paymentId,
+      fallbackBusinessId: verifiedConfig.businessId,
+    });
+
+    return res.status(200).json({ ok: true });
+  }
+
+  await reconcileMercadoPagoPayment({ paymentId });
+
+  return res.status(200).json({ ok: true });
+});
+
 app.post("/appointments/:id/payments", requireAuth, async (req, res) => {
   const { id } = req.params;
   const {
@@ -1872,6 +2776,8 @@ app.delete("/appointments/:id", requireAuth, async (req, res) => {
 });
 
 const PORT = process.env.PORT || 10000;
+
+validateStartupSecurityConfig();
 
 createTables().then(() => {
   app.listen(PORT, () => {

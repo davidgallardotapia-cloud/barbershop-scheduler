@@ -33,6 +33,7 @@ import {
   addAppointmentPayment,
   updateAppointmentPayment,
   deleteAppointmentPayment,
+  createMercadoPagoPreference,
   syncGoogleSheets as syncGoogleSheetsService,
 } from "./services/appointmentsService";
 import { businessConfigBySlug } from "./config/businessConfigBySlug";
@@ -138,6 +139,10 @@ const [barber, setBarber] = useState("");
   const depositFeatureEnabled = mergedBusiness?.depositFeatureEnabled || false;
   const depositOptional = mergedBusiness?.depositOptional || false;
   const defaultDepositRate = mergedBusiness?.defaultDepositRate || 0.5;
+  const paymentGateway = mergedBusiness?.paymentGateway || null;
+  const onlinePaymentsEnabled =
+    Boolean(mergedBusiness?.onlinePaymentsEnabled) &&
+    paymentGateway?.provider === "mercadopago";
   const paymentMethods = mergedBusiness?.paymentMethods || [
     "transferencia",
     "efectivo",
@@ -311,6 +316,7 @@ const [barber, setBarber] = useState("");
     if (normalized === "transferencia") return "Transferencia";
     if (normalized === "efectivo") return "Efectivo";
     if (normalized === "debito") return "Débito";
+    if (normalized === "mercadopago") return "Mercado Pago";
 
     return method || "Método";
   };
@@ -384,6 +390,31 @@ const [barber, setBarber] = useState("");
       }
     }
   }, [slug, mergedBusiness]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const paymentResult = params.get("payment_result");
+
+    if (!paymentResult) return;
+
+    if (paymentResult === "success") {
+      setMessage("Pago aprobado. La reserva quedo registrada correctamente.");
+    } else if (paymentResult === "pending") {
+      setMessage("El pago quedo pendiente. Revisaremos la confirmacion.");
+    } else {
+      setMessage("El pago no fue completado. Puedes intentar nuevamente.");
+    }
+
+    params.delete("payment_result");
+    const nextSearch = params.toString();
+    const nextUrl = `${window.location.pathname}${
+      nextSearch ? `?${nextSearch}` : ""
+    }`;
+
+    window.history.replaceState({}, "", nextUrl);
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -983,6 +1014,31 @@ const generatedWhatsappUrl = barberPhone
 
       setSelectedWeekStart(getMonday(new Date()));
       await getAppointments();
+
+      if (onlinePaymentsEnabled) {
+        const response = await createMercadoPagoPreference({
+          appointmentId: createdAppointment.data.data.id,
+          businessId,
+          returnUrl:
+            typeof window !== "undefined"
+              ? `${window.location.origin}${window.location.pathname}`
+              : undefined,
+        });
+
+        const checkoutUrl =
+          response.data?.checkoutUrl ||
+          response.data?.initPoint ||
+          response.data?.sandboxInitPoint;
+
+        if (!checkoutUrl) {
+          setMessage("Reserva creada, pero no se pudo iniciar el pago online.");
+          return;
+        }
+
+        setMessage("Reserva creada. Te estamos llevando a Mercado Pago...");
+        window.location.href = checkoutUrl;
+        return;
+      }
 
       if (generatedWhatsappUrl) {
         const newWindow = window.open(generatedWhatsappUrl, "_blank");

@@ -69,3 +69,7 @@ export const deleteAppointmentPayment = (appointmentId, paymentId, businessId) =
     params: { businessId },
   });
 };
+
+export const createMercadoPagoPreference = (data) => {
+  return api.post("/payments/mercadopago/preferences", data);
+};
