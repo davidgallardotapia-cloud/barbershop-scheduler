@@ -76,6 +76,7 @@ const [barber, setBarber] = useState("");
   const [paymentAppointment, setPaymentAppointment] = useState(null);
   const [whatsappUrl, setWhatsappUrl] = useState("");
   const [whatsappButtonText, setWhatsappButtonText] = useState("Abrir WhatsApp");
+  const [reserveWithoutPayment, setReserveWithoutPayment] = useState(false);
 
   const [selectedWeekStart, setSelectedWeekStart] = useState(
     getMonday(new Date())
@@ -144,6 +145,10 @@ const [barber, setBarber] = useState("");
   const onlinePaymentsEnabled =
     Boolean(mergedBusiness?.onlinePaymentsEnabled) &&
     paymentGateway?.provider === "mercadopago";
+  const allowReservationWithoutPayment = mergedBusiness?.id === "agendasmart-demo";
+  const shouldUseOnlinePayment =
+    onlinePaymentsEnabled &&
+    !(allowReservationWithoutPayment && reserveWithoutPayment);
   const paymentMethods = mergedBusiness?.paymentMethods || [
     "transferencia",
     "efectivo",
@@ -868,6 +873,7 @@ setNeedsOpponent(false);
 setOpponentName("");
 setOpponentPhone("");
 setIsMonthlyReservation(false);
+setReserveWithoutPayment(false);
 setWhatsappButtonText("Abrir WhatsApp");
 
 setEditingId(null);
@@ -1084,7 +1090,7 @@ const generatedWhatsappUrl = barberPhone
       setSelectedWeekStart(getMonday(new Date()));
       await getAppointments();
 
-      if (onlinePaymentsEnabled) {
+      if (shouldUseOnlinePayment) {
         const response = await createMercadoPagoPreference({
           appointmentId: createdAppointment.data.data.id,
           businessId,
@@ -1723,7 +1729,17 @@ setEditingId(appointment.id);
   setWhatsappUrl("");
 
   setTimeout(() => {
-  const bookingSection = document.getElementById("booking-form-section");
+  const headerSelectionMode =
+    mergedBusiness?.headerSelectionMode || "professional";
+  const scrollTargetId =
+    mergedBusiness?.id === "giocata" &&
+    mergedBusiness?.headerSelectionMode === "service"
+      ? "client-booking-day-step"
+      : mergedBusiness?.resourceFirstBookingFlow &&
+        headerSelectionMode !== "service"
+      ? "client-booking-service-step"
+      : "booking-form-section";
+  const bookingSection = document.getElementById(scrollTargetId);
 
   if (bookingSection) {
     bookingSection.scrollIntoView({
@@ -2522,6 +2538,9 @@ paymentHistoryItem: {
                 message={message}
                 whatsappUrl={whatsappUrl}
                 whatsappButtonText={whatsappButtonText}
+                allowReservationWithoutPayment={allowReservationWithoutPayment}
+                reserveWithoutPayment={reserveWithoutPayment}
+                setReserveWithoutPayment={setReserveWithoutPayment}
               />
               {false && (
                 <>

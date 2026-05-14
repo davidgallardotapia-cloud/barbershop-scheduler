@@ -32,8 +32,14 @@ function ClientBookingWizard({
   message,
   whatsappUrl,
   whatsappButtonText = "Abrir WhatsApp",
+  allowReservationWithoutPayment = false,
+  reserveWithoutPayment = false,
+  setReserveWithoutPayment = () => {},
 }) {
   const showResourceStep = !business?.hideResourceSelector;
+  const resourceFirstFlow = Boolean(
+    showResourceStep && business?.resourceFirstBookingFlow
+  );
   const isMobile = window.innerWidth < 768;
 
   const wizardRef = useRef(null);
@@ -41,6 +47,7 @@ function ClientBookingWizard({
   const resourceStepRef = useRef(null);
   const dayStepRef = useRef(null);
   const timeStepRef = useRef(null);
+  const reservationWithoutPaymentStepRef = useRef(null);
   const dataStepRef = useRef(null);
 
   const [showProgress, setShowProgress] = useState(false);
@@ -63,7 +70,7 @@ function ClientBookingWizard({
     }).some((value) => allowedDateValues.has(value));
   };
 
-  const steps = showResourceStep
+  const legacySteps = showResourceStep
     ? [
         { number: 1, label: "Servicio" },
         { number: 2, label: "Profesional" },
@@ -78,30 +85,93 @@ function ClientBookingWizard({
         { number: 4, label: "Datos" },
       ];
 
-  let activeStep = 1;
+  const serviceStepNumber = resourceFirstFlow ? 2 : 1;
+  const resourceStepNumber = resourceFirstFlow ? 1 : 2;
+  const resourceStepLabel = business?.resourceLabelSingle || "Profesional";
+  const resourceStepTitle =
+    business?.resourceStepTitle || "Elige un profesional";
+  const dayStepNumber = showResourceStep ? 3 : 2;
+  const timeStepNumber = showResourceStep ? 4 : 3;
+  const reservationWithoutPaymentStepNumber = allowReservationWithoutPayment
+    ? timeStepNumber + 1
+    : null;
+  const dataStepNumber = allowReservationWithoutPayment
+    ? timeStepNumber + 2
+    : timeStepNumber + 1;
+  const steps = [
+    ...(resourceFirstFlow
+      ? [
+          { number: resourceStepNumber, label: resourceStepLabel },
+          { number: serviceStepNumber, label: "Servicio" },
+        ]
+      : [
+          { number: serviceStepNumber, label: "Servicio" },
+          ...(showResourceStep
+            ? [{ number: resourceStepNumber, label: resourceStepLabel }]
+            : []),
+        ]),
+    { number: dayStepNumber, label: "Dia" },
+    { number: timeStepNumber, label: "Hora" },
+    ...(allowReservationWithoutPayment
+      ? [
+          {
+            number: reservationWithoutPaymentStepNumber,
+            label: "Sin pago",
+          },
+        ]
+      : []),
+    { number: dataStepNumber, label: "Datos" },
+  ];
 
-  if (service) activeStep = 2;
+  const hasResourceSelection = showResourceStep ? Boolean(resolvedBarber) : true;
+  let activeStep = resourceFirstFlow ? resourceStepNumber : serviceStepNumber;
 
-  if ((showResourceStep ? resolvedBarber : true) && service) {
-    activeStep = showResourceStep ? 3 : 2;
+  if (resourceFirstFlow) {
+    if (hasResourceSelection) activeStep = serviceStepNumber;
+
+    if (hasResourceSelection && service) {
+      activeStep = dayStepNumber;
+    }
+  } else {
+    if (service) activeStep = showResourceStep ? resourceStepNumber : dayStepNumber;
+
+    if (hasResourceSelection && service) {
+      activeStep = dayStepNumber;
+    }
   }
 
-  if (date && service && (showResourceStep ? resolvedBarber : true)) {
-    activeStep = showResourceStep ? 4 : 3;
+  if (date && service && hasResourceSelection) {
+    activeStep = timeStepNumber;
   }
 
-  if (time && date && service && (showResourceStep ? resolvedBarber : true)) {
-    activeStep = showResourceStep ? 5 : 4;
+  if (time && date && service && hasResourceSelection) {
+    activeStep = allowReservationWithoutPayment
+      ? reservationWithoutPaymentStepNumber
+      : dataStepNumber;
+  }
+
+  if (
+    time &&
+    date &&
+    service &&
+    (name.trim() || phone.trim()) &&
+    hasResourceSelection
+  ) {
+    activeStep = dataStepNumber;
   }
 
   const activeStepLabel =
     steps.find((step) => step.number === activeStep)?.label || "Reserva";
 
   const progressPercent = (activeStep / steps.length) * 100;
-  const submitLabel =
+  const baseSubmitLabel =
     business?.onlinePaymentsEnabled && business?.paymentGateway?.buttonLabel
       ? business.paymentGateway.buttonLabel
       : business?.submitButtonLabel || "Confirmar reserva";
+  const submitLabel =
+    allowReservationWithoutPayment && reserveWithoutPayment
+      ? "Crear reserva demo sin pago"
+      : baseSubmitLabel;
 
   const scrollToStep = (ref) => {
     if (!ref?.current) return;
@@ -349,9 +419,13 @@ function ClientBookingWizard({
         </div>
 
         <div style={{ display: "grid", gap: "24px" }}>
-          <section ref={serviceStepRef}>
+          <section
+            id="client-booking-service-step"
+            ref={serviceStepRef}
+            style={{ order: resourceFirstFlow ? 2 : 1 }}
+          >
             <h3 style={{ marginTop: 0, marginBottom: "12px" }}>
-              1. Elige un servicio
+              {serviceStepNumber}. Elige un servicio
             </h3>
 
             <div
@@ -375,7 +449,7 @@ function ClientBookingWizard({
                         setService("");
                         setDate("");
                         setTime("");
-                        if (showResourceStep) {
+                        if (showResourceStep && !resourceFirstFlow) {
                           setBarber("");
                         }
                         setTimeout(() => {
@@ -389,9 +463,15 @@ function ClientBookingWizard({
                       if (showResourceStep) {
                         setDate("");
                         setTime("");
-                        setBarber(BARBERS.length === 1 ? BARBERS[0] : "");
+                        if (!resourceFirstFlow) {
+                          setBarber(BARBERS.length === 1 ? BARBERS[0] : "");
+                        }
                         setTimeout(() => {
-                          scrollToStep(resourceStepRef);
+                          scrollToStep(
+                            resourceFirstFlow && resolvedBarber
+                              ? dayStepRef
+                              : resourceStepRef
+                          );
                         }, 120);
                       } else {
                         // Giocata: mantener fecha, limpiar solo hora
@@ -432,9 +512,13 @@ function ClientBookingWizard({
           </section>
 
           {showResourceStep && (
-            <section ref={resourceStepRef}>
+            <section
+              id="client-booking-resource-step"
+              ref={resourceStepRef}
+              style={{ order: resourceFirstFlow ? 1 : 2 }}
+            >
               <h3 style={{ marginTop: 0, marginBottom: "12px" }}>
-                2. Elige un profesional
+                {resourceStepNumber}. {resourceStepTitle}
               </h3>
 
               {BARBERS.length === 1 ? (
@@ -518,7 +602,9 @@ function ClientBookingWizard({
                             setDate("");
                             setTime("");
                             setTimeout(() => {
-                              scrollToStep(serviceStepRef);
+                              scrollToStep(
+                                resourceFirstFlow ? resourceStepRef : serviceStepRef
+                              );
                             }, 120);
                             return;
                           }
@@ -527,7 +613,11 @@ function ClientBookingWizard({
                           setDate("");
                           setTime("");
                           setTimeout(() => {
-                            scrollToStep(dayStepRef);
+                            scrollToStep(
+                              resourceFirstFlow && !service
+                                ? serviceStepRef
+                                : dayStepRef
+                            );
                           }, 120);
                         }}
                         style={{
@@ -552,7 +642,11 @@ function ClientBookingWizard({
             </section>
           )}
 
-          <section ref={dayStepRef}>
+          <section
+            id="client-booking-day-step"
+            ref={dayStepRef}
+            style={{ order: dayStepNumber }}
+          >
             <h3 style={{ marginTop: 0, marginBottom: "12px" }}>
               {showResourceStep ? "3. Elige un día" : "2. Elige un día"}
             </h3>
@@ -721,7 +815,7 @@ function ClientBookingWizard({
             </div>
           </section>
 
-          <section ref={timeStepRef}>
+          <section ref={timeStepRef} style={{ order: timeStepNumber }}>
             <h3 style={{ marginTop: 0, marginBottom: "12px" }}>
               {showResourceStep ? "4. Elige una hora" : "3. Elige una hora"}
             </h3>
@@ -844,9 +938,76 @@ const isLookingForOpponent = slot.status === "looking_opponent";
             )}
           </section>
 
-          <section ref={dataStepRef}>
+          {allowReservationWithoutPayment && (
+            <section
+              ref={reservationWithoutPaymentStepRef}
+              style={{ order: reservationWithoutPaymentStepNumber }}
+            >
+              <h3 style={{ marginTop: 0, marginBottom: "12px" }}>
+                {reservationWithoutPaymentStepNumber}. Reserva sin pago
+              </h3>
+
+              <label
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "auto 1fr",
+                  gap: "14px",
+                  alignItems: "flex-start",
+                  border: reserveWithoutPayment
+                    ? "2px solid #16a34a"
+                    : "1px solid #d1d5db",
+                  borderRadius: "16px",
+                  padding: "16px",
+                  backgroundColor: reserveWithoutPayment ? "#dcfce7" : "#ffffff",
+                  cursor: "pointer",
+                  marginBottom: "18px",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={reserveWithoutPayment}
+                  onChange={(event) =>
+                    setReserveWithoutPayment(event.target.checked)
+                  }
+                  style={{
+                    width: "22px",
+                    height: "22px",
+                    marginTop: "2px",
+                    accentColor: "#16a34a",
+                  }}
+                />
+
+                <div>
+                  <div
+                    style={{
+                      fontWeight: "900",
+                      color: "#111827",
+                      fontSize: "18px",
+                      marginBottom: "6px",
+                    }}
+                  >
+                    Reserva sin pago
+                  </div>
+
+                  <div
+                    style={{
+                      color: "#374151",
+                      lineHeight: 1.45,
+                      fontSize: "14px",
+                    }}
+                  >
+                    Activa esta opcion para probar la demo sin pasar por Mercado
+                    Pago. La reserva se creara normalmente y podras enviar la
+                    confirmacion por WhatsApp.
+                  </div>
+                </div>
+              </label>
+            </section>
+          )}
+
+          <section ref={dataStepRef} style={{ order: dataStepNumber }}>
             <h3 style={{ marginTop: 0, marginBottom: "12px" }}>
-              {showResourceStep ? "5. Completa tus datos" : "4. Completa tus datos"}
+              {dataStepNumber}. Completa tus datos
             </h3>
 
             <div

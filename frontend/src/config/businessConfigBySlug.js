@@ -435,6 +435,8 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     resourceLabelSingle: "Profesional / Recurso",
     resourceLabelPlural: "Profesionales / Recursos",
     serviceLabel: "servicio",
+    resourceFirstBookingFlow: true,
+    resourceStepTitle: "Elige un profesional / recurso",
 
     clientNamePlaceholder: "Nombre cliente",
     clientPhonePlaceholder: "Celular cliente (ej: 912345678)",
