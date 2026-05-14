@@ -31,6 +31,7 @@ function ClientBookingWizard({
   isClientFormComplete,
   message,
   whatsappUrl,
+  whatsappButtonText = "Abrir WhatsApp",
 }) {
   const showResourceStep = !business?.hideResourceSelector;
   const isMobile = window.innerWidth < 768;
@@ -1037,7 +1038,7 @@ const isLookingForOpponent = slot.status === "looking_opponent";
                 fontWeight: "bold",
               }}
             >
-              Abrir WhatsApp
+              {whatsappButtonText}
             </a>
           )}
         </div>

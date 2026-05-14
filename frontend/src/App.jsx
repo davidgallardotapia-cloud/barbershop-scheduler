@@ -75,6 +75,7 @@ const [barber, setBarber] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [paymentAppointment, setPaymentAppointment] = useState(null);
   const [whatsappUrl, setWhatsappUrl] = useState("");
+  const [whatsappButtonText, setWhatsappButtonText] = useState("Abrir WhatsApp");
 
   const [selectedWeekStart, setSelectedWeekStart] = useState(
     getMonday(new Date())
@@ -399,15 +400,50 @@ const [barber, setBarber] = useState("");
 
     if (!paymentResult) return;
 
+    const returnedAppointmentId = params.get("payment_appointment_id");
+    const pendingWhatsappUrl = window.sessionStorage.getItem(
+      "pendingPaymentWhatsappUrl"
+    );
+    const pendingAppointmentId = window.sessionStorage.getItem(
+      "pendingPaymentAppointmentId"
+    );
+    const shouldShowWhatsappButton =
+      pendingWhatsappUrl &&
+      (!returnedAppointmentId ||
+        !pendingAppointmentId ||
+        returnedAppointmentId === pendingAppointmentId);
+
     if (paymentResult === "success") {
-      setMessage("Pago aprobado. La reserva quedo registrada correctamente.");
+      setMessage(
+        shouldShowWhatsappButton
+          ? "Pago aprobado. Reserva registrada. Ahora puedes enviar la confirmacion por WhatsApp."
+          : "Pago aprobado. La reserva quedo registrada correctamente."
+      );
+
+      if (shouldShowWhatsappButton) {
+        setWhatsappUrl(pendingWhatsappUrl);
+        setWhatsappButtonText("Enviar confirmacion por WhatsApp");
+      }
     } else if (paymentResult === "pending") {
-      setMessage("El pago quedo pendiente. Revisaremos la confirmacion.");
+      setMessage(
+        shouldShowWhatsappButton
+          ? "El pago quedo pendiente. Puedes enviar la confirmacion por WhatsApp."
+          : "El pago quedo pendiente. Revisaremos la confirmacion."
+      );
+
+      if (shouldShowWhatsappButton) {
+        setWhatsappUrl(pendingWhatsappUrl);
+        setWhatsappButtonText("Enviar confirmacion por WhatsApp");
+      }
     } else {
       setMessage("El pago no fue completado. Puedes intentar nuevamente.");
     }
 
+    window.sessionStorage.removeItem("pendingPaymentWhatsappUrl");
+    window.sessionStorage.removeItem("pendingPaymentAppointmentId");
+
     params.delete("payment_result");
+    params.delete("payment_appointment_id");
     const nextSearch = params.toString();
     const nextUrl = `${window.location.pathname}${
       nextSearch ? `?${nextSearch}` : ""
@@ -799,6 +835,7 @@ setNeedsOpponent(false);
 setOpponentName("");
 setOpponentPhone("");
 setIsMonthlyReservation(false);
+setWhatsappButtonText("Abrir WhatsApp");
 
 setEditingId(null);
     setSelectedAppointmentPayments([]);
@@ -930,6 +967,7 @@ const generatedOpponentWhatsappUrl = barberPhone
 
 if (generatedOpponentWhatsappUrl) {
   setWhatsappUrl(generatedOpponentWhatsappUrl);
+  setWhatsappButtonText("Abrir WhatsApp");
   window.open(generatedOpponentWhatsappUrl, "_blank");
 }
 
@@ -1035,6 +1073,22 @@ const generatedWhatsappUrl = barberPhone
           return;
         }
 
+        if (typeof window !== "undefined") {
+          window.sessionStorage.removeItem("pendingPaymentWhatsappUrl");
+          window.sessionStorage.removeItem("pendingPaymentAppointmentId");
+        }
+
+        if (generatedWhatsappUrl && typeof window !== "undefined") {
+          window.sessionStorage.setItem(
+            "pendingPaymentWhatsappUrl",
+            generatedWhatsappUrl
+          );
+          window.sessionStorage.setItem(
+            "pendingPaymentAppointmentId",
+            String(createdAppointment.data.data.id)
+          );
+        }
+
         setMessage("Reserva creada. Te estamos llevando a Mercado Pago...");
         window.location.href = checkoutUrl;
         return;
@@ -1049,6 +1103,7 @@ const generatedWhatsappUrl = barberPhone
           typeof newWindow.closed === "undefined"
         ) {
           setWhatsappUrl(generatedWhatsappUrl);
+          setWhatsappButtonText("Abrir WhatsApp");
 
           setMessage(`✅ ${
             mergedBusiness?.submitButtonLabel || "Reserva"
@@ -2439,6 +2494,7 @@ paymentHistoryItem: {
                 isClientFormComplete={isClientFormComplete}
                 message={message}
                 whatsappUrl={whatsappUrl}
+                whatsappButtonText={whatsappButtonText}
               />
               {false && (
                 <>

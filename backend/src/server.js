@@ -2345,8 +2345,12 @@ app.post("/payments/mercadopago/preferences", publicWriteLimiter, async (req, re
 
 app.get("/payments/mercadopago/return/:result", async (req, res) => {
   const { result } = req.params;
-  const { businessId, payment_id: paymentId, collection_id: collectionId } =
-    req.query;
+  const {
+    appointmentId,
+    businessId,
+    payment_id: paymentId,
+    collection_id: collectionId,
+  } = req.query;
   const safeReturnUrl = getSafeReturnUrl(req.query.returnUrl);
   const resolvedPaymentId = paymentId || collectionId;
 
@@ -2359,6 +2363,10 @@ app.get("/payments/mercadopago/return/:result", async (req, res) => {
 
   const redirectUrl = new URL(safeReturnUrl);
   redirectUrl.searchParams.set("payment_result", result);
+
+  if (appointmentId) {
+    redirectUrl.searchParams.set("payment_appointment_id", appointmentId);
+  }
 
   return res.redirect(302, redirectUrl.toString());
 });
