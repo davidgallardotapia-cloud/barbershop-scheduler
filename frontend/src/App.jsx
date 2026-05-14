@@ -392,6 +392,31 @@ const [barber, setBarber] = useState("");
     }
   }, [slug, mergedBusiness]);
 
+  const openWhatsappOrShowButton = (
+    url,
+    buttonText = "Abrir WhatsApp"
+  ) => {
+    if (!url || typeof window === "undefined") {
+      return false;
+    }
+
+    const whatsappWindow = window.open(url, "_blank");
+    const wasBlocked =
+      !whatsappWindow ||
+      whatsappWindow.closed ||
+      typeof whatsappWindow.closed === "undefined";
+
+    if (wasBlocked) {
+      setWhatsappUrl(url);
+      setWhatsappButtonText(buttonText);
+      return false;
+    }
+
+    setWhatsappUrl("");
+    setWhatsappButtonText("Abrir WhatsApp");
+    return true;
+  };
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -414,26 +439,34 @@ const [barber, setBarber] = useState("");
         returnedAppointmentId === pendingAppointmentId);
 
     if (paymentResult === "success") {
-      setMessage(
-        shouldShowWhatsappButton
-          ? "Pago aprobado. Reserva registrada. Ahora puedes enviar la confirmacion por WhatsApp."
-          : "Pago aprobado. La reserva quedo registrada correctamente."
-      );
-
       if (shouldShowWhatsappButton) {
-        setWhatsappUrl(pendingWhatsappUrl);
-        setWhatsappButtonText("Enviar confirmacion por WhatsApp");
+        const whatsappOpened = openWhatsappOrShowButton(
+          pendingWhatsappUrl,
+          "Enviar confirmacion por WhatsApp"
+        );
+
+        setMessage(
+          whatsappOpened
+            ? "Pago aprobado. Abrimos WhatsApp para enviar la confirmacion."
+            : "Pago aprobado. Reserva registrada. Si WhatsApp no se abrio, usa el boton para enviar la confirmacion."
+        );
+      } else {
+        setMessage("Pago aprobado. La reserva quedo registrada correctamente.");
       }
     } else if (paymentResult === "pending") {
-      setMessage(
-        shouldShowWhatsappButton
-          ? "El pago quedo pendiente. Puedes enviar la confirmacion por WhatsApp."
-          : "El pago quedo pendiente. Revisaremos la confirmacion."
-      );
-
       if (shouldShowWhatsappButton) {
-        setWhatsappUrl(pendingWhatsappUrl);
-        setWhatsappButtonText("Enviar confirmacion por WhatsApp");
+        const whatsappOpened = openWhatsappOrShowButton(
+          pendingWhatsappUrl,
+          "Enviar confirmacion por WhatsApp"
+        );
+
+        setMessage(
+          whatsappOpened
+            ? "El pago quedo pendiente. Abrimos WhatsApp para enviar la confirmacion."
+            : "El pago quedo pendiente. Si WhatsApp no se abrio, usa el boton para enviar la confirmacion."
+        );
+      } else {
+        setMessage("El pago quedo pendiente. Revisaremos la confirmacion.");
       }
     } else {
       setMessage("El pago no fue completado. Puedes intentar nuevamente.");
@@ -966,9 +999,7 @@ const generatedOpponentWhatsappUrl = barberPhone
   : "";
 
 if (generatedOpponentWhatsappUrl) {
-  setWhatsappUrl(generatedOpponentWhatsappUrl);
-  setWhatsappButtonText("Abrir WhatsApp");
-  window.open(generatedOpponentWhatsappUrl, "_blank");
+  openWhatsappOrShowButton(generatedOpponentWhatsappUrl, "Abrir WhatsApp");
 }
 
     await syncToGoogleSheets({
@@ -1095,16 +1126,12 @@ const generatedWhatsappUrl = barberPhone
       }
 
       if (generatedWhatsappUrl) {
-        const newWindow = window.open(generatedWhatsappUrl, "_blank");
+        const whatsappOpened = openWhatsappOrShowButton(
+          generatedWhatsappUrl,
+          "Abrir WhatsApp"
+        );
 
-        if (
-          !newWindow ||
-          newWindow.closed ||
-          typeof newWindow.closed === "undefined"
-        ) {
-          setWhatsappUrl(generatedWhatsappUrl);
-          setWhatsappButtonText("Abrir WhatsApp");
-
+        if (!whatsappOpened) {
           setMessage(`✅ ${
             mergedBusiness?.submitButtonLabel || "Reserva"
           } registrada correctamente

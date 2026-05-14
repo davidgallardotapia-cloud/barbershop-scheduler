@@ -476,9 +476,9 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     barbers: ["Recurso 1", "Recurso 2", "Recurso 3"],
 
     phones: {
-      "Recurso 1": "56900000000",
-      "Recurso 2": "56900000000",
-      "Recurso 3": "56900000000",
+      "Recurso 1": "56988287547",
+      "Recurso 2": "56988287547",
+      "Recurso 3": "56988287547",
     },
 
     services: [
