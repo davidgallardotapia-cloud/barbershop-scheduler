@@ -33,6 +33,16 @@ const securityAlertCooldownMs = Number(
   process.env.SECURITY_ALERT_COOLDOWN_MS || 5 * 60 * 1000
 );
 const lastSecurityAlertAtByKey = new Map();
+const securitySeverityRank = {
+  low: 1,
+  medium: 2,
+  high: 3,
+  critical: 4,
+};
+
+const getSecuritySeverityRank = (severity) => {
+  return securitySeverityRank[String(severity || "").toLowerCase()] || 2;
+};
 
 const truncateSecurityValue = (value, maxLength = 300) => {
   const text = String(value || "");
@@ -73,6 +83,73 @@ const getRequestSecurityMeta = (req) => {
   });
 };
 
+const shouldSendSecurityEmail = (severity) => {
+  if (process.env.SECURITY_ALERT_EMAIL_ENABLED !== "true") {
+    return false;
+  }
+
+  const minSeverity = process.env.SECURITY_ALERT_EMAIL_MIN_SEVERITY || "high";
+
+  return (
+    getSecuritySeverityRank(severity) >= getSecuritySeverityRank(minSeverity)
+  );
+};
+
+const formatSecurityEmailText = (event) => {
+  return [
+    `AgendaSmart security alert`,
+    ``,
+    `Type: ${event.type}`,
+    `Severity: ${event.severity}`,
+    `Environment: ${event.environment}`,
+    `Timestamp: ${event.timestamp}`,
+    ``,
+    `Details:`,
+    JSON.stringify(event.details, null, 2),
+  ].join("\n");
+};
+
+const sendSecurityAlertEmail = async (event) => {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const from = process.env.SECURITY_ALERT_EMAIL_FROM;
+  const to = (process.env.SECURITY_ALERT_EMAIL_TO || "")
+    .split(",")
+    .map((email) => email.trim())
+    .filter(Boolean);
+
+  if (!resendApiKey || !from || to.length === 0) {
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to,
+        subject: `[AgendaSmart] SECURITY_EVENT ${event.severity}: ${event.type}`,
+        text: formatSecurityEmailText(event),
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error(
+        `Error enviando email de seguridad (${response.status}): ${text.slice(
+          0,
+          300
+        )}`
+      );
+    }
+  } catch (error) {
+    console.error("Error enviando email de seguridad:", error.message);
+  }
+};
+
 const emitSecurityEvent = async ({
   type,
   severity = "medium",
@@ -94,13 +171,13 @@ const emitSecurityEvent = async ({
 
   console.warn("SECURITY_EVENT", JSON.stringify(event));
 
-  if (process.env.SECURITY_ALERTS_ENABLED !== "true") {
-    return;
-  }
+  const webhookUrl =
+    process.env.SECURITY_ALERTS_ENABLED === "true"
+      ? process.env.SECURITY_ALERT_WEBHOOK_URL
+      : "";
+  const sendEmail = shouldSendSecurityEmail(severity);
 
-  const webhookUrl = process.env.SECURITY_ALERT_WEBHOOK_URL;
-
-  if (!webhookUrl) {
+  if (!webhookUrl && !sendEmail) {
     return;
   }
 
@@ -114,18 +191,24 @@ const emitSecurityEvent = async ({
 
   lastSecurityAlertAtByKey.set(dedupeKey, now);
 
-  try {
-    await fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        content: `[AgendaSmart] SECURITY_EVENT ${severity}: ${type}`,
-        text: `[AgendaSmart] SECURITY_EVENT ${severity}: ${type}`,
-        event,
-      }),
-    });
-  } catch (error) {
-    console.error("Error enviando alerta de seguridad:", error.message);
+  if (webhookUrl) {
+    try {
+      await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: `[AgendaSmart] SECURITY_EVENT ${severity}: ${type}`,
+          text: `[AgendaSmart] SECURITY_EVENT ${severity}: ${type}`,
+          event,
+        }),
+      });
+    } catch (error) {
+      console.error("Error enviando alerta de seguridad:", error.message);
+    }
+  }
+
+  if (sendEmail) {
+    await sendSecurityAlertEmail(event);
   }
 };
 
