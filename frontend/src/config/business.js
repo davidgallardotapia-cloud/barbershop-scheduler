@@ -8,8 +8,8 @@ export const businessConfig = {
   location: "Coquimbo",
   address: "Aníbal Pinto 1601, Coquimbo",
 
-  image: "/james-hero.jpeg",
-  logo: "/logo-james.jpg",
+  image: "/urban-district-barber/james-hero.jpeg",
+  logo: "/urban-district-barber/logo-james.jpg",
 
   description:
     "Reserva tu cita online y redefine tu imagen con cortes de cabello y barba profesionales.",
@@ -18,7 +18,7 @@ export const businessConfig = {
   mapLink: "https://maps.google.com/?q=An%C3%ADbal+Pinto+1601,+Coquimbo",
 
   professionals: [
-    { name: "James", image: "/james-hero.jpeg" },
-    { name: "Jesús", image: "/james-hero.jpeg" },
+    { name: "James", image: "/urban-district-barber/james-hero.jpeg" },
+    { name: "Jesús", image: "/urban-district-barber/james-hero.jpeg" },
   ],
 };

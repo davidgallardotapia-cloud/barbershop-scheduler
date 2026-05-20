@@ -2,7 +2,7 @@ export const businessConfigBySlug = {
   "urban-district-barber": {
     id: "barberia-james",
     tabTitle: "Urban District Barber | AgendaSmart",
-    favicon: "/logo-james.jpg",
+    favicon: "/urban-district-barber/logo-james.jpg",
     name: "Urban District Barber",
     subtitle: "Cortes de cabello y barba profesionales",
 
@@ -11,8 +11,8 @@ export const businessConfigBySlug = {
     location: "Coquimbo",
     address: "Aníbal Pinto 1601, Coquimbo",
 
-    image: "/james-hero.jpeg",
-    logo: "/logo-james.jpg",
+    image: "/urban-district-barber/james-hero.jpeg",
+    logo: "/urban-district-barber/logo-james.jpg",
 
     description:
       "Reserva tu cita online y redefine tu imagen con cortes de cabello y barba profesionales.",
@@ -92,7 +92,7 @@ export const businessConfigBySlug = {
 ],
 
     professionals: [
-      { name: "James", image: "/James.jpeg" },
+      { name: "James", image: "/urban-district-barber/James.jpeg" },
     ],
   },
 
@@ -104,8 +104,8 @@ export const businessConfigBySlug = {
     hours: "Próximamente",
     location: "La Serena",
     address: "Dirección por definir",
-    image: "/james-hero.jpeg",
-    logo: "/logo-james.jpg",
+    image: "/urban-district-barber/james-hero.jpeg",
+    logo: "/urban-district-barber/logo-james.jpg",
     description:
       "Agenda tu hora en Barbería Junior y disfruta de un servicio profesional.",
     whatsappLabel: "Contáctanos por WhatsApp",
@@ -156,14 +156,14 @@ export const businessConfigBySlug = {
     scheduleSlots: [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
 
     professionals: [
-      { name: "Junior", image: "/james-hero.jpeg" },
+      { name: "Junior", image: "/urban-district-barber/james-hero.jpeg" },
     ],
   },
 
   "giocata": {
     id: "giocata",
     tabTitle: "Canchas Giocata | AgendaSmart",
-    favicon: "/giocata-favicon.png",
+    favicon: "/giocata/giocata-favicon.png",
     name: "Canchas Giocata",
     subtitle: "Arriendo de canchas de fútbol",
     logoWidth: "150px",
@@ -172,8 +172,8 @@ export const businessConfigBySlug = {
     hours: "Lun a Dom, 19:00 a 23:00",
     location: "La Serena",
     address: "Hortensia Bustamante 52",
-    image: "/giocata-hero-optimized.jpg",
-    logo: "/giocata-logo-optimized.jpg",
+    image: "/giocata/giocata-hero-optimized.jpg",
+    logo: "/giocata/giocata-logo-optimized.jpg",
     description:
       "Reserva tu cancha online en La Serena de forma rápida y simple. Elige la cancha, selecciona el horario disponible y confirma tu reserva fácilmente por WhatsApp.",
     whatsappUrl: "https://wa.me/56993239412",
@@ -272,15 +272,15 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     scheduleSlots: ["19:00", "20:00", "21:00", "22:00", "23:00"],
 
     professionals: [
-      { name: "Fútbol 6", image: "/giocata-logo.png" },
-      { name: "Fútbol 7", image: "/giocata-logo.png" },
-      { name: "Fútbol 8", image: "/giocata-logo.png" },
+      { name: "Fútbol 6", image: "/giocata/giocata-logo.png" },
+      { name: "Fútbol 7", image: "/giocata/giocata-logo.png" },
+      { name: "Fútbol 8", image: "/giocata/giocata-logo.png" },
     ],
   },
     "pinguino-club": {
     id: "pinguino-club",
     tabTitle: "Pingüino Club | AgendaSmart",
-    favicon: "/pinguino-logo.jpg",
+    favicon: "/pinguino-club/pinguino-logo.jpg",
     name: "Pingüino Club",
     subtitle: "Reserva tu cancha de forma rápida y simple",
     logoWidth: "150px",
@@ -291,8 +291,8 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     location: "Por definir",
     address: "Dirección por definir",
 
-    image: "/pinguino-hero.png",
-    logo: "/pinguino-logo.jpg",
+    image: "/pinguino-club/pinguino-hero.png",
+    logo: "/pinguino-club/pinguino-logo.jpg",
 
     description:
       "Reserva online en Pingüino Club. Elige la cancha, selecciona un horario disponible y confirma tu reserva fácilmente.",
@@ -388,15 +388,15 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     scheduleSlots: ["19:00", "20:00", "21:00", "22:00"],
 
     professionals: [
-      { name: "Cancha 1", image: "/pinguino-logo.jpg" },
-      { name: "Cancha 2", image: "/pinguino-logo.jpg" },
-      { name: "Cancha 3", image: "/pinguino-logo.jpg" },
+      { name: "Cancha 1", image: "/pinguino-club/pinguino-logo.jpg" },
+      { name: "Cancha 2", image: "/pinguino-club/pinguino-logo.jpg" },
+      { name: "Cancha 3", image: "/pinguino-club/pinguino-logo.jpg" },
     ],
   },
   "odontologia-demo": {
     id: "odontologia-demo",
     tabTitle: "Odontologia Demo | AgendaSmart",
-    favicon: "/agendasmart-favicon.png",
+    favicon: "/agendasmart/agendasmart-favicon.png",
 
     name: "Clinica Dental Demo",
     subtitle: "Agenda online para atenciones odontologicas",
@@ -405,8 +405,8 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     location: "Demo comercial",
     address: "Demo de agenda para clinicas dentales",
 
-    image: "/agendasmart-hero.png",
-    logo: "/agendasmart.png",
+    image: "/odontologia-demo/odon-demo-hero.png",
+    logo: "/odontologia-demo/odontologia-demo-logo.png",
     logoWidth: "120px",
     logoHeight: "120px",
 
@@ -530,17 +530,17 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
       {
         name: "Dra. Valentina Rojas",
         subtitle: "Odontologia general",
-        image: "/agendasmart-favicon.png",
+        image: "/odontologia-demo/odontologia-demo-logo.png",
       },
       {
         name: "Dr. Matias Vega",
         subtitle: "Rehabilitacion oral",
-        image: "/agendasmart-favicon.png",
+        image: "/odontologia-demo/odontologia-demo-logo.png",
       },
       {
         name: "Box Higiene",
         subtitle: "Limpiezas y controles",
-        image: "/agendasmart-favicon.png",
+        image: "/odontologia-demo/odontologia-demo-logo.png",
       },
     ],
 
@@ -559,7 +559,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
       "agendasmart-demo": {
     id: "agendasmart-demo",
     tabTitle: "AgendaSmart Demo | Plataforma de Reservas",
-    favicon: "/agendasmart-favicon.png",
+    favicon: "/agendasmart/agendasmart-favicon.png",
 
     name: "AgendaSmart Demo",
     subtitle: "Explora la plataforma en acción",
@@ -568,8 +568,8 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     location: "Demo comercial",
     address: "Plataforma de reservas para negocios",
 
-    image: "/agendasmart-hero.png",
-    logo: "/agendasmart.png",
+    image: "/agendasmart/agendasmart-hero.png",
+    logo: "/agendasmart/agendasmart.png",
     logoWidth: "120px",
     logoHeight: "120px",
 
@@ -679,9 +679,9 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     ],
 
     professionals: [
-      { name: "Recurso 1", image: "/agendasmart-favicon.png" },
-      { name: "Recurso 2", image: "/agendasmart-favicon.png" },
-      { name: "Recurso 3", image: "/agendasmart-favicon.png" },
+      { name: "Recurso 1", image: "/agendasmart/agendasmart-favicon.png" },
+      { name: "Recurso 2", image: "/agendasmart/agendasmart-favicon.png" },
+      { name: "Recurso 3", image: "/agendasmart/agendasmart-favicon.png" },
     ],
 
     theme: {

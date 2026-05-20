@@ -34,6 +34,182 @@ const textStyle = {
 
 const mobileMediaQuery = "(max-width: 767px)";
 
+function LandingMotionStyles() {
+  return (
+    <style>{`
+      @keyframes landingMockupFloat {
+        0%, 100% {
+          transform: translate3d(0, 0, 0);
+        }
+
+        50% {
+          transform: translate3d(0, -8px, 0);
+        }
+      }
+
+      @keyframes landingGlowPulse {
+        0%, 100% {
+          opacity: 0.7;
+          transform: scale(1);
+        }
+
+        50% {
+          opacity: 1;
+          transform: scale(1.04);
+        }
+      }
+
+      @keyframes landingWhatsappPulse {
+        0%, 100% {
+          box-shadow:
+            0 10px 24px rgba(34, 197, 94, 0.22),
+            0 0 0 0 rgba(34, 197, 94, 0.28);
+        }
+
+        50% {
+          box-shadow:
+            0 14px 30px rgba(34, 197, 94, 0.28),
+            0 0 0 10px rgba(34, 197, 94, 0);
+        }
+      }
+
+      .landing-reveal {
+        opacity: 0;
+        transform: translateY(24px);
+        transition: opacity 680ms ease, transform 680ms ease;
+        will-change: opacity, transform;
+      }
+
+      .landing-reveal.is-visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .landing-mockup-motion {
+        animation: landingMockupFloat 7s ease-in-out infinite;
+        will-change: transform;
+      }
+
+      .landing-mockup-motion-delay {
+        animation-delay: 900ms;
+      }
+
+      .landing-mockup-glow {
+        animation: landingGlowPulse 7s ease-in-out infinite;
+        transform-origin: center;
+      }
+
+      .landing-card-hover {
+        transition:
+          transform 190ms ease,
+          box-shadow 190ms ease,
+          border-color 190ms ease,
+          background-color 190ms ease;
+      }
+
+      .landing-card-hover:hover {
+        transform: translateY(-5px);
+        border-color: #bbf7d0 !important;
+        box-shadow: 0 18px 38px rgba(15, 23, 42, 0.10) !important;
+      }
+
+      .landing-card-hover:focus-visible {
+        outline: 3px solid rgba(34, 197, 94, 0.28);
+        outline-offset: 4px;
+      }
+
+      .landing-feature-icon,
+      .landing-business-logo,
+      .landing-card-arrow,
+      .landing-compatible-card {
+        transition:
+          transform 190ms ease,
+          background-color 190ms ease,
+          border-color 190ms ease,
+          color 190ms ease;
+      }
+
+      .landing-card-hover:hover .landing-feature-icon {
+        transform: scale(1.06);
+        background-color: #dcfce7 !important;
+        color: #16a34a !important;
+      }
+
+      .landing-card-hover:hover .landing-business-logo {
+        transform: scale(1.06);
+      }
+
+      .landing-card-hover:hover .landing-card-arrow {
+        transform: translateX(4px);
+      }
+
+      .landing-compatible-card:hover {
+        transform: translateY(-3px);
+        border-color: #bbf7d0 !important;
+        background-color: #ffffff !important;
+      }
+
+      .landing-compatible-card.is-selected:hover {
+        background-color: #dcfce7 !important;
+        border-color: #86efac !important;
+      }
+
+      .landing-preview-button {
+        transition:
+          transform 160ms ease,
+          background-color 160ms ease,
+          border-color 160ms ease,
+          color 160ms ease;
+      }
+
+      .landing-preview-button:hover {
+        transform: translateY(-2px);
+      }
+
+      .landing-whatsapp-pulse {
+        animation: landingWhatsappPulse 2.8s ease-in-out infinite;
+      }
+
+      .landing-whatsapp-pulse:hover {
+        animation-play-state: paused;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .landing-reveal {
+          opacity: 1;
+          transform: none;
+          transition: none;
+        }
+
+        .landing-mockup-motion,
+        .landing-mockup-glow,
+        .landing-whatsapp-pulse {
+          animation: none;
+          transform: none;
+        }
+
+        .landing-card-hover,
+        .landing-feature-icon,
+        .landing-business-logo,
+        .landing-card-arrow,
+        .landing-compatible-card,
+        .landing-preview-button {
+          transition: none;
+        }
+
+        .landing-card-hover:hover,
+        .landing-card-hover:hover .landing-feature-icon,
+        .landing-card-hover:hover .landing-business-logo,
+        .landing-card-hover:hover .landing-card-arrow,
+        .landing-compatible-card:hover,
+        .landing-preview-button:hover {
+          transform: none;
+        }
+      }
+    `}</style>
+  );
+}
+
 function useLandingIsMobile() {
   const [isMobile, setIsMobile] = React.useState(() =>
     typeof window !== "undefined"
@@ -61,20 +237,182 @@ function useLandingIsMobile() {
   return isMobile;
 }
 
+function Reveal({ children, delay = 0, style }) {
+  const ref = React.useRef(null);
+  const [isVisible, setIsVisible] = React.useState(false);
+
+  React.useEffect(() => {
+    const node = ref.current;
+
+    if (!node) return undefined;
+
+    if (typeof window === "undefined" || !("IntersectionObserver" in window)) {
+      setIsVisible(true);
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.unobserve(entry.target);
+        }
+      },
+      { threshold: 0.18, rootMargin: "0px 0px -60px 0px" }
+    );
+
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className={`landing-reveal${isVisible ? " is-visible" : ""}`}
+      style={{
+        transitionDelay: `${delay}ms`,
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function parseMetricValue(value) {
+  const text = String(value);
+  const prefix = text.startsWith("$") || text.startsWith("+") ? text[0] : "";
+  const suffix = text.endsWith("%") ? "%" : "";
+  const target = Number(text.replace(/[^\d]/g, "")) || 0;
+
+  return { prefix, suffix, target };
+}
+
+function formatMetricValue(value, { prefix, suffix }) {
+  return `${prefix}${Math.round(value).toLocaleString("es-CL")}${suffix}`;
+}
+
+function AnimatedMetricValue({ value }) {
+  const ref = React.useRef(null);
+  const metric = React.useMemo(() => parseMetricValue(value), [value]);
+  const [displayValue, setDisplayValue] = React.useState(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return String(value);
+    }
+
+    return formatMetricValue(0, metric);
+  });
+
+  React.useEffect(() => {
+    const node = ref.current;
+
+    if (!node) return undefined;
+
+    if (
+      typeof window === "undefined" ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      !("IntersectionObserver" in window)
+    ) {
+      setDisplayValue(String(value));
+      return undefined;
+    }
+
+    let frameId;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+
+        observer.unobserve(entry.target);
+
+        const duration = 1150;
+        const startTime = window.performance.now();
+
+        const animate = (time) => {
+          const progress = Math.min((time - startTime) / duration, 1);
+          const easedProgress = 1 - Math.pow(1 - progress, 3);
+
+          setDisplayValue(
+            formatMetricValue(metric.target * easedProgress, metric)
+          );
+
+          if (progress < 1) {
+            frameId = window.requestAnimationFrame(animate);
+          }
+        };
+
+        frameId = window.requestAnimationFrame(animate);
+      },
+      { threshold: 0.45 }
+    );
+
+    observer.observe(node);
+
+    return () => {
+      observer.disconnect();
+
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
+  }, [metric, value]);
+
+  return <span ref={ref}>{displayValue}</span>;
+}
+
 const exampleBusinesses = [
   {
     name: "Canchas Giocata",
     category: "Canchas deportivas",
     description: "Reserva de canchas, pagos, estados y partidos abiertos.",
     href: "/giocata",
-    logo: "/giocata-logo-optimized.jpg",
+    logo: "/giocata/giocata-logo-optimized.jpg",
   },
   {
     name: "Urban District Barber",
     category: "Barbería",
     description: "Flujo de reserva para servicios, horarios y clientes.",
     href: "/urban-district-barber",
-    logo: "/logo-james.jpg",
+    logo: "/urban-district-barber/logo-james.jpg",
+  },
+];
+
+const compatibleIndustries = [
+  {
+    id: "medical",
+    icon: <FaUsers />,
+    label: "Centros médicos",
+    description:
+      "Agenda por profesional, box o especialidad, con servicios de distinta duración y control de asistencia.",
+    items: ["Profesionales y recursos", "Duración por prestación", "Historial de pacientes"],
+  },
+  {
+    id: "sports",
+    icon: <FaCalendarAlt />,
+    label: "Complejos deportivos",
+    description:
+      "Reservas por cancha, horario y tipo de espacio, incluyendo pagos, estados y partidos abiertos.",
+    items: ["Canchas y horarios", "Pagos y saldos", "Búsqueda de rival"],
+  },
+  {
+    id: "barbers",
+    icon: <FaCut />,
+    label: "Barberías",
+    description:
+      "Agenda simple para servicios por barbero, clientes frecuentes y administración diaria del negocio.",
+    items: ["Servicios por barbero", "Clientes frecuentes", "Estados de atención"],
+  },
+  {
+    id: "more",
+    icon: <FaCheckCircle />,
+    label: "Más rubros",
+    description:
+      "El flujo puede adaptarse a negocios que trabajan con horarios, servicios, recursos o reservas recurrentes.",
+    items: ["Servicios personalizados", "Reglas por negocio", "Reportes operativos"],
   },
 ];
 
@@ -103,6 +441,7 @@ function Badge({ children }) {
 function PrimaryButton({ isMobile = false }) {
   return (
     <a
+      className="landing-whatsapp-pulse"
       href="https://wa.me/56988287547?text=Hola,%20quiero%20una%20demo%20de%20AgendaSmart"
       target="_blank"
       rel="noopener noreferrer"
@@ -172,6 +511,7 @@ function SecondaryButton({ isMobile = false }) {
 function FeatureMini({ icon, title, text }) {
   return (
     <div
+      className="landing-card-hover"
       style={{
         backgroundColor: "#ffffff",
         border: "1px solid #e5e7eb",
@@ -181,6 +521,7 @@ function FeatureMini({ icon, title, text }) {
       }}
     >
       <div
+        className="landing-feature-icon"
         style={{
           width: "42px",
           height: "42px",
@@ -313,12 +654,21 @@ function AdminPoint({ icon, title, text }) {
 }
 
 function BrowserMockup({
-  src = "/agendasmart-hero-right.png",
+  src = "/agendasmart/agendasmart-hero-right.png",
   alt = "Vista de AgendaSmart",
   isMobile = false,
+  animated = false,
+  previewOptions,
 }) {
+  const [activePreviewIndex, setActivePreviewIndex] = React.useState(0);
+  const hasPreviewOptions = Array.isArray(previewOptions) && previewOptions.length > 0;
+  const activePreview = hasPreviewOptions
+    ? previewOptions[activePreviewIndex] || previewOptions[0]
+    : { src, alt };
+
   return (
     <div
+      className={animated ? "landing-mockup-motion" : undefined}
       style={{
         position: "relative",
         width: "100%",
@@ -327,6 +677,7 @@ function BrowserMockup({
       }}
     >
       <div
+        className={animated ? "landing-mockup-glow" : undefined}
         style={{
           position: "absolute",
           inset: "6% 4% auto 4%",
@@ -353,8 +704,9 @@ function BrowserMockup({
         }}
       >
         <img
-          src={src}
-          alt={alt}
+          key={activePreview.src}
+          src={activePreview.src}
+          alt={activePreview.alt}
           style={{
             width: "100%",
             height: "100%",
@@ -363,14 +715,67 @@ function BrowserMockup({
           }}
         />
       </div>
+
+      {hasPreviewOptions && (
+        <div
+          style={{
+            position: "absolute",
+            left: isMobile ? "12px" : "18px",
+            right: isMobile ? "12px" : "18px",
+            bottom: isMobile ? "12px" : "18px",
+            zIndex: 2,
+            display: "flex",
+            justifyContent: "center",
+            gap: "8px",
+            flexWrap: "wrap",
+          }}
+        >
+          {previewOptions.map((option, index) => {
+            const isActive = index === activePreviewIndex;
+
+            return (
+              <button
+                key={option.label}
+                type="button"
+                className="landing-preview-button"
+                onClick={() => setActivePreviewIndex(index)}
+                aria-pressed={isActive}
+                style={{
+                  border: isActive
+                    ? "1px solid rgba(22,101,52,0.32)"
+                    : "1px solid rgba(229,231,235,0.92)",
+                  backgroundColor: isActive
+                    ? "rgba(220,252,231,0.94)"
+                    : "rgba(255,255,255,0.88)",
+                  color: isActive ? "#166534" : "#374151",
+                  borderRadius: "999px",
+                  padding: isMobile ? "7px 10px" : "8px 12px",
+                  fontWeight: 800,
+                  fontSize: isMobile ? "12px" : "13px",
+                  boxShadow: "0 8px 22px rgba(15,23,42,0.10)",
+                  cursor: "pointer",
+                  backdropFilter: "blur(10px)",
+                }}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
-function PhoneMockup({ isMobile = false }) {
+function PhoneMockup({ isMobile = false, animated = false }) {
   return (
     <img
-      src="/agendasmart-booking-preview.svg"
+      className={
+        animated
+          ? "landing-mockup-motion landing-mockup-motion-delay"
+          : undefined
+      }
+      src="/agendasmart/agendasmart-booking-preview.svg"
       alt="Vista previa del flujo de reserva AgendaSmart"
       style={{
         width: isMobile ? "min(100%, 340px)" : "330px",
@@ -387,6 +792,7 @@ function PhoneMockup({ isMobile = false }) {
 function BusinessExampleCard({ business }) {
   return (
     <a
+      className="landing-card-hover"
       href={business.href}
       style={{
         display: "flex",
@@ -416,6 +822,7 @@ function BusinessExampleCard({ business }) {
         }}
       >
         <img
+          className="landing-business-logo"
           src={business.logo}
           alt={`${business.name} logo`}
           style={{
@@ -462,6 +869,7 @@ function BusinessExampleCard({ business }) {
       </div>
 
       <span
+        className="landing-card-arrow"
         style={{
           marginTop: "auto",
           display: "inline-flex",
@@ -480,6 +888,7 @@ function BusinessExampleCard({ business }) {
 function AnalyticsCard({ title, text, value }) {
   return (
     <div
+      className="landing-card-hover"
       style={{
         backgroundColor: "#ffffff",
         border: "1px solid #e5e7eb",
@@ -506,7 +915,7 @@ function AnalyticsCard({ title, text, value }) {
           marginBottom: "10px",
         }}
       >
-        {value}
+        <AnimatedMetricValue value={value} />
       </div>
 
       <div
@@ -517,6 +926,120 @@ function AnalyticsCard({ title, text, value }) {
         }}
       >
         {text}
+      </div>
+    </div>
+  );
+}
+
+function IndustryTabs({ isMobile = false }) {
+  const [selectedId, setSelectedId] = React.useState(compatibleIndustries[0].id);
+  const selectedIndustry =
+    compatibleIndustries.find((industry) => industry.id === selectedId) ||
+    compatibleIndustries[0];
+
+  return (
+    <div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+          gap: "10px",
+          marginBottom: "14px",
+        }}
+      >
+        {compatibleIndustries.map((industry) => {
+          const isSelected = industry.id === selectedIndustry.id;
+
+          return (
+            <button
+              key={industry.id}
+              type="button"
+              onClick={() => setSelectedId(industry.id)}
+              className={`landing-compatible-card${
+                isSelected ? " is-selected" : ""
+              }`}
+              style={{
+                backgroundColor: isSelected ? "#dcfce7" : "#ffffff",
+                border: isSelected ? "1px solid #86efac" : "1px solid #e5e7eb",
+                borderRadius: "14px",
+                padding: "14px",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                color: isSelected ? "#166534" : "#374151",
+                fontWeight: "bold",
+                cursor: "pointer",
+                textAlign: "left",
+                font: "inherit",
+              }}
+            >
+              <span style={{ color: "#16a34a", display: "inline-flex" }}>
+                {industry.icon}
+              </span>
+              {industry.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(34,197,94,0.10) 0%, rgba(255,255,255,0.96) 72%)",
+          border: "1px solid #bbf7d0",
+          borderRadius: "16px",
+          padding: "16px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            color: "#166534",
+            fontWeight: "bold",
+            marginBottom: "8px",
+          }}
+        >
+          <span style={{ display: "inline-flex" }}>{selectedIndustry.icon}</span>
+          {selectedIndustry.label}
+        </div>
+
+        <p
+          style={{
+            margin: "0 0 12px 0",
+            color: "#4b5563",
+            lineHeight: 1.55,
+            fontSize: "14px",
+          }}
+        >
+          {selectedIndustry.description}
+        </p>
+
+        <div
+          style={{
+            display: "flex",
+            gap: "8px",
+            flexWrap: "wrap",
+          }}
+        >
+          {selectedIndustry.items.map((item) => (
+            <span
+              key={item}
+              style={{
+                backgroundColor: "#ffffff",
+                border: "1px solid #d1fae5",
+                borderRadius: "999px",
+                color: "#166534",
+                fontWeight: 700,
+                fontSize: "12px",
+                padding: "7px 10px",
+              }}
+            >
+              {item}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -570,7 +1093,7 @@ function FixedHeader({ isMobile = false }) {
           }}
         >
           <img
-            src="/agendasmart-horizontal.png"
+            src="/agendasmart/agendasmart-horizontal.png"
             alt="AgendaSmart"
             style={{
               height: isMobile ? "44px" : "58px",
@@ -691,6 +1214,7 @@ function HomeLanding() {
         color: "#111827",
       }}
     >
+      <LandingMotionStyles />
       <FixedHeader isMobile={isMobile} />
 
       <section
@@ -708,7 +1232,7 @@ function HomeLanding() {
             alignItems: "center",
           }}
         >
-          <div>
+          <Reveal>
             <Badge>Plataforma de reservas para negocios</Badge>
 
             <h1 style={heroTitleStyle}>
@@ -760,11 +1284,26 @@ function HomeLanding() {
                 text="Gestiona agenda, citas y servicios en un solo lugar."
               />
             </div>
-          </div>
+          </Reveal>
 
-          <div>
-            <BrowserMockup isMobile={isMobile} />
-          </div>
+          <Reveal delay={120}>
+            <BrowserMockup
+              isMobile={isMobile}
+              animated
+              previewOptions={[
+                {
+                  label: "Reservas",
+                  src: "/agendasmart/agendasmart-hero-right.png",
+                  alt: "Vista de reservas online de AgendaSmart",
+                },
+                {
+                  label: "Pagos",
+                  src: "/agendasmart/agendasmart-payments-laptop.png",
+                  alt: "Vista del panel de pagos de AgendaSmart",
+                },
+              ]}
+            />
+          </Reveal>
         </div>
       </section>
 
@@ -777,16 +1316,17 @@ function HomeLanding() {
           scrollMarginTop: "110px",
         }}
       >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: isMobile
-              ? "1fr"
-              : "repeat(auto-fit, minmax(320px, 1fr))",
-            gap: isMobile ? "28px" : "36px",
-            alignItems: "center",
-          }}
-        >
+        <Reveal>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile
+                ? "1fr"
+                : "repeat(auto-fit, minmax(320px, 1fr))",
+              gap: isMobile ? "28px" : "36px",
+              alignItems: "center",
+            }}
+          >
           <div
             style={{
               position: "relative",
@@ -851,7 +1391,7 @@ function HomeLanding() {
               <FaCalendarAlt />
             </div>
 
-            <PhoneMockup isMobile={isMobile} />
+            <PhoneMockup isMobile={isMobile} animated />
           </div>
 
           <div style={{ order: isMobile ? 1 : 2 }}>
@@ -880,7 +1420,8 @@ function HomeLanding() {
               <StepItem number="5" text="Reserva y confirma" />
             </div>
           </div>
-        </div>
+          </div>
+        </Reveal>
       </section>
 
       <section
@@ -892,16 +1433,17 @@ function HomeLanding() {
           scrollMarginTop: "110px",
         }}
       >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: isMobile
-              ? "1fr"
-              : "repeat(auto-fit, minmax(320px, 1fr))",
-            gap: isMobile ? "28px" : "36px",
-            alignItems: "center",
-          }}
-        >
+        <Reveal>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile
+                ? "1fr"
+                : "repeat(auto-fit, minmax(320px, 1fr))",
+              gap: isMobile ? "28px" : "36px",
+              alignItems: "center",
+            }}
+          >
           <div>
             <h2
               style={sectionTitleStyle}
@@ -941,12 +1483,13 @@ function HomeLanding() {
 
           <div>
             <BrowserMockup
-              src="/agendasmart-payments-laptop.png"
+              src="/agendasmart/agendasmart-payments-laptop.png"
               alt="Vista del panel de pagos de AgendaSmart"
               isMobile={isMobile}
             />
           </div>
-        </div>
+          </div>
+        </Reveal>
       </section>
 
       <section
@@ -958,17 +1501,18 @@ function HomeLanding() {
           scrollMarginTop: "110px",
         }}
       >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: isMobile
-              ? "1fr"
-              : "repeat(auto-fit, minmax(280px, 1fr))",
-            gap: "18px",
-            alignItems: "stretch",
-            marginBottom: "22px",
-          }}
-        >
+        <Reveal>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile
+                ? "1fr"
+                : "repeat(auto-fit, minmax(280px, 1fr))",
+              gap: "18px",
+              alignItems: "stretch",
+              marginBottom: "22px",
+            }}
+          >
           <div style={{ gridColumn: "1 / -1", marginBottom: "4px" }}>
             <h2
               style={{
@@ -1005,17 +1549,19 @@ function HomeLanding() {
             value="$3.250.000"
             text="Ten una visión rápida del impacto comercial de las reservas realizadas."
           />
-        </div>
+          </div>
+        </Reveal>
 
-        <div
-          style={{
-            backgroundColor: "#ffffff",
-            border: "1px solid #e5e7eb",
-            borderRadius: isMobile ? "18px" : "24px",
-            padding: isMobile ? "14px" : "22px",
-            boxShadow: "0 18px 40px rgba(15,23,42,0.06)",
-          }}
-        >
+        <Reveal delay={120}>
+          <div
+            style={{
+              backgroundColor: "#ffffff",
+              border: "1px solid #e5e7eb",
+              borderRadius: isMobile ? "18px" : "24px",
+              padding: isMobile ? "14px" : "22px",
+              boxShadow: "0 18px 40px rgba(15,23,42,0.06)",
+            }}
+          >
           <div
             style={{
               display: "grid",
@@ -1178,42 +1724,12 @@ function HomeLanding() {
                   Negocios compatibles
                 </div>
 
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-                    gap: "10px",
-                  }}
-                >
-                  {[
-                    { icon: <FaUsers />, label: "Centros médicos" },
-                    { icon: <FaCalendarAlt />, label: "Complejos deportivos" },
-                    { icon: <FaCut />, label: "Barberías" },
-                    { icon: <FaCheckCircle />, label: "Más rubros" },
-                  ].map((item) => (
-                    <div
-                      key={item.label}
-                      style={{
-                        backgroundColor: "#ffffff",
-                        border: "1px solid #e5e7eb",
-                        borderRadius: "14px",
-                        padding: "14px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "10px",
-                        color: "#374151",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      <span style={{ color: "#16a34a" }}>{item.icon}</span>
-                      {item.label}
-                    </div>
-                  ))}
-                </div>
+                <IndustryTabs isMobile={isMobile} />
               </div>
             </div>
           </div>
-        </div>
+          </div>
+        </Reveal>
       </section>
 
       <section
@@ -1225,12 +1741,13 @@ function HomeLanding() {
           scrollMarginTop: "110px",
         }}
       >
-        <div
-          style={{
-            maxWidth: "760px",
-            marginBottom: "24px",
-          }}
-        >
+        <Reveal>
+          <div
+            style={{
+              maxWidth: "760px",
+              marginBottom: "24px",
+            }}
+          >
           <Badge>Negocios en AgendaSmart</Badge>
 
           <h2
@@ -1243,21 +1760,24 @@ function HomeLanding() {
             Revisa cómo se ve AgendaSmart aplicado a distintos tipos de negocio.
             Cada ejemplo abre una agenda independiente.
           </p>
-        </div>
+          </div>
+        </Reveal>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: isMobile
-              ? "1fr"
-              : "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: "18px",
-          }}
-        >
-          {exampleBusinesses.map((business) => (
-            <BusinessExampleCard key={business.href} business={business} />
-          ))}
-        </div>
+        <Reveal delay={120}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile
+                ? "1fr"
+                : "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: "18px",
+            }}
+          >
+            {exampleBusinesses.map((business) => (
+              <BusinessExampleCard key={business.href} business={business} />
+            ))}
+          </div>
+        </Reveal>
       </section>
 
       <section
@@ -1267,17 +1787,18 @@ function HomeLanding() {
           paddingBottom: isMobile ? "64px" : "90px",
         }}
       >
-        <div
-          style={{
-            background:
-              "linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #166534 100%)",
-            borderRadius: "28px",
-            padding: isMobile ? "32px 18px" : "42px 28px",
-            color: "#ffffff",
-            textAlign: "center",
-            boxShadow: "0 24px 60px rgba(15,23,42,0.16)",
-          }}
-        >
+        <Reveal>
+          <div
+            style={{
+              background:
+                "linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #166534 100%)",
+              borderRadius: "28px",
+              padding: isMobile ? "32px 18px" : "42px 28px",
+              color: "#ffffff",
+              textAlign: "center",
+              boxShadow: "0 24px 60px rgba(15,23,42,0.16)",
+            }}
+          >
           <div
             style={{
               maxWidth: "760px",
@@ -1319,7 +1840,8 @@ function HomeLanding() {
               <SecondaryButton isMobile={isMobile} />
             </div>
           </div>
-        </div>
+          </div>
+        </Reveal>
       </section>
     </div>
   );

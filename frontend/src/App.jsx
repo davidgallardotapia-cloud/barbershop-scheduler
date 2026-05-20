@@ -433,7 +433,7 @@ const [barber, setBarber] = useState("");
 
       const favicon = document.querySelector("link[rel='icon']");
       if (favicon) {
-        favicon.href = "/agendasmart-favicon.png";
+        favicon.href = "/agendasmart/agendasmart-favicon.png";
       }
 
       return;
