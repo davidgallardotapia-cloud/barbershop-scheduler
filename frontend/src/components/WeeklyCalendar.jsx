@@ -46,6 +46,94 @@ function WeeklyCalendar({
       ? business.barbers
       : ["Cancha 1", "Cancha 2", "Cancha 3", "Cancha 4", "Cancha 5", "Cancha 6"];
 
+  const skeletonBlock = (style = {}) => ({
+    borderRadius: "12px",
+    background:
+      "linear-gradient(90deg, #eef2f7 0%, #f8fafc 45%, #e5e7eb 80%)",
+    backgroundSize: "220% 100%",
+    animation: "loadingShimmer 1.45s ease-in-out infinite",
+    ...style,
+  });
+
+  const renderCalendarLoadingSkeleton = () => {
+    if (isMobile) {
+      return (
+        <div
+          style={{
+            display: "grid",
+            gap: "12px",
+            padding: "4px",
+          }}
+        >
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+              gap: "10px",
+            }}
+          >
+            {[0, 1, 2].map((item) => (
+              <div
+                key={item}
+                style={skeletonBlock({ height: "68px" })}
+              />
+            ))}
+          </div>
+
+          <div style={styles.mobileSlotsWrapper}>
+            {[0, 1, 2, 3, 4, 5].map((item) => (
+              <div
+                key={item}
+                style={{
+                  ...styles.mobileSlotButton,
+                  border: "1px solid #e5e7eb",
+                  cursor: "default",
+                }}
+              >
+                <div style={skeletonBlock({ height: "16px", marginBottom: "10px" })} />
+                <div style={skeletonBlock({ height: "12px", width: "62%", margin: "0 auto" })} />
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        style={{
+          ...styles.calendarGrid,
+          minWidth: "860px",
+          backgroundColor: "#ffffff",
+        }}
+      >
+        <div style={styles.timeHeader}>Hora</div>
+
+        {[0, 1, 2, 3, 4, 5, 6].map((day) => (
+          <div key={day} style={styles.dayHeader}>
+            <div style={skeletonBlock({ height: "18px", width: "52%", marginBottom: "10px" })} />
+            <div style={skeletonBlock({ height: "12px", width: "38%" })} />
+          </div>
+        ))}
+
+        {[0, 1, 2, 3].map((row) => (
+          <React.Fragment key={row}>
+            <div style={styles.timeCell}>
+              <div style={skeletonBlock({ height: "18px", width: "58%" })} />
+            </div>
+
+            {[0, 1, 2, 3, 4, 5, 6].map((cell) => (
+              <div key={`${row}-${cell}`} style={styles.slotCell}>
+                <div style={skeletonBlock({ height: "44px", marginBottom: "8px" })} />
+                <div style={skeletonBlock({ height: "12px", width: "66%" })} />
+              </div>
+            ))}
+          </React.Fragment>
+        ))}
+      </div>
+    );
+  };
+
   const getPaymentStatusInfo = (paymentStatus) => {
     switch (paymentStatus) {
       case "paid":
@@ -717,9 +805,7 @@ function WeeklyCalendar({
 
       <div style={styles.calendarWrapper}>
         {loading ? (
-          <div style={styles.spinnerBox}>
-            <div style={styles.spinner}></div>
-          </div>
+          renderCalendarLoadingSkeleton()
         ) : isSportsBusiness && !isClientMode && isMobile ? (
           renderSportsAdminMobileDayView()
         ) : isSportsBusiness && !isClientMode ? (

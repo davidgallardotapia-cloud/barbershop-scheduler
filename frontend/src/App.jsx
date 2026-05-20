@@ -38,6 +38,79 @@ import {
 } from "./services/appointmentsService";
 import { businessConfigBySlug } from "./config/businessConfigBySlug";
 
+function BusinessLoadingState({ styles, business }) {
+  const logo = business?.logo || "/agendasmart/agendasmart-favicon.png";
+  const businessName = business?.name || "AgendaSmart";
+
+  return (
+    <div style={styles.loadingStateCard}>
+      <div style={styles.loadingLogoWrap}>
+        <img
+          src={logo}
+          alt={businessName}
+          style={styles.loadingLogo}
+        />
+      </div>
+
+      <div>
+        <div style={styles.loadingTitle}>Preparando agenda</div>
+        <div style={styles.loadingText}>
+          Cargando horarios, servicios y disponibilidad de {businessName}.
+        </div>
+      </div>
+
+      <div style={styles.loadingBar}>
+        <div style={styles.loadingBarFill} />
+      </div>
+
+      <div style={styles.loadingSkeletonGrid}>
+        {[0, 1, 2].map((item) => (
+          <div key={item} style={styles.loadingSkeletonCard}>
+            <div style={{ ...styles.loadingSkeletonLine, width: "52%" }} />
+            <div style={{ ...styles.loadingSkeletonLine, width: "82%" }} />
+            <div style={{ ...styles.loadingSkeletonLine, width: "66%" }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AppAnimationStyles() {
+  return (
+    <style>{`
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      @keyframes loadingShimmer {
+        0% { background-position: 180% 0; }
+        100% { background-position: -180% 0; }
+      }
+
+      @keyframes loadingBarSlide {
+        0% { transform: translateX(-110%); }
+        55% { transform: translateX(85%); }
+        100% { transform: translateX(240%); }
+      }
+
+      @keyframes loadingFloat {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-6px); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          scroll-behavior: auto !important;
+        }
+      }
+    `}</style>
+  );
+}
+
 function App() {
   const getSlugFromUrl = () => {
     if (typeof window === "undefined") return "urban-district-barber";
@@ -2376,6 +2449,89 @@ setEditingId(appointment.id);
       borderRadius: "50%",
       animation: "spin 1s linear infinite",
     },
+    loadingStateCard: {
+      ...{
+        backgroundColor: theme.cardBackground || "#ffffff",
+        border: `1px solid ${theme.border || "#e5e7eb"}`,
+        borderRadius: "22px",
+        padding: isMobile ? "22px" : "30px",
+        boxShadow: "0 18px 44px rgba(15,23,42,0.10)",
+        width: "100%",
+        maxWidth: "680px",
+        margin: "10vh auto 0",
+        display: "grid",
+        gap: "18px",
+        overflow: "hidden",
+        position: "relative",
+      },
+    },
+    loadingLogoWrap: {
+      width: "78px",
+      height: "78px",
+      borderRadius: "22px",
+      border: `1px solid ${theme.border || "#d1fae5"}`,
+      background:
+        "linear-gradient(135deg, rgba(34,197,94,0.12) 0%, rgba(255,255,255,0.96) 70%)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      animation: "loadingFloat 2.8s ease-in-out infinite",
+    },
+    loadingLogo: {
+      width: "54px",
+      height: "54px",
+      objectFit: "contain",
+      borderRadius: "16px",
+    },
+    loadingTitle: {
+      fontSize: isMobile ? "24px" : "30px",
+      fontWeight: "bold",
+      color: theme.text || "#111827",
+      marginBottom: "8px",
+    },
+    loadingText: {
+      color: theme.mutedText || "#4b5563",
+      lineHeight: 1.6,
+      fontSize: "15px",
+    },
+    loadingBar: {
+      position: "relative",
+      height: "8px",
+      borderRadius: "999px",
+      backgroundColor: theme.primarySoft || "#dcfce7",
+      overflow: "hidden",
+    },
+    loadingBarFill: {
+      position: "absolute",
+      inset: 0,
+      width: "42%",
+      borderRadius: "999px",
+      background: `linear-gradient(90deg, transparent 0%, ${
+        theme.primary || "#22c55e"
+      } 50%, transparent 100%)`,
+      animation: "loadingBarSlide 1.6s ease-in-out infinite",
+    },
+    loadingSkeletonGrid: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))",
+      gap: "12px",
+    },
+    loadingSkeletonCard: {
+      border: "1px solid #e5e7eb",
+      borderRadius: "16px",
+      padding: "14px",
+      backgroundColor: "#ffffff",
+      display: "grid",
+      gap: "10px",
+    },
+    loadingSkeletonLine: {
+      height: "12px",
+      borderRadius: "999px",
+      background:
+        "linear-gradient(90deg, #eef2f7 0%, #f8fafc 45%, #e5e7eb 80%)",
+      backgroundSize: "220% 100%",
+      animation: "loadingShimmer 1.45s ease-in-out infinite",
+    },
     disabledButton: {
       opacity: 0.6,
       cursor: "not-allowed",
@@ -2504,7 +2660,11 @@ paymentHistoryItem: {
   if (businessLoading) {
     return (
       <div style={styles.page}>
-        <div style={styles.card}>Cargando negocio...</div>
+        <AppAnimationStyles />
+        <BusinessLoadingState
+          styles={styles}
+          business={mergedBusiness || currentBusinessConfig}
+        />
       </div>
     );
   }
@@ -2537,12 +2697,7 @@ paymentHistoryItem: {
 
   return (
     <>
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
+      <AppAnimationStyles />
 
       <div style={styles.page}>
         <div
