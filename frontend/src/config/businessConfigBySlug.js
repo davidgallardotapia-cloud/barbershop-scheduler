@@ -388,11 +388,174 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     scheduleSlots: ["19:00", "20:00", "21:00", "22:00"],
 
     professionals: [
-      { name: "Cancha 1", image: "/giocata-logo.png" },
-      { name: "Cancha 2", image: "/giocata-logo.png" },
-      { name: "Cancha 3", image: "/giocata-logo.png" },
+      { name: "Cancha 1", image: "/pinguino-logo.jpg" },
+      { name: "Cancha 2", image: "/pinguino-logo.jpg" },
+      { name: "Cancha 3", image: "/pinguino-logo.jpg" },
     ],
   },
+  "odontologia-demo": {
+    id: "odontologia-demo",
+    tabTitle: "Odontologia Demo | AgendaSmart",
+    favicon: "/agendasmart-favicon.png",
+
+    name: "Clinica Dental Demo",
+    subtitle: "Agenda online para atenciones odontologicas",
+    phone: "+56 9 8828 7547",
+    hours: "Lun a Vie, 09:00 a 18:15",
+    location: "Demo comercial",
+    address: "Demo de agenda para clinicas dentales",
+
+    image: "/agendasmart-hero.png",
+    logo: "/agendasmart.png",
+    logoWidth: "120px",
+    logoHeight: "120px",
+
+    description:
+      "Agenda una atencion odontologica de forma simple. Elige el tipo de atencion, profesional, fecha y hora disponible.",
+
+    whatsappUrl: "https://wa.me/56988287547",
+    whatsappLabel: "Solicitar demo odontologico",
+
+    mapLink: "https://agendasmart.cl",
+    mapEmbedUrl: "https://www.google.com/maps?q=Chile&output=embed",
+
+    bookingTitle: "Clinica Dental Demo",
+    adminTitle: "Panel Clinica Dental Demo",
+
+    bookingPanelTitle: "Agenda tu hora dental",
+    bookingPanelDescription:
+      "Selecciona una atencion, profesional y horario disponible. El sistema calcula la duracion de cada servicio en tramos de 15 minutos.",
+
+    calendarHelpText:
+      "Selecciona un horario disponible para agendar una atencion dental.",
+
+    resourceLabelSingle: "Profesional",
+    resourceLabelPlural: "Profesionales",
+    serviceLabel: "atencion",
+    resourceFirstBookingFlow: true,
+    resourceStepTitle: "Elige un doctor / box",
+
+    clientNamePlaceholder: "Nombre paciente",
+    clientPhonePlaceholder: "Celular paciente (ej: 912345678)",
+
+    submitButtonLabel: "Agendar hora dental",
+    submittingLabel: "Agendando...",
+    updateButtonLabel: "Actualizar hora",
+    updatingLabel: "Actualizando...",
+    cancelEditLabel: "Cancelar edicion",
+
+    createButtonLabel: "Crear hora",
+    creatingLabel: "Creando...",
+    newItemTitle: "Nueva hora dental",
+    editItemTitle: "Editar hora dental",
+
+    whatsappButtonLabel: "Abrir WhatsApp",
+    resourceSelectedLabel: "Profesional seleccionado",
+    resourceSelectPrompt: "Selecciona un profesional arriba",
+    resourceSelectOption: "Selecciona un profesional",
+    serviceSelectOption: "Selecciona una atencion",
+
+    blockedWeekdays: [0, 6],
+    takenSlotLabel: "Ocupado",
+    pastSlotLabel: "Paso",
+    availableSlotLabel: "Disponible",
+
+    usesServiceDurations: true,
+    slotIntervalMinutes: 15,
+    paymentsEnabled: true,
+    depositFeatureEnabled: false,
+    depositOptional: false,
+    defaultDepositRate: 0.5,
+    paymentMethods: ["transferencia", "efectivo", "debito"],
+    onlinePaymentsEnabled: false,
+
+    barbers: ["Dra. Valentina Rojas", "Dr. Matias Vega", "Box Higiene"],
+
+    phones: {
+      "Dra. Valentina Rojas": "56988287547",
+      "Dr. Matias Vega": "56988287547",
+      "Box Higiene": "56988287547",
+    },
+
+    services: [
+      "Evaluacion inicial (30 min - $15.000)",
+      "Limpieza dental (45 min - $35.000)",
+      "Control odontologico (30 min - $20.000)",
+      "Blanqueamiento dental (60 min - $80.000)",
+      "Tratamiento restaurador (60 min - $65.000)",
+      "Procedimiento avanzado (90 min - $120.000)",
+    ],
+
+    scheduleSlots: [
+      "09:00",
+      "09:15",
+      "09:30",
+      "09:45",
+      "10:00",
+      "10:15",
+      "10:30",
+      "10:45",
+      "11:00",
+      "11:15",
+      "11:30",
+      "11:45",
+      "12:00",
+      "12:15",
+      "12:30",
+      "12:45",
+      "13:00",
+      "13:15",
+      "13:30",
+      "13:45",
+      "14:00",
+      "14:15",
+      "14:30",
+      "14:45",
+      "15:00",
+      "15:15",
+      "15:30",
+      "15:45",
+      "16:00",
+      "16:15",
+      "16:30",
+      "16:45",
+      "17:00",
+      "17:15",
+      "17:30",
+      "17:45",
+      "18:00",
+    ],
+
+    professionals: [
+      {
+        name: "Dra. Valentina Rojas",
+        subtitle: "Odontologia general",
+        image: "/agendasmart-favicon.png",
+      },
+      {
+        name: "Dr. Matias Vega",
+        subtitle: "Rehabilitacion oral",
+        image: "/agendasmart-favicon.png",
+      },
+      {
+        name: "Box Higiene",
+        subtitle: "Limpiezas y controles",
+        image: "/agendasmart-favicon.png",
+      },
+    ],
+
+    theme: {
+      primary: "#0f766e",
+      primaryDark: "#115e59",
+      primarySoft: "#ccfbf1",
+      pageBackground: "#f0fdfa",
+      cardBackground: "#ffffff",
+      border: "#99f6e4",
+      text: "#0f172a",
+      mutedText: "#475569",
+    },
+  },
+
       "agendasmart-demo": {
     id: "agendasmart-demo",
     tabTitle: "AgendaSmart Demo | Plataforma de Reservas",

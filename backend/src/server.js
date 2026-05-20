@@ -1061,6 +1061,44 @@ const buildMonthlyReservationDates = (startDateString) => {
   return dates;
 };
 
+const durationAwareBusinessIds = new Set(["odontologia-demo"]);
+const durationAwareSlotIntervalMinutes = 15;
+
+const timeToMinutes = (timeValue) => {
+  const text = String(timeValue || "").slice(0, 5);
+  const [hoursPart, minutesPart = "0"] = text.split(":");
+  const parsedHours = Number(hoursPart);
+  const parsedMinutes = Number(minutesPart);
+
+  if (
+    Number.isNaN(parsedHours) ||
+    Number.isNaN(parsedMinutes) ||
+    parsedHours < 0 ||
+    parsedMinutes < 0
+  ) {
+    return null;
+  }
+
+  return parsedHours * 60 + parsedMinutes;
+};
+
+const parseServiceDurationMinutes = (serviceName) => {
+  const match = String(serviceName || "").match(/(\d+)\s*min/i);
+  return match ? Number(match[1]) : null;
+};
+
+const getDurationAwareAppointmentMinutes = (serviceName) => {
+  return parseServiceDurationMinutes(serviceName) || durationAwareSlotIntervalMinutes;
+};
+
+const rangesOverlap = (startA, endA, startB, endB) => {
+  if ([startA, endA, startB, endB].some((value) => value === null)) {
+    return false;
+  }
+
+  return startA < endB && startB < endA;
+};
+
 const toPublicAppointment = (appointment) => {
   return {
     id: appointment.id,
@@ -1416,6 +1454,18 @@ const createTables = async () => {
 
     await pool.query(`
       INSERT INTO businesses (id, name, slug)
+      VALUES ('odontologia-demo', 'Clinica Dental Demo', 'odontologia-demo')
+      ON CONFLICT (id) DO NOTHING;
+    `);
+
+    await pool.query(`
+      UPDATE businesses
+      SET name = 'Clinica Dental Demo', slug = 'odontologia-demo'
+      WHERE id = 'odontologia-demo';
+    `);
+
+    await pool.query(`
+      INSERT INTO businesses (id, name, slug)
       VALUES ('giocata', 'Centro Deportivo La Giocata', 'giocata')
       ON CONFLICT (id) DO NOTHING;
     `);
@@ -1454,6 +1504,12 @@ const createTables = async () => {
       username: "demo",
       businessId: "agendasmart-demo",
       passwordEnv: "SEED_PASSWORD_DEMO",
+    });
+
+    await seedUserIfConfigured({
+      username: "odontologia_demo",
+      businessId: "odontologia-demo",
+      passwordEnv: "SEED_PASSWORD_ODONTOLOGIA_DEMO",
     });
 
     await seedUserIfConfigured({
@@ -1771,6 +1827,49 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
   const finalOpponentName = isAdminRequest ? opponentName || null : null;
 
   try {
+    if (durationAwareBusinessIds.has(businessId)) {
+      const candidateStartMinutes = timeToMinutes(time);
+      const candidateDurationMinutes = getDurationAwareAppointmentMinutes(service);
+      const candidateEndMinutes =
+        candidateStartMinutes === null
+          ? null
+          : candidateStartMinutes + candidateDurationMinutes;
+
+      if (candidateStartMinutes === null || candidateEndMinutes === null) {
+        return res.status(400).json({
+          message: "Horario invalido",
+        });
+      }
+
+      const existingAppointments = await pool.query(
+        `SELECT id, time, service FROM appointments
+         WHERE date = $1 AND barber = $2 AND business_id = $3`,
+        [date, barber, businessId]
+      );
+
+      const hasOverlap = existingAppointments.rows.some((appointment) => {
+        const appointmentStartMinutes = timeToMinutes(appointment.time);
+        const appointmentEndMinutes =
+          appointmentStartMinutes === null
+            ? null
+            : appointmentStartMinutes +
+              getDurationAwareAppointmentMinutes(appointment.service);
+
+        return rangesOverlap(
+          candidateStartMinutes,
+          candidateEndMinutes,
+          appointmentStartMinutes,
+          appointmentEndMinutes
+        );
+      });
+
+      if (hasOverlap) {
+        return res.status(400).json({
+          message: "Ese tramo ya esta reservado para ese recurso",
+        });
+      }
+    }
+
     const exists = await pool.query(
       `SELECT * FROM appointments
        WHERE date = $1 AND time = $2 AND barber = $3 AND business_id = $4`,
@@ -2139,6 +2238,49 @@ app.put("/appointments/:id", requireAuth, async (req, res) => {
     : null;
 
   try {
+    if (durationAwareBusinessIds.has(businessId)) {
+      const candidateStartMinutes = timeToMinutes(time);
+      const candidateDurationMinutes = getDurationAwareAppointmentMinutes(service);
+      const candidateEndMinutes =
+        candidateStartMinutes === null
+          ? null
+          : candidateStartMinutes + candidateDurationMinutes;
+
+      if (candidateStartMinutes === null || candidateEndMinutes === null) {
+        return res.status(400).json({
+          message: "Horario invalido",
+        });
+      }
+
+      const existingAppointments = await pool.query(
+        `SELECT id, time, service FROM appointments
+         WHERE date = $1 AND barber = $2 AND business_id = $3 AND id <> $4`,
+        [date, barber, businessId, id]
+      );
+
+      const hasOverlap = existingAppointments.rows.some((appointment) => {
+        const appointmentStartMinutes = timeToMinutes(appointment.time);
+        const appointmentEndMinutes =
+          appointmentStartMinutes === null
+            ? null
+            : appointmentStartMinutes +
+              getDurationAwareAppointmentMinutes(appointment.service);
+
+        return rangesOverlap(
+          candidateStartMinutes,
+          candidateEndMinutes,
+          appointmentStartMinutes,
+          appointmentEndMinutes
+        );
+      });
+
+      if (hasOverlap) {
+        return res.status(400).json({
+          message: "Ese tramo ya esta reservado para ese recurso",
+        });
+      }
+    }
+
     const exists = await pool.query(
       `SELECT * FROM appointments
        WHERE date = $1 AND time = $2 AND barber = $3 AND id <> $4 AND business_id = $5`,

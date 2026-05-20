@@ -136,6 +136,8 @@ const [barber, setBarber] = useState("");
     );
   }, [currentBusinessConfig]);
 
+  const usesServiceDurations = Boolean(mergedBusiness?.usesServiceDurations);
+  const slotIntervalMinutes = Number(mergedBusiness?.slotIntervalMinutes || 30);
   const blockedWeekdays = mergedBusiness?.blockedWeekdays || [];
   const paymentsEnabled = mergedBusiness?.paymentsEnabled || false;
   const depositFeatureEnabled = mergedBusiness?.depositFeatureEnabled || false;
@@ -162,6 +164,57 @@ const [barber, setBarber] = useState("");
     if (!match) return 0;
 
     return Number(match[1].replace(/\./g, ""));
+  };
+
+  const timeToMinutes = (timeValue) => {
+    const text = String(timeValue || "").slice(0, 5);
+    const [hoursPart, minutesPart = "0"] = text.split(":");
+    const parsedHours = Number(hoursPart);
+    const parsedMinutes = Number(minutesPart);
+
+    if (
+      Number.isNaN(parsedHours) ||
+      Number.isNaN(parsedMinutes) ||
+      parsedHours < 0 ||
+      parsedMinutes < 0
+    ) {
+      return null;
+    }
+
+    return parsedHours * 60 + parsedMinutes;
+  };
+
+  const normalizeScheduleTime = (hour) => {
+    return typeof hour === "string"
+      ? hour
+      : `${String(hour).padStart(2, "0")}:00`;
+  };
+
+  const parseServiceDurationMinutes = (serviceName) => {
+    const match = String(serviceName || "").match(/(\d+)\s*min/i);
+    return match ? Number(match[1]) : null;
+  };
+
+  const getServiceDurationMinutes = (serviceName) => {
+    return (
+      parseServiceDurationMinutes(serviceName) ||
+      (usesServiceDurations ? slotIntervalMinutes : 0)
+    );
+  };
+
+  const rangesOverlap = (startA, endA, startB, endB) => {
+    if ([startA, endA, startB, endB].some((value) => value === null)) {
+      return false;
+    }
+
+    return startA < endB && startB < endA;
+  };
+
+  const getScheduleEndMinutes = () => {
+    if (!hours.length) return null;
+
+    const lastSlotMinutes = timeToMinutes(normalizeScheduleTime(hours[hours.length - 1]));
+    return lastSlotMinutes === null ? null : lastSlotMinutes + slotIntervalMinutes;
   };
 
   const selectedPaymentTotal = selectedAppointmentPayments.reduce(
@@ -1999,15 +2052,51 @@ setEditingId(appointment.id);
     const formattedHour =
       typeof hour === "string" ? hour : formatHourLabel(hour);
 
-    const normalizedHour =
-      typeof hour === "string"
-        ? hour
-        : `${String(hour).padStart(2, "0")}:00`;
+    const normalizedHour = normalizeScheduleTime(hour);
 
     const isPast = isPastSlot(selectedDay, normalizedHour);
     const slotAppointments = getAppointmentsForSlot(selectedDay, hour);
+    const candidateStartMinutes = timeToMinutes(normalizedHour);
+    const selectedDurationMinutes = getServiceDurationMinutes(service);
+    const candidateEndMinutes =
+      candidateStartMinutes === null
+        ? null
+        : candidateStartMinutes + selectedDurationMinutes;
+    const scheduleEndMinutes = getScheduleEndMinutes();
+    const exceedsSchedule =
+      usesServiceDurations &&
+      scheduleEndMinutes !== null &&
+      candidateEndMinutes !== null &&
+      candidateEndMinutes > scheduleEndMinutes;
 
-    const relevantAppointments = resolvedClientResource
+    const durationOverlaps =
+      usesServiceDurations && resolvedClientResource && candidateEndMinutes !== null
+        ? appointments.filter((appointment) => {
+            const appointmentDate = String(appointment.date || "").slice(0, 10);
+            const appointmentTime = String(appointment.time || "").slice(0, 5);
+
+            if (appointmentDate !== date) return false;
+            if (appointment.barber !== resolvedClientResource) return false;
+
+            const appointmentStartMinutes = timeToMinutes(appointmentTime);
+            const appointmentEndMinutes =
+              appointmentStartMinutes === null
+                ? null
+                : appointmentStartMinutes +
+                  getServiceDurationMinutes(appointment.service);
+
+            return rangesOverlap(
+              candidateStartMinutes,
+              candidateEndMinutes,
+              appointmentStartMinutes,
+              appointmentEndMinutes
+            );
+          })
+        : [];
+
+    const relevantAppointments = usesServiceDurations
+      ? durationOverlaps
+      : resolvedClientResource
       ? slotAppointments.filter(
           (appointment) => appointment.barber === resolvedClientResource
         )
@@ -2026,9 +2115,11 @@ setEditingId(appointment.id);
       isTaken,
       isLookingForOpponent,
       opponentAppointment: opponentAppointment || null,
-      disabled: isPast || (isTaken && !isLookingForOpponent),
+      disabled: isPast || exceedsSchedule || (isTaken && !isLookingForOpponent),
       status: isPast
         ? "past"
+        : exceedsSchedule
+        ? "taken"
         : isLookingForOpponent
         ? "looking_opponent"
         : isTaken
@@ -2041,8 +2132,12 @@ setEditingId(appointment.id);
   hours,
   resolvedClientResource,
   appointmentsBySlot,
+  appointments,
   blockedWeekdays,
   mergedBusiness?.id,
+  service,
+  usesServiceDurations,
+  slotIntervalMinutes,
 ]);
 
   const styles = {
