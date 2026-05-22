@@ -1,6 +1,54 @@
 {
   "rewrites": [
     {
+      "source": "/agendasmart-demo",
+      "destination": "/agendasmart-demo/index.html"
+    },
+    {
+      "source": "/agendasmart-demo/",
+      "destination": "/agendasmart-demo/index.html"
+    },
+    {
+      "source": "/odontologia-demo",
+      "destination": "/odontologia-demo/index.html"
+    },
+    {
+      "source": "/odontologia-demo/",
+      "destination": "/odontologia-demo/index.html"
+    },
+    {
+      "source": "/giocata",
+      "destination": "/giocata/index.html"
+    },
+    {
+      "source": "/giocata/",
+      "destination": "/giocata/index.html"
+    },
+    {
+      "source": "/pinguino-club",
+      "destination": "/pinguino-club/index.html"
+    },
+    {
+      "source": "/pinguino-club/",
+      "destination": "/pinguino-club/index.html"
+    },
+    {
+      "source": "/urban-district-barber",
+      "destination": "/urban-district-barber/index.html"
+    },
+    {
+      "source": "/urban-district-barber/",
+      "destination": "/urban-district-barber/index.html"
+    },
+    {
+      "source": "/barberia-junior",
+      "destination": "/barberia-junior/index.html"
+    },
+    {
+      "source": "/barberia-junior/",
+      "destination": "/barberia-junior/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

@@ -109,6 +109,64 @@ const formatSecurityEmailText = (event) => {
   ].join("\n");
 };
 
+const formatSecurityDetailValue = (value) => {
+  if (typeof value === "object") {
+    return truncateSecurityValue(JSON.stringify(value), 180);
+  }
+
+  return truncateSecurityValue(value, 180);
+};
+
+const formatSecurityDetailsForDiscord = (details = {}) => {
+  const preferredKeys = [
+    "ip",
+    "method",
+    "path",
+    "origin",
+    "businessId",
+    "requestedBusinessId",
+    "paymentId",
+    "reason",
+    "limiter",
+    "userAgent",
+  ];
+  const detailLines = [];
+  const renderedKeys = new Set();
+
+  preferredKeys.forEach((key) => {
+    if (details[key] === undefined) {
+      return;
+    }
+
+    renderedKeys.add(key);
+    detailLines.push(`- ${key}: ${formatSecurityDetailValue(details[key])}`);
+  });
+
+  Object.entries(details).forEach(([key, value]) => {
+    if (renderedKeys.has(key)) {
+      return;
+    }
+
+    detailLines.push(`- ${key}: ${formatSecurityDetailValue(value)}`);
+  });
+
+  return detailLines.length > 0 ? detailLines.join("\n") : "- no details";
+};
+
+const formatSecurityDiscordContent = (event) => {
+  const content = [
+    `**[AgendaSmart] SECURITY_EVENT ${event.severity}: ${event.type}**`,
+    `Environment: ${event.environment}`,
+    `Timestamp: ${event.timestamp}`,
+    `Details:`,
+    "```text",
+    formatSecurityDetailsForDiscord(event.details),
+    "```",
+  ].join("\n");
+
+  return truncateSecurityValue(content, 1900);
+};
+
 const sendSecurityAlertEmail = async (event) => {
   const resendApiKey = process.env.RESEND_API_KEY;
   const from = process.env.SECURITY_ALERT_EMAIL_FROM;
@@ -193,12 +251,14 @@ const emitSecurityEvent = async ({
 
   if (webhookUrl) {
     try {
+      const discordContent = formatSecurityDiscordContent(event);
+
       await fetch(webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          content: `[AgendaSmart] SECURITY_EVENT ${severity}: ${type}`,
-          text: `[AgendaSmart] SECURITY_EVENT ${severity}: ${type}`,
+          content: discordContent,
+          text: discordContent,
           event,
         }),
       });
