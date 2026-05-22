@@ -517,8 +517,13 @@ const [barber, setBarber] = useState("");
         mergedBusiness.tabTitle || mergedBusiness.name || "AgendaSmart";
 
       const favicon = document.querySelector("link[rel='icon']");
-      if (favicon && mergedBusiness.favicon) {
-        favicon.href = mergedBusiness.favicon;
+      const faviconHref =
+        mergedBusiness.favicon ||
+        mergedBusiness.logo ||
+        "/agendasmart/agendasmart-favicon.png";
+
+      if (favicon) {
+        favicon.href = faviconHref;
       }
     }
   }, [slug, mergedBusiness]);

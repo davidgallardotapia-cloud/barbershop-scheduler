@@ -98,6 +98,8 @@ export const businessConfigBySlug = {
 
   "barberia-junior": {
     id: "barberia-junior",
+    tabTitle: "Barberia Junior | AgendaSmart",
+    favicon: "/urban-district-barber/logo-james.jpg",
     name: "Barbería Junior",
     subtitle: "Cortes clásicos y modernos",
     phone: "+56 9 1234 5678",
@@ -396,7 +398,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
   "odontologia-demo": {
     id: "odontologia-demo",
     tabTitle: "Odontologia Demo | AgendaSmart",
-    favicon: "/agendasmart/agendasmart-favicon.png",
+    favicon: "/odontologia-demo/odontologia-demo-logo.png",
 
     name: "Clinica Dental Demo",
     subtitle: "Agenda online para atenciones odontologicas",
@@ -545,12 +547,12 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     ],
 
     theme: {
-      primary: "#0f766e",
-      primaryDark: "#115e59",
-      primarySoft: "#ccfbf1",
-      pageBackground: "#f0fdfa",
+      primary: "#0284c7",
+      primaryDark: "#0369a1",
+      primarySoft: "#e0f2fe",
+      pageBackground: "#f0f9ff",
       cardBackground: "#ffffff",
-      border: "#99f6e4",
+      border: "#bae6fd",
       text: "#0f172a",
       mutedText: "#475569",
     },
