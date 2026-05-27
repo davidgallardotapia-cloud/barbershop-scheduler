@@ -16,6 +16,8 @@ function WeeklyCalendar({
   time,
   hours,
   mobileSlots,
+  clientSearch = "",
+  mobileClientSearchResults = [],
   isBarberSelected,
   selectSlot,
   setDate,
@@ -45,6 +47,10 @@ function WeeklyCalendar({
     business?.barbers && business.barbers.length > 0
       ? business.barbers
       : ["Cancha 1", "Cancha 2", "Cancha 3", "Cancha 4", "Cancha 5", "Cancha 6"];
+
+  const activeClientSearch = String(clientSearch || "").trim();
+  const showGiocataClientResults =
+    isGiocata && !isClientMode && activeClientSearch;
 
   const skeletonBlock = (style = {}) => ({
     borderRadius: "12px",
@@ -351,6 +357,268 @@ function WeeklyCalendar({
 
   window.scrollTo({ top: 0, behavior: "smooth" });
 };
+
+  const renderSportsMobileClientSearchResults = () => {
+    return (
+      <div
+        style={{
+          display: "grid",
+          gap: "12px",
+        }}
+      >
+        <div
+          style={{
+            border: "1px solid #d1fae5",
+            borderRadius: "14px",
+            padding: "14px",
+            backgroundColor: "#ffffff",
+            boxShadow: "0 4px 14px rgba(15, 23, 42, 0.06)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "12px",
+              fontWeight: "900",
+              color: "#64748b",
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+              marginBottom: "4px",
+            }}
+          >
+            Busqueda por cliente
+          </div>
+
+          <div
+            style={{
+              fontSize: "18px",
+              fontWeight: "900",
+              color: business?.theme?.primaryDark || "#14532d",
+            }}
+          >
+            {mobileClientSearchResults.length} reserva(s) para "{activeClientSearch}"
+          </div>
+        </div>
+
+        {mobileClientSearchResults.length === 0 ? (
+          <div
+            style={{
+              border: "1px solid #e5e7eb",
+              borderRadius: "16px",
+              padding: "18px",
+              backgroundColor: "#ffffff",
+              color: "#64748b",
+              fontWeight: "800",
+              textAlign: "center",
+            }}
+          >
+            No hay reservas de ese cliente en esta semana.
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "repeat(2, minmax(0, 1fr))",
+              gap: "12px",
+            }}
+          >
+            {mobileClientSearchResults.map((appointment) => {
+            const reservationInfo = getReservationStatusInfo(appointment.status);
+            const paymentInfo = getPaymentStatusInfo(appointment.payment_status);
+            const appointmentDate = String(appointment.date || "").slice(0, 10);
+            const dateLabel = appointmentDate
+              ? new Date(`${appointmentDate}T00:00:00`).toLocaleDateString(
+                  "es-CL",
+                  {
+                    weekday: "short",
+                    day: "2-digit",
+                    month: "2-digit",
+                  }
+                )
+              : "";
+
+            return (
+              <button
+                key={appointment.id}
+                type="button"
+                onClick={() => handleSportsOccupiedClick(appointment)}
+                style={{
+                  width: "100%",
+                  border: `1px solid ${paymentInfo.border}`,
+                  borderLeft: `6px solid ${reservationInfo.dot}`,
+                  borderRadius: "16px",
+                  padding: "14px",
+                  backgroundColor: "#ffffff",
+                  color: "#0f172a",
+                  textAlign: "left",
+                  boxShadow: "0 5px 16px rgba(15, 23, 42, 0.08)",
+                  display: "grid",
+                  gap: "10px",
+                  cursor: "pointer",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: "10px",
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: "18px",
+                        fontWeight: "900",
+                        color: "#111827",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {getAppointmentDisplayName(appointment)}
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: "3px",
+                        fontSize: "13px",
+                        fontWeight: "800",
+                        color: "#64748b",
+                      }}
+                    >
+                      {appointment.phone || "Sin telefono"}
+                    </div>
+                  </div>
+
+                  <span
+                    title={`Reserva: ${reservationInfo.label}`}
+                    style={{
+                      width: "12px",
+                      height: "12px",
+                      borderRadius: "999px",
+                      backgroundColor: reservationInfo.dot,
+                      boxShadow: `0 0 0 3px ${reservationInfo.background}`,
+                      flexShrink: 0,
+                      marginTop: "5px",
+                    }}
+                  />
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "8px",
+                  }}
+                >
+                  <div
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "12px",
+                      padding: "10px",
+                      backgroundColor: "#f8fafc",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        color: "#64748b",
+                        fontWeight: "900",
+                      }}
+                    >
+                      Fecha
+                    </div>
+                    <div style={{ fontWeight: "900" }}>{dateLabel}</div>
+                  </div>
+
+                  <div
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "12px",
+                      padding: "10px",
+                      backgroundColor: "#f8fafc",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        color: "#64748b",
+                        fontWeight: "900",
+                      }}
+                    >
+                      Hora
+                    </div>
+                    <div style={{ fontWeight: "900" }}>
+                      {String(appointment.time || "").slice(0, 5)}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "12px",
+                      padding: "10px",
+                      backgroundColor: "#f8fafc",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        color: "#64748b",
+                        fontWeight: "900",
+                      }}
+                    >
+                      Cancha
+                    </div>
+                    <div style={{ fontWeight: "900" }}>
+                      {appointment.barber || "-"}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "12px",
+                      padding: "10px",
+                      backgroundColor: paymentInfo.background,
+                      borderColor: paymentInfo.border,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        color: paymentInfo.color,
+                        fontWeight: "900",
+                      }}
+                    >
+                      Pago
+                    </div>
+                    <div style={{ fontWeight: "900", color: paymentInfo.color }}>
+                      {paymentInfo.label}
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: "800",
+                    color: "#475569",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {appointment.service}
+                </div>
+              </button>
+            );
+          })}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderSportsResourceBox = ({ resourceName, appointment, day, hour }) => {
     const paymentInfo = getPaymentStatusInfo(appointment?.payment_status);
@@ -745,7 +1013,7 @@ function WeeklyCalendar({
 
   return (
     <>
-      {isMobile && (
+      {isMobile && !showGiocataClientResults && (
         <div style={{ marginBottom: "14px", overflowX: "auto" }}>
           <div style={{ display: "flex", gap: "8px" }}>
             {weekDays.map((day) => {
@@ -806,6 +1074,8 @@ function WeeklyCalendar({
       <div style={styles.calendarWrapper}>
         {loading ? (
           renderCalendarLoadingSkeleton()
+        ) : showGiocataClientResults ? (
+          renderSportsMobileClientSearchResults()
         ) : isSportsBusiness && !isClientMode && isMobile ? (
           renderSportsAdminMobileDayView()
         ) : isSportsBusiness && !isClientMode ? (

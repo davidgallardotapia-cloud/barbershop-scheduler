@@ -633,12 +633,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     depositOptional: false,
     defaultDepositRate: 0.5,
     paymentMethods: ["transferencia", "efectivo", "debito"],
-    onlinePaymentsEnabled: true,
-    paymentGateway: {
-      provider: "mercadopago",
-      mode: "full",
-      buttonLabel: "Reservar y pagar demo",
-    },
+    onlinePaymentsEnabled: false,
 
     barbers: ["Recurso 1", "Recurso 2", "Recurso 3"],
 

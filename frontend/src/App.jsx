@@ -111,6 +111,22 @@ function AppAnimationStyles() {
   );
 }
 
+function appointmentMatchesClientSearch(appointment, normalizedSearch) {
+  if (!normalizedSearch) return true;
+
+  const searchableText = [
+    appointment?.name,
+    appointment?.phone,
+    appointment?.opponent_name,
+    appointment?.opponent_phone,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return searchableText.includes(normalizedSearch);
+}
+
 function App() {
   const getSlugFromUrl = () => {
     if (typeof window === "undefined") return "urban-district-barber";
@@ -220,7 +236,8 @@ const [barber, setBarber] = useState("");
   const onlinePaymentsEnabled =
     Boolean(mergedBusiness?.onlinePaymentsEnabled) &&
     paymentGateway?.provider === "mercadopago";
-  const allowReservationWithoutPayment = mergedBusiness?.id === "agendasmart-demo";
+  const allowReservationWithoutPayment =
+    mergedBusiness?.id === "agendasmart-demo" && onlinePaymentsEnabled;
   const shouldUseOnlinePayment =
     onlinePaymentsEnabled &&
     !(allowReservationWithoutPayment && reserveWithoutPayment);
@@ -230,13 +247,33 @@ const [barber, setBarber] = useState("");
     "debito",
   ];
 
+  const getServicePrices = (serviceName) => {
+    return Array.from(String(serviceName || "").matchAll(/\$([\d\.]+)/g))
+      .map((match) => Number(match[1].replace(/\./g, "")))
+      .filter((price) => Number.isFinite(price) && price > 0);
+  };
+
   const getServicePrice = (serviceName) => {
-    if (!serviceName) return 0;
+    const prices = getServicePrices(serviceName);
 
-    const match = String(serviceName).match(/\$([\d\.]+)/);
-    if (!match) return 0;
+    return prices.length > 0 ? prices[prices.length - 1] : 0;
+  };
 
-    return Number(match[1].replace(/\./g, ""));
+  const getAppointmentTotalAmount = (appointment) => {
+    const servicePrices = getServicePrices(appointment?.service);
+    const customServicePrice =
+      servicePrices.length > 1 ? servicePrices[servicePrices.length - 1] : 0;
+    const storedTotal = Number(appointment?.total_amount || 0);
+
+    if (customServicePrice > 0) {
+      return customServicePrice;
+    }
+
+    if (storedTotal > 0) {
+      return storedTotal;
+    }
+
+    return servicePrices.length > 0 ? servicePrices[0] : 0;
   };
 
   const timeToMinutes = (timeValue) => {
@@ -295,10 +332,7 @@ const [barber, setBarber] = useState("");
     0
   );
 
-  const selectedReservationTotal = Math.max(
-    Number(paymentAppointment?.total_amount || 0),
-    Number(getServicePrice(paymentAppointment?.service) || 0)
-  );
+  const selectedReservationTotal = getAppointmentTotalAmount(paymentAppointment);
 
   const selectedRequiredDeposit = Math.max(
     Number(paymentAppointment?.required_deposit_amount || 0),
@@ -879,9 +913,7 @@ const handleReservationStatusFromPaymentPanel = async (nextStatus) => {
       barber: paymentAppointment.barber || "",
       businessId,
       status: nextStatus,
-      totalAmount:
-        Number(paymentAppointment.total_amount || 0) ||
-        getServicePrice(paymentAppointment.service),
+      totalAmount: getAppointmentTotalAmount(paymentAppointment),
       depositRequired: Boolean(paymentAppointment.deposit_required),
       requiredDepositAmount: Number(
         paymentAppointment.required_deposit_amount || 0
@@ -1940,11 +1972,10 @@ setEditingId(appointment.id);
       const matchesBarber = weeklyBarberFilter
         ? appointment.barber === weeklyBarberFilter
         : true;
-      const matchesClient = normalizedClientSearch
-        ? String(appointment.name || "")
-            .toLowerCase()
-            .includes(normalizedClientSearch)
-        : true;
+      const matchesClient = appointmentMatchesClientSearch(
+        appointment,
+        normalizedClientSearch
+      );
 
       return matchesToday && matchesBarber && matchesClient;
     });
@@ -1979,15 +2010,54 @@ setEditingId(appointment.id);
         ? appointment.barber === activeBarberFilter
         : true;
 
-      const matchesClient = normalizedClientSearch
-        ? String(appointment.name || "")
-            .toLowerCase()
-            .includes(normalizedClientSearch)
-        : true;
+      const matchesClient = appointmentMatchesClientSearch(
+        appointment,
+        normalizedClientSearch
+      );
 
       return matchesBarber && matchesClient;
     });
   }, [appointments, isClientMode, barber, weeklyBarberFilter, clientSearch]);
+
+  const mobileClientSearchResults = useMemo(() => {
+    const normalizedClientSearch = clientSearch.trim().toLowerCase();
+
+    if (
+      isClientMode ||
+      mergedBusiness?.id !== "giocata" ||
+      !normalizedClientSearch
+    ) {
+      return [];
+    }
+
+    const visibleWeekDates = new Set(
+      weekDays.map((day) => formatDateToInput(day))
+    );
+
+    return filteredAppointments
+      .filter((appointment) => {
+        const appointmentDate = String(appointment.date || "").slice(0, 10);
+        return visibleWeekDates.has(appointmentDate);
+      })
+      .sort((firstAppointment, secondAppointment) => {
+        const firstDateTime = `${String(firstAppointment.date || "").slice(
+          0,
+          10
+        )} ${String(firstAppointment.time || "").slice(0, 5)}`;
+        const secondDateTime = `${String(secondAppointment.date || "").slice(
+          0,
+          10
+        )} ${String(secondAppointment.time || "").slice(0, 5)}`;
+
+        return firstDateTime.localeCompare(secondDateTime);
+      });
+  }, [
+    clientSearch,
+    filteredAppointments,
+    isClientMode,
+    mergedBusiness?.id,
+    weekDays,
+  ]);
 
   const appointmentsBySlot = useMemo(() => {
     const map = new Map();
@@ -3046,6 +3116,8 @@ updateAppointment={updateAppointment}
                 time={time}
                 hours={hours}
                 mobileSlots={mobileSlots}
+                clientSearch={clientSearch}
+                mobileClientSearchResults={mobileClientSearchResults}
                 isBarberSelected={true}
                 selectSlot={selectSlot}
                 setDate={setDate}
@@ -3082,6 +3154,19 @@ updateAppointment={updateAppointment}
                   gap: "16px",
                   marginBottom: "18px",
                   flexWrap: "wrap",
+                  ...(isMobile && mergedBusiness?.id === "giocata"
+                    ? {
+                        position: "sticky",
+                        top: "-16px",
+                        zIndex: 5,
+                        margin: "-16px -16px 18px",
+                        padding: "14px 16px 12px",
+                        backgroundColor: theme.cardBackground || "#fff",
+                        borderBottom: `1px solid ${
+                          theme.border || "#bbf7d0"
+                        }`,
+                      }
+                    : {}),
                 }}
               >
                 <div style={{ minWidth: 0 }}>
@@ -3096,8 +3181,34 @@ updateAppointment={updateAppointment}
                     Pagos de la reserva
                   </h3>
 
+                  {isMobile && mergedBusiness?.id === "giocata" && (
+                    <p
+                      style={{
+                        margin: "8px 0 0",
+                        color: "#64748b",
+                        fontSize: "15px",
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      <strong style={{ color: "#111827" }}>
+                        {paymentAppointment?.name}
+                      </strong>{" "}
+                      ·{" "}
+                      {paymentAppointment?.date
+                        ? new Date(paymentAppointment.date).toLocaleDateString(
+                            "es-CL"
+                          )
+                        : ""}{" "}
+                      · {String(paymentAppointment?.time || "").slice(0, 5)}
+                    </p>
+                  )}
+
                   <p
                     style={{
+                      display:
+                        isMobile && mergedBusiness?.id === "giocata"
+                          ? "none"
+                          : "block",
                       margin: "8px 0 0",
                       color: "#64748b",
                       fontSize: "15px",
@@ -3164,10 +3275,28 @@ updateAppointment={updateAppointment}
 
                 <button
                   type="button"
-                  style={{ ...styles.button, ...styles.secondaryButton }}
+                  style={{
+                    ...styles.button,
+                    ...(isMobile && mergedBusiness?.id === "giocata"
+                      ? {
+                          width: "100%",
+                          minHeight: "48px",
+                          padding: "12px 16px",
+                          borderRadius: "12px",
+                          border: `2px solid ${
+                            theme.primaryDark || "#14532d"
+                          }`,
+                          backgroundColor: theme.primaryDark || "#14532d",
+                          color: "#fff",
+                          fontSize: "16px",
+                          fontWeight: "900",
+                          boxShadow: "0 10px 24px rgba(20, 83, 45, 0.22)",
+                        }
+                      : styles.secondaryButton),
+                  }}
                   onClick={closePaymentPanel}
                 >
-                  Cerrar
+                  X Cerrar
                 </button>
               </div>
 

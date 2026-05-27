@@ -476,16 +476,18 @@ const clearAuthCookie = (res) => {
 
 const mercadoPagoGatewayConfigByBusinessId = {
   "agendasmart-demo": {
+    enabled: false,
     accessTokenEnv: "MERCADOPAGO_ACCESS_TOKEN_AGENDASMART_DEMO",
     webhookSecretEnv: "MERCADOPAGO_WEBHOOK_SECRET_AGENDASMART_DEMO",
     mode: "full",
   },
 };
 
-const getMercadoPagoGatewayConfig = (businessId) => {
+const getMercadoPagoGatewayConfig = (businessId, options = {}) => {
   const config = mercadoPagoGatewayConfigByBusinessId[businessId];
+  const includeDisabled = Boolean(options.includeDisabled);
 
-  if (!config) {
+  if (!config || (config.enabled === false && !includeDisabled)) {
     return null;
   }
 
@@ -651,11 +653,33 @@ const validateStartupSecurityConfig = () => {
   });
 };
 
-const getServicePrice = (serviceName) => {
-  const match = String(serviceName || "").match(/\$([\d.]+)/);
-  if (!match) return 0;
+const getServicePrices = (serviceName) => {
+  return Array.from(String(serviceName || "").matchAll(/\$([\d.]+)/g))
+    .map((match) => Number(match[1].replace(/\./g, "")))
+    .filter((price) => Number.isFinite(price) && price > 0);
+};
 
-  return Number(match[1].replace(/\./g, ""));
+const getServicePrice = (serviceName) => {
+  const prices = getServicePrices(serviceName);
+
+  return prices.length > 0 ? prices[prices.length - 1] : 0;
+};
+
+const getAppointmentTotalAmount = (appointment) => {
+  const servicePrices = getServicePrices(appointment?.service);
+  const customServicePrice =
+    servicePrices.length > 1 ? servicePrices[servicePrices.length - 1] : 0;
+  const storedTotal = Number(appointment?.total_amount || 0);
+
+  if (customServicePrice > 0) {
+    return customServicePrice;
+  }
+
+  if (storedTotal > 0) {
+    return storedTotal;
+  }
+
+  return servicePrices.length > 0 ? servicePrices[0] : 0;
 };
 
 const getPublicApiBaseUrl = (req) => {
@@ -1196,7 +1220,7 @@ const recalculateAppointmentPaymentStatus = async (appointmentId) => {
   );
 
   const totalPaid = Number(totalsResult.rows[0].total_paid || 0);
-  const totalAmount = Number(appointment.total_amount || 0);
+  const totalAmount = getAppointmentTotalAmount(appointment);
   const requiredDepositAmount = Number(
     appointment.required_deposit_amount || 0
   );
@@ -2477,9 +2501,7 @@ app.post("/payments/mercadopago/preferences", publicWriteLimiter, async (req, re
     }
 
     const appointment = appointmentResult.rows[0];
-    const totalAmount =
-      Number(appointment.total_amount || 0) ||
-      Number(getServicePrice(appointment.service) || 0);
+    const totalAmount = getAppointmentTotalAmount(appointment);
 
     if (totalAmount <= 0) {
       emitSecurityEventSoon({
@@ -2672,7 +2694,7 @@ app.post("/payments/mercadopago/webhook", async (req, res) => {
   const gatewayConfigs = Object.keys(mercadoPagoGatewayConfigByBusinessId).map(
     (businessId) => ({
       businessId,
-      ...getMercadoPagoGatewayConfig(businessId),
+      ...getMercadoPagoGatewayConfig(businessId, { includeDisabled: true }),
     })
   );
   const configsWithWebhookSecret = gatewayConfigs.filter(
