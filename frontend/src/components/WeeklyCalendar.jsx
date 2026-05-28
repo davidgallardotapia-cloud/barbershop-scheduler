@@ -34,6 +34,7 @@ function WeeklyCalendar({
   submitting,
   isPastSlot,
   isPastDayOnly,
+  isScheduleSlotAvailable = () => true,
   openPaymentPanel,
 }) {
   const resourcePrompt = business?.hideResourceSelector
@@ -834,6 +835,7 @@ function WeeklyCalendar({
 
               {weekDays.map((day) => {
                 const slotAppointments = getAppointmentsForSlot(day, hour);
+                const isAvailableForDay = isScheduleSlotAvailable(day, hour);
 
                 return (
                   <div
@@ -846,27 +848,43 @@ function WeeklyCalendar({
                       minHeight: "275px",
                     }}
                   >
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr",
-                        gap: "6px",
-                      }}
-                    >
-                      {sportsResources.map((resourceName) => {
-                        const appointment = getSportsAppointmentForResource(
-                          slotAppointments,
-                          resourceName
-                        );
+                    {isAvailableForDay ? (
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr",
+                          gap: "6px",
+                        }}
+                      >
+                        {sportsResources.map((resourceName) => {
+                          const appointment = getSportsAppointmentForResource(
+                            slotAppointments,
+                            resourceName
+                          );
 
-                        return renderSportsResourceBox({
-                          resourceName,
-                          appointment,
-                          day,
-                          hour,
-                        });
-                      })}
-                    </div>
+                          return renderSportsResourceBox({
+                            resourceName,
+                            appointment,
+                            day,
+                            hour,
+                          });
+                        })}
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          border: "1px dashed #cbd5e1",
+                          borderRadius: "12px",
+                          padding: "18px 12px",
+                          backgroundColor: "#f8fafc",
+                          color: "#64748b",
+                          fontWeight: "900",
+                          textAlign: "center",
+                        }}
+                      >
+                        No disponible
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -928,8 +946,9 @@ function WeeklyCalendar({
           </div>
         </div>
 
-        {hours.map((hour) => {
-          const slotAppointments = getAppointmentsForSlot(activeDay, hour);
+        {mobileGroupedSlots.map((slot) => {
+          const hour = slot.hour;
+          const slotAppointments = slot.appointments || [];
 
           return (
             <div

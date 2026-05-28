@@ -127,6 +127,44 @@ function appointmentMatchesClientSearch(appointment, normalizedSearch) {
   return searchableText.includes(normalizedSearch);
 }
 
+const DEFAULT_SCHEDULE_SLOTS = Array.from(
+  { length: 12 },
+  (_, index) => `${String(index + 9).padStart(2, "0")}:00`
+);
+
+function normalizeScheduleSlotValue(slot) {
+  return typeof slot === "string"
+    ? slot.slice(0, 5)
+    : `${String(slot).padStart(2, "0")}:00`;
+}
+
+function scheduleSlotToMinutes(slot) {
+  const [hoursPart, minutesPart = "0"] = normalizeScheduleSlotValue(slot).split(
+    ":"
+  );
+  const parsedHours = Number(hoursPart);
+  const parsedMinutes = Number(minutesPart);
+
+  if (Number.isNaN(parsedHours) || Number.isNaN(parsedMinutes)) return 0;
+
+  return parsedHours * 60 + parsedMinutes;
+}
+
+function sortScheduleSlots(slots) {
+  return Array.from(new Set(slots.map(normalizeScheduleSlotValue))).sort(
+    (left, right) => scheduleSlotToMinutes(left) - scheduleSlotToMinutes(right)
+  );
+}
+
+function getWeekdayFromDateValue(dateValue) {
+  const date =
+    dateValue instanceof Date ? dateValue : new Date(`${dateValue}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) return null;
+
+  return date.getDay();
+}
+
 function App() {
   const getSlugFromUrl = () => {
     if (typeof window === "undefined") return "urban-district-barber";
@@ -218,12 +256,32 @@ const [barber, setBarber] = useState("");
 
   const theme = mergedBusiness?.theme || {};
 
+  const baseScheduleSlots =
+    currentBusinessConfig?.scheduleSlots || DEFAULT_SCHEDULE_SLOTS;
+  const scheduleSlotsByWeekday =
+    currentBusinessConfig?.scheduleSlotsByWeekday || {};
+
   const hours = useMemo(() => {
-    return (
-      currentBusinessConfig?.scheduleSlots ||
-      Array.from({ length: 12 }, (_, i) => i + 9)
+    const weekdaySpecificSlots = Object.values(scheduleSlotsByWeekday).flat();
+
+    return sortScheduleSlots([...baseScheduleSlots, ...weekdaySpecificSlots]);
+  }, [baseScheduleSlots, scheduleSlotsByWeekday]);
+
+  const getScheduleSlotsForDate = (dateValue) => {
+    const weekday = getWeekdayFromDateValue(dateValue);
+    const weekdaySchedule =
+      weekday === null ? null : scheduleSlotsByWeekday[String(weekday)];
+
+    return sortScheduleSlots(weekdaySchedule || baseScheduleSlots);
+  };
+
+  const isScheduleSlotAvailable = (day, hour) => {
+    const dayScheduleSlots = new Set(
+      getScheduleSlotsForDate(day).map(normalizeScheduleSlotValue)
     );
-  }, [currentBusinessConfig]);
+
+    return dayScheduleSlots.has(normalizeScheduleSlotValue(hour));
+  };
 
   const usesServiceDurations = Boolean(mergedBusiness?.usesServiceDurations);
   const slotIntervalMinutes = Number(mergedBusiness?.slotIntervalMinutes || 30);
@@ -276,6 +334,39 @@ const [barber, setBarber] = useState("");
     return servicePrices.length > 0 ? servicePrices[0] : 0;
   };
 
+  const getAppointmentPaidAmount = (appointment) => {
+    const directPaidAmount = Number(
+      appointment?.total_paid ??
+        appointment?.totalPaid ??
+        appointment?.paid_amount ??
+        0
+    );
+
+    if (Number.isFinite(directPaidAmount) && directPaidAmount > 0) {
+      return directPaidAmount;
+    }
+
+    const paymentStatus = String(appointment?.payment_status || "").toLowerCase();
+    const totalAmount = getAppointmentTotalAmount(appointment);
+
+    if (paymentStatus === "paid") {
+      return totalAmount;
+    }
+
+    const requiredDepositAmount = Number(
+      appointment?.required_deposit_amount || 0
+    );
+
+    if (
+      ["deposit_paid", "partially_paid"].includes(paymentStatus) &&
+      requiredDepositAmount > 0
+    ) {
+      return Math.min(requiredDepositAmount, totalAmount);
+    }
+
+    return 0;
+  };
+
   const timeToMinutes = (timeValue) => {
     const text = String(timeValue || "").slice(0, 5);
     const [hoursPart, minutesPart = "0"] = text.split(":");
@@ -320,10 +411,12 @@ const [barber, setBarber] = useState("");
     return startA < endB && startB < endA;
   };
 
-  const getScheduleEndMinutes = () => {
-    if (!hours.length) return null;
+  const getScheduleEndMinutes = (scheduleSlots = hours) => {
+    if (!scheduleSlots.length) return null;
 
-    const lastSlotMinutes = timeToMinutes(normalizeScheduleTime(hours[hours.length - 1]));
+    const lastSlotMinutes = timeToMinutes(
+      normalizeScheduleTime(scheduleSlots[scheduleSlots.length - 1])
+    );
     return lastSlotMinutes === null ? null : lastSlotMinutes + slotIntervalMinutes;
   };
 
@@ -1961,6 +2054,17 @@ setEditingId(appointment.id);
   };
 
   const todayStr = formatDateToInput(new Date());
+  const dashboardDate = selectedMobileDay
+    ? formatDateToInput(selectedMobileDay)
+    : date || todayStr;
+  const dashboardDateLabel = new Date(`${dashboardDate}T00:00:00`).toLocaleDateString(
+    "es-CL",
+    {
+      weekday: "short",
+      day: "2-digit",
+      month: "2-digit",
+    }
+  );
 
   const dashboardAppointments = useMemo(() => {
     const normalizedClientSearch = clientSearch.trim().toLowerCase();
@@ -1968,7 +2072,7 @@ setEditingId(appointment.id);
     return appointments.filter((appointment) => {
       const appointmentDate = String(appointment.date || "").slice(0, 10);
 
-      const matchesToday = appointmentDate === todayStr;
+      const matchesDashboardDate = appointmentDate === dashboardDate;
       const matchesBarber = weeklyBarberFilter
         ? appointment.barber === weeklyBarberFilter
         : true;
@@ -1977,29 +2081,79 @@ setEditingId(appointment.id);
         normalizedClientSearch
       );
 
-      return matchesToday && matchesBarber && matchesClient;
+      return matchesDashboardDate && matchesBarber && matchesClient;
     });
-  }, [appointments, todayStr, weeklyBarberFilter, clientSearch]);
+  }, [appointments, dashboardDate, weeklyBarberFilter, clientSearch]);
 
-  const totalToday = dashboardAppointments.length;
+  const totalDashboardDay = dashboardAppointments.length;
 
-  const attendedToday = dashboardAppointments.filter(
+  const attendedDashboardDay = dashboardAppointments.filter(
     (appointment) => appointment.status === "atendida"
   ).length;
 
-  const noShowToday = dashboardAppointments.filter(
+  const noShowDashboardDay = dashboardAppointments.filter(
     (appointment) => appointment.status === "no_asistio"
   ).length;
 
-  const reservedToday = dashboardAppointments.filter(
+  const reservedDashboardDay = dashboardAppointments.filter(
     (appointment) => !appointment.status || appointment.status === "reservada"
   ).length;
 
-  const revenueToday = dashboardAppointments
+  const revenueDashboardDay = dashboardAppointments
     .filter((appointment) => appointment.status === "atendida")
     .reduce((total, appointment) => {
-      return total + getServicePrice(appointment.service);
+      return total + getAppointmentTotalAmount(appointment);
     }, 0);
+
+  const paymentDistributionDashboardDay = dashboardAppointments.reduce(
+    (summary, appointment) => {
+      const totalAmount = getAppointmentTotalAmount(appointment);
+      const paidAmount = Math.min(
+        getAppointmentPaidAmount(appointment),
+        totalAmount
+      );
+      const paymentStatus = String(
+        appointment.payment_status || "unpaid"
+      ).toLowerCase();
+      const isPaid =
+        paymentStatus === "paid" || (totalAmount > 0 && paidAmount >= totalAmount);
+      const isPartial = !isPaid && paidAmount > 0;
+
+      summary.totalAmount += totalAmount;
+      summary.totalPaidAmount += paidAmount;
+      summary.pendingAmount += Math.max(totalAmount - paidAmount, 0);
+      summary.transferenciaAmount += Number(appointment.transferencia_paid || 0);
+      summary.debitoAmount += Number(appointment.debito_paid || 0);
+      summary.efectivoAmount += Number(appointment.efectivo_paid || 0);
+
+      if (isPaid) {
+        summary.paidCount += 1;
+        summary.fullPaidAmount += totalAmount;
+      } else if (isPartial) {
+        summary.partialCount += 1;
+        summary.partialPaidAmount += paidAmount;
+      } else {
+        summary.unpaidCount += 1;
+        summary.unpaidAmount += totalAmount;
+      }
+
+      return summary;
+    },
+    {
+      totalAmount: 0,
+      totalPaidAmount: 0,
+      pendingAmount: 0,
+      paidCount: 0,
+      partialCount: 0,
+      unpaidCount: 0,
+      fullPaidAmount: 0,
+      partialPaidAmount: 0,
+      unpaidAmount: 0,
+      transferenciaAmount: 0,
+      debitoAmount: 0,
+      efectivoAmount: 0,
+    }
+  );
 
   const filteredAppointments = useMemo(() => {
     const activeBarberFilter = isClientMode ? barber : weeklyBarberFilter;
@@ -2091,7 +2245,9 @@ setEditingId(appointment.id);
   const mobileSlots = useMemo(() => {
     if (!selectedMobileDay) return [];
 
-    return hours.map((hour) => {
+    const selectedDayHours = getScheduleSlotsForDate(selectedMobileDay);
+
+    return selectedDayHours.map((hour) => {
       const slotAppointments = getAppointmentsForSlot(selectedMobileDay, hour);
 
       const normalizedHour =
@@ -2111,7 +2267,13 @@ setEditingId(appointment.id);
         isPast,
       };
     });
-  }, [selectedMobileDay, hours, appointmentsBySlot, isClientMode]);
+  }, [
+    selectedMobileDay,
+    hours,
+    appointmentsBySlot,
+    isClientMode,
+    currentBusinessConfig,
+  ]);
 
   const resolvedClientResource = getResolvedClientResource();
 
@@ -2196,7 +2358,9 @@ setEditingId(appointment.id);
     mergedBusiness?.id
   );
 
-  return hours.map((hour) => {
+  const selectedDayHours = getScheduleSlotsForDate(selectedDay);
+
+  return selectedDayHours.map((hour) => {
     const formattedHour =
       typeof hour === "string" ? hour : formatHourLabel(hour);
 
@@ -2210,7 +2374,7 @@ setEditingId(appointment.id);
       candidateStartMinutes === null
         ? null
         : candidateStartMinutes + selectedDurationMinutes;
-    const scheduleEndMinutes = getScheduleEndMinutes();
+    const scheduleEndMinutes = getScheduleEndMinutes(selectedDayHours);
     const exceedsSchedule =
       usesServiceDurations &&
       scheduleEndMinutes !== null &&
@@ -2286,6 +2450,7 @@ setEditingId(appointment.id);
   service,
   usesServiceDurations,
   slotIntervalMinutes,
+  currentBusinessConfig,
 ]);
 
   const styles = {
@@ -2335,6 +2500,52 @@ setEditingId(appointment.id);
       padding: "14px",
       border: `1px solid ${theme.border || "#e5e7eb"}`,
       boxShadow: "0 4px 14px rgba(0,0,0,0.06)",
+    },
+    dashboardPaymentSummary: {
+      borderRadius: "14px",
+      padding: isMobile ? "12px" : "14px",
+      border: `1px solid ${theme.border || "#bbf7d0"}`,
+      backgroundColor: theme.primarySoft || "#f0fdf4",
+      marginTop: "-4px",
+      marginBottom: "18px",
+    },
+    dashboardPaymentHeader: {
+      display: "flex",
+      justifyContent: "space-between",
+      gap: "10px",
+      flexWrap: "wrap",
+      alignItems: "baseline",
+      marginBottom: "10px",
+    },
+    dashboardPaymentGrid: {
+      display: "grid",
+      gridTemplateColumns: isMobile
+        ? "1fr"
+        : "repeat(3, minmax(160px, 1fr))",
+      gap: "10px",
+    },
+    dashboardPaymentCard: {
+      backgroundColor: theme.cardBackground || "#fff",
+      borderRadius: "12px",
+      padding: "12px",
+      border: `1px solid ${theme.border || "#d1fae5"}`,
+      boxShadow: "0 3px 10px rgba(15, 23, 42, 0.05)",
+    },
+    dashboardPaymentLabel: {
+      fontSize: "12px",
+      color: "#64748b",
+      marginBottom: "4px",
+      fontWeight: "700",
+    },
+    dashboardPaymentAmount: {
+      fontSize: "20px",
+      fontWeight: "900",
+      color: "#111827",
+    },
+    dashboardPaymentMeta: {
+      marginTop: "4px",
+      fontSize: "12px",
+      color: "#64748b",
     },
     dashboardLabel: {
       fontSize: "13px",
@@ -2956,6 +3167,7 @@ paymentHistoryItem: {
                     submitting={submitting}
                     isPastSlot={isPastSlot}
                     isPastDayOnly={isPastDayOnly}
+                    isScheduleSlotAvailable={isScheduleSlotAvailable}
                   />
                 </>
               )}
@@ -3014,32 +3226,186 @@ updateAppointment={updateAppointment}
             <div style={styles.card}>
               <div style={styles.dashboardGrid}>
                 <div style={styles.dashboardCard}>
-                  <div style={styles.dashboardLabel}>Citas hoy</div>
-                  <div style={styles.dashboardValue}>{totalToday}</div>
+                  <div style={styles.dashboardLabel}>
+                    Citas del día
+                    <span style={{ display: "block", fontSize: "11px" }}>
+                      {dashboardDateLabel}
+                    </span>
+                  </div>
+                  <div style={styles.dashboardValue}>{totalDashboardDay}</div>
                 </div>
 
                 <div style={styles.dashboardCard}>
                   <div style={styles.dashboardLabel}>Atendidas</div>
-                  <div style={styles.dashboardValueSuccess}>{attendedToday}</div>
+                  <div style={styles.dashboardValueSuccess}>
+                    {attendedDashboardDay}
+                  </div>
                 </div>
 
                 <div style={styles.dashboardCard}>
                   <div style={styles.dashboardLabel}>No asistió</div>
-                  <div style={styles.dashboardValueDanger}>{noShowToday}</div>
+                  <div style={styles.dashboardValueDanger}>
+                    {noShowDashboardDay}
+                  </div>
                 </div>
 
                 <div style={styles.dashboardCard}>
                   <div style={styles.dashboardLabel}>Pendientes</div>
-                  <div style={styles.dashboardValueWarning}>{reservedToday}</div>
+                  <div style={styles.dashboardValueWarning}>
+                    {reservedDashboardDay}
+                  </div>
                 </div>
 
                 <div style={styles.dashboardCard}>
-                  <div style={styles.dashboardLabel}>Ingreso real hoy</div>
+                  <div style={styles.dashboardLabel}>Ingreso real del día</div>
                   <div style={styles.dashboardValue}>
-                    ${revenueToday.toLocaleString("es-CL")}
+                    ${revenueDashboardDay.toLocaleString("es-CL")}
                   </div>
                 </div>
               </div>
+
+              {paymentsEnabled && (
+                <div style={styles.dashboardPaymentSummary}>
+                  <div style={styles.dashboardPaymentHeader}>
+                    <div style={{ fontWeight: "900", fontSize: "15px" }}>
+                      Pagos del día
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#64748b" }}>
+                      Total esperado:{" "}
+                      <strong style={{ color: "#111827" }}>
+                        {formatCurrency(
+                          paymentDistributionDashboardDay.totalAmount
+                        )}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div style={styles.dashboardPaymentGrid}>
+                    <div
+                      style={{
+                        ...styles.dashboardPaymentCard,
+                        borderColor: "#bbf7d0",
+                      }}
+                    >
+                      <div style={styles.dashboardPaymentLabel}>
+                        Pagado completo
+                      </div>
+                      <div
+                        style={{
+                          ...styles.dashboardPaymentAmount,
+                          color: "#166534",
+                        }}
+                      >
+                        {formatCurrency(
+                          paymentDistributionDashboardDay.fullPaidAmount
+                        )}
+                      </div>
+                      <div style={styles.dashboardPaymentMeta}>
+                        {paymentDistributionDashboardDay.paidCount} reservas
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        ...styles.dashboardPaymentCard,
+                        borderColor: "#fde68a",
+                      }}
+                    >
+                      <div style={styles.dashboardPaymentLabel}>
+                        Abonos y parciales
+                      </div>
+                      <div
+                        style={{
+                          ...styles.dashboardPaymentAmount,
+                          color: "#92400e",
+                        }}
+                      >
+                        {formatCurrency(
+                          paymentDistributionDashboardDay.partialPaidAmount
+                        )}
+                      </div>
+                      <div style={styles.dashboardPaymentMeta}>
+                        {paymentDistributionDashboardDay.partialCount} reservas
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        ...styles.dashboardPaymentCard,
+                        borderColor: "#fecaca",
+                      }}
+                    >
+                      <div style={styles.dashboardPaymentLabel}>
+                        Saldo pendiente
+                      </div>
+                      <div
+                        style={{
+                          ...styles.dashboardPaymentAmount,
+                          color: "#991b1b",
+                        }}
+                      >
+                        {formatCurrency(
+                          paymentDistributionDashboardDay.pendingAmount
+                        )}
+                      </div>
+                      <div style={styles.dashboardPaymentMeta}>
+                        {paymentDistributionDashboardDay.partialCount +
+                          paymentDistributionDashboardDay.unpaidCount}{" "}
+                        reservas con saldo
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: "12px",
+                      paddingTop: "12px",
+                      borderTop: `1px solid ${theme.border || "#bbf7d0"}`,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: "900",
+                        marginBottom: "10px",
+                      }}
+                    >
+                      Métodos de pago
+                    </div>
+
+                    <div style={styles.dashboardPaymentGrid}>
+                      <div style={styles.dashboardPaymentCard}>
+                        <div style={styles.dashboardPaymentLabel}>
+                          Transferencia
+                        </div>
+                        <div style={styles.dashboardPaymentAmount}>
+                          {formatCurrency(
+                            paymentDistributionDashboardDay.transferenciaAmount
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={styles.dashboardPaymentCard}>
+                        <div style={styles.dashboardPaymentLabel}>Débito</div>
+                        <div style={styles.dashboardPaymentAmount}>
+                          {formatCurrency(
+                            paymentDistributionDashboardDay.debitoAmount
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={styles.dashboardPaymentCard}>
+                        <div style={styles.dashboardPaymentLabel}>Efectivo</div>
+                        <div style={styles.dashboardPaymentAmount}>
+                          {formatCurrency(
+                            paymentDistributionDashboardDay.efectivoAmount
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div style={styles.topBar}>
                 <div
@@ -3134,6 +3500,7 @@ updateAppointment={updateAppointment}
                 submitting={submitting}
                 isPastSlot={isPastSlot}
                 isPastDayOnly={isPastDayOnly}
+                isScheduleSlotAvailable={isScheduleSlotAvailable}
                 openPaymentPanel={openPaymentPanel}
               />
             </div>

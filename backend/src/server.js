@@ -1637,10 +1637,25 @@ app.get("/admin/appointments", requireAuth, async (req, res) => {
     const appointmentFilter = buildAppointmentDateFilter(businessId, dateRange);
 
     const result = await pool.query(
-      `SELECT *
+      `SELECT
+        appointments.*,
+        COALESCE(payment_totals.total_paid, 0) AS total_paid,
+        COALESCE(payment_totals.transferencia_paid, 0) AS transferencia_paid,
+        COALESCE(payment_totals.debito_paid, 0) AS debito_paid,
+        COALESCE(payment_totals.efectivo_paid, 0) AS efectivo_paid
        FROM appointments
+       LEFT JOIN (
+         SELECT
+           appointment_id,
+           SUM(amount) AS total_paid,
+           SUM(CASE WHEN method = 'transferencia' THEN amount ELSE 0 END) AS transferencia_paid,
+           SUM(CASE WHEN method = 'debito' THEN amount ELSE 0 END) AS debito_paid,
+           SUM(CASE WHEN method = 'efectivo' THEN amount ELSE 0 END) AS efectivo_paid
+         FROM appointment_payments
+         GROUP BY appointment_id
+       ) AS payment_totals ON payment_totals.appointment_id = appointments.id
        WHERE ${appointmentFilter.whereClause}
-       ORDER BY date ASC, time ASC`,
+       ORDER BY appointments.date ASC, appointments.time ASC`,
       appointmentFilter.values
     );
 
