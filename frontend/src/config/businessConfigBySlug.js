@@ -442,7 +442,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     location: "Ovalle",
     address: "Marcelo Barrios 395, Ovalle",
 
-    image: "/centro-ama/centro-ama-hero.jpg",
+    image: "/centro-ama/centro-ama-hero.png",
     logo: "/centro-ama/centro-ama-logo.png",
     logoWidth: "120px",
     logoHeight: "120px",
