@@ -49,6 +49,14 @@ const sharePages = {
     imageWidth: 1080,
     imageHeight: 1080,
   },
+  "/centro-ama": {
+    title: "Centro AMA Salud Integral | Agenda online",
+    description:
+      "Agenda tu sesion de psicologia, kinesiologia o nutricion en Centro AMA Salud Integral.",
+    image: "/centro-ama/centro-ama-logo.png",
+    imageWidth: 1254,
+    imageHeight: 1254,
+  },
   "/urban-district-barber": {
     title: "Urban District Barber | Reserva online",
     description:
