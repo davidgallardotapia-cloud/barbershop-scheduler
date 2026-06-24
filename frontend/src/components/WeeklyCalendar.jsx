@@ -43,6 +43,27 @@ function WeeklyCalendar({
 
   const isGiocata = business?.id === "giocata";
   const isSportsBusiness = ["giocata", "pinguino-club"].includes(business?.id);
+  const scheduleTheme = business?.theme || {};
+  const useSchedulePalette = business?.id === "centro-ama";
+
+  const themedAvailableSlotStyle = useSchedulePalette
+    ? {
+        backgroundColor: scheduleTheme.primarySoft || "#f7f0df",
+        color: scheduleTheme.primaryDark || "#2f5562",
+        border: `1px solid ${scheduleTheme.border || "#e7dcc4"}`,
+        boxShadow: `inset 4px 0 0 ${scheduleTheme.primary || "#b08a3c"}`,
+      }
+    : {};
+
+  const themedAvailableCardStyle = useSchedulePalette
+    ? {
+        background:
+          "linear-gradient(135deg, rgba(247,240,223,0.96), rgba(255,255,255,0.98))",
+        color: scheduleTheme.primaryDark || "#2f5562",
+        border: `1px solid ${scheduleTheme.border || "#e7dcc4"}`,
+        boxShadow: `inset 4px 0 0 ${scheduleTheme.primary || "#b08a3c"}`,
+      }
+    : {};
 
   const sportsResources =
     business?.barbers && business.barbers.length > 0
@@ -1132,6 +1153,9 @@ function WeeklyCalendar({
                     disabled={isDisabled}
                     style={{
                       ...styles.mobileSlotButton,
+                      ...(!slot.isOccupied && !slot.isPast && isBarberSelected
+                        ? themedAvailableSlotStyle
+                        : {}),
                       ...(slot.isOccupied || slot.isPast || !isBarberSelected
                         ? styles.mobileSlotOccupied
                         : {}),
@@ -1384,6 +1408,7 @@ function WeeklyCalendar({
                         fontWeight: "600",
                         background: "#ffffff",
                         color: "#111827",
+                        ...themedAvailableCardStyle,
                       }}
                     >
                       Disponible
@@ -1659,6 +1684,7 @@ function WeeklyCalendar({
                             border: `1px solid ${
                               business?.theme?.border || "#d1d5db"
                             }`,
+                            ...themedAvailableSlotStyle,
                             width: "100%",
                             ...(!isBarberSelected || isPast
                               ? styles.disabledButton
@@ -1688,6 +1714,7 @@ function WeeklyCalendar({
                           style={{
                             ...styles.tinyButton,
                             ...styles.secondaryButton,
+                            ...themedAvailableSlotStyle,
                             width: "100%",
                           }}
                           onClick={() => selectSlot(day, hour)}

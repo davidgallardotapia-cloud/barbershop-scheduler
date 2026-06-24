@@ -242,7 +242,10 @@ const [barber, setBarber] = useState("");
   }, [slug]);
 
   const BARBERS = currentBusinessConfig?.barbers || [];
-  const SERVICES = currentBusinessConfig?.services || [];
+  const servicesByResource = currentBusinessConfig?.servicesByResource || {};
+  const selectedResourceServices =
+    barber && servicesByResource[barber] ? servicesByResource[barber] : null;
+  const SERVICES = selectedResourceServices || currentBusinessConfig?.services || [];
   const BARBER_PHONES = currentBusinessConfig?.phones || {};
 
   const mergedBusiness = useMemo(() => {
@@ -305,6 +308,18 @@ const [barber, setBarber] = useState("");
     "debito",
   ];
 
+  useEffect(() => {
+    if (!service || !barber) return;
+
+    const resourceServices = currentBusinessConfig?.servicesByResource?.[barber];
+
+    if (resourceServices && !resourceServices.includes(service)) {
+      setService("");
+      setDate("");
+      setTime("");
+    }
+  }, [barber, currentBusinessConfig, service]);
+
   const getServicePrices = (serviceName) => {
     return Array.from(String(serviceName || "").matchAll(/\$([\d\.]+)/g))
       .map((match) => Number(match[1].replace(/\./g, "")))
@@ -365,6 +380,99 @@ const [barber, setBarber] = useState("");
     }
 
     return 0;
+  };
+
+  const isAppointmentFullyPaid = (appointment) => {
+    const totalAmount = getAppointmentTotalAmount(appointment);
+    const paidAmount = getAppointmentPaidAmount(appointment);
+    const paymentStatus = String(appointment?.payment_status || "").toLowerCase();
+
+    return totalAmount > 0 && (paymentStatus === "paid" || paidAmount >= totalAmount);
+  };
+
+  const getEffectiveAppointmentPaymentStatus = (appointment) => {
+    const currentStatus = String(
+      appointment?.payment_status || "unpaid"
+    ).toLowerCase();
+    const totalAmount = getAppointmentTotalAmount(appointment);
+    const paidAmount = getAppointmentPaidAmount(appointment);
+    const depositRequired = Boolean(appointment?.deposit_required);
+    const requiredDepositAmount = Number(
+      appointment?.required_deposit_amount || 0
+    );
+
+    if (totalAmount > 0 && paidAmount >= totalAmount) {
+      return "paid";
+    }
+
+    if (paidAmount > 0) {
+      if (
+        depositRequired &&
+        requiredDepositAmount > 0 &&
+        paidAmount < requiredDepositAmount
+      ) {
+        return "deposit_pending";
+      }
+
+      if (
+        depositRequired &&
+        requiredDepositAmount > 0 &&
+        paidAmount === requiredDepositAmount
+      ) {
+        return "deposit_paid";
+      }
+
+      return "partially_paid";
+    }
+
+    return currentStatus || "unpaid";
+  };
+
+  const normalizeAppointmentPaymentState = (appointment) => {
+    if (!appointment || !paymentsEnabled) return appointment;
+
+    const paymentStatus = getEffectiveAppointmentPaymentStatus(appointment);
+    const paidAmount = getAppointmentPaidAmount({
+      ...appointment,
+      payment_status: paymentStatus,
+    });
+
+    return {
+      ...appointment,
+      payment_status: paymentStatus,
+      total_paid: paidAmount,
+    };
+  };
+
+  const normalizeAppointmentsPaymentState = (items) => {
+    return Array.isArray(items) ? items.map(normalizeAppointmentPaymentState) : [];
+  };
+
+  const applyPaymentSummaryToAppointment = (appointmentId, summary = {}) => {
+    const hasPaymentStatus = typeof summary.paymentStatus === "string";
+    const hasTotalPaid =
+      summary.totalPaid !== undefined && summary.totalPaid !== null;
+
+    if (!hasPaymentStatus && !hasTotalPaid) return;
+
+    const patchAppointment = (appointment) => {
+      if (!appointment || String(appointment.id) !== String(appointmentId)) {
+        return appointment;
+      }
+
+      return normalizeAppointmentPaymentState({
+        ...appointment,
+        ...(hasPaymentStatus ? { payment_status: summary.paymentStatus } : {}),
+        ...(hasTotalPaid ? { total_paid: Number(summary.totalPaid || 0) } : {}),
+      });
+    };
+
+    setAppointments((currentAppointments) =>
+      currentAppointments.map(patchAppointment)
+    );
+    setPaymentAppointment((currentAppointment) =>
+      patchAppointment(currentAppointment)
+    );
   };
 
   const timeToMinutes = (timeValue) => {
@@ -822,7 +930,7 @@ const [barber, setBarber] = useState("");
       ? await getAdminAppointments(dateRange)
       : await fetchAppointments(businessId, dateRange);
 
-    setAppointments(Array.isArray(res.data) ? res.data : []);
+    setAppointments(normalizeAppointmentsPaymentState(res.data));
   } catch (err) {
     console.error(err);
 
@@ -845,7 +953,7 @@ const [barber, setBarber] = useState("");
           businessId,
           getAppointmentsDateRange(false)
         );
-        setAppointments(Array.isArray(publicRes.data) ? publicRes.data : []);
+        setAppointments(normalizeAppointmentsPaymentState(publicRes.data));
       } catch (publicErr) {
         console.error(publicErr);
         setMessage("Error al cargar reservas");
@@ -910,6 +1018,8 @@ const handleSavePayment = async () => {
   }
 
   try {
+    let paymentResponse = null;
+
     if (editingPaymentId) {
       console.log("ENTRÓ A EDITAR PAGO", {
         editingPaymentId,
@@ -920,7 +1030,7 @@ const handleSavePayment = async () => {
         paymentNotes,
       });
 
-      await updateAppointmentPayment(paymentAppointment.id, editingPaymentId, {
+      paymentResponse = await updateAppointmentPayment(paymentAppointment.id, editingPaymentId, {
         amount: Number(paymentAmount),
         method: paymentMethod,
         paymentStage,
@@ -931,7 +1041,7 @@ const handleSavePayment = async () => {
 
       setMessage("Pago actualizado correctamente");
     } else {
-      await addAppointmentPayment(paymentAppointment.id, {
+      paymentResponse = await addAppointmentPayment(paymentAppointment.id, {
         amount: Number(paymentAmount),
         method: paymentMethod,
         paymentStage,
@@ -945,6 +1055,7 @@ const handleSavePayment = async () => {
     resetPaymentForm();
     setPaymentPanelError("");
 
+    applyPaymentSummaryToAppointment(paymentAppointment.id, paymentResponse?.data);
     await loadAppointmentPayments(paymentAppointment.id);
     await getAppointments();
   } catch (err) {
@@ -963,7 +1074,11 @@ const handleDeletePayment = async (payment) => {
   if (!confirmed) return;
 
   try {
-    await deleteAppointmentPayment(paymentAppointment.id, payment.id, businessId);
+    const paymentResponse = await deleteAppointmentPayment(
+      paymentAppointment.id,
+      payment.id,
+      businessId
+    );
 
     if (editingPaymentId === payment.id) {
       resetPaymentForm();
@@ -972,6 +1087,7 @@ const handleDeletePayment = async (payment) => {
     setPaymentPanelError("");
     setMessage("Pago eliminado correctamente");
 
+    applyPaymentSummaryToAppointment(paymentAppointment.id, paymentResponse?.data);
     await loadAppointmentPayments(paymentAppointment.id);
     await getAppointments();
   } catch (err) {
@@ -1685,6 +1801,28 @@ await updateAppointmentService(editingId, {
     }
   };
 
+  const buildReservationStatusUpdatePayload = (appointment, nextStatus) => {
+    return {
+      name: appointment.name || "",
+      phone: appointment.phone || "",
+      date: appointment.date ? String(appointment.date).slice(0, 10) : "",
+      time: String(appointment.time || "").slice(0, 5),
+      service: appointment.service || "",
+      barber: appointment.barber || "",
+      businessId,
+      status: nextStatus,
+      totalAmount: getAppointmentTotalAmount(appointment),
+      depositRequired: Boolean(appointment.deposit_required),
+      requiredDepositAmount: Number(appointment.required_deposit_amount || 0),
+      paymentStatus: appointment.payment_status || "unpaid",
+      depositReceiptUrl: appointment.deposit_receipt_url || null,
+      notes: appointment.notes || null,
+      needsOpponent: Boolean(appointment.needs_opponent),
+      opponentName: appointment.opponent_name || null,
+      opponentPhone: appointment.opponent_phone || null,
+    };
+  };
+
   const markAppointmentAsAttended = async (appointment) => {
     if (submitting || !businessId) return;
 
@@ -1693,11 +1831,10 @@ await updateAppointmentService(editingId, {
       setMessage("");
       setWhatsappUrl("");
 
-      await updateAppointmentService(appointment.id, {
-        ...appointment,
-        businessId,
-        status: "atendida",
-      });
+      await updateAppointmentService(
+        appointment.id,
+        buildReservationStatusUpdatePayload(appointment, "atendida")
+      );
 
       await syncToGoogleSheets({
         id: appointment.id,
@@ -1728,11 +1865,10 @@ await updateAppointmentService(editingId, {
       setMessage("");
       setWhatsappUrl("");
 
-      await updateAppointmentService(appointment.id, {
-        ...appointment,
-        businessId,
-        status: "no_asistio",
-      });
+      await updateAppointmentService(
+        appointment.id,
+        buildReservationStatusUpdatePayload(appointment, "no_asistio")
+      );
 
       await syncToGoogleSheets({
         id: appointment.id,
@@ -2155,6 +2291,26 @@ setEditingId(appointment.id);
     }
   );
 
+  const paidReservationsPendingAttention = dashboardAppointments
+    .filter((appointment) => {
+      const reservationStatus = String(
+        appointment.status || "reservada"
+      ).toLowerCase();
+      const appointmentDate = String(appointment.date || "").slice(0, 10);
+      const appointmentTime = String(appointment.time || "").slice(0, 5);
+      const appointmentDay = new Date(`${appointmentDate}T00:00:00`);
+
+      if (reservationStatus !== "reservada") return false;
+      if (!appointmentDate || !appointmentTime) return false;
+      if (Number.isNaN(appointmentDay.getTime())) return false;
+      if (!isAppointmentFullyPaid(appointment)) return false;
+
+      return isPastSlot(appointmentDay, appointmentTime);
+    })
+    .sort((left, right) => {
+      return String(left.time || "").localeCompare(String(right.time || ""));
+    });
+
   const filteredAppointments = useMemo(() => {
     const activeBarberFilter = isClientMode ? barber : weeklyBarberFilter;
     const normalizedClientSearch = clientSearch.trim().toLowerCase();
@@ -2546,6 +2702,41 @@ setEditingId(appointment.id);
       marginTop: "4px",
       fontSize: "12px",
       color: "#64748b",
+    },
+    dashboardReviewPanel: {
+      marginTop: "12px",
+      paddingTop: "12px",
+      borderTop: `1px solid ${theme.border || "#bbf7d0"}`,
+    },
+    dashboardReviewList: {
+      display: "grid",
+      gap: "10px",
+    },
+    dashboardReviewItem: {
+      display: "grid",
+      gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) auto",
+      gap: "10px",
+      alignItems: "center",
+      backgroundColor: "#ffffff",
+      borderRadius: "12px",
+      padding: "12px",
+      border: "1px solid #dbeafe",
+      boxShadow: "0 3px 10px rgba(15, 23, 42, 0.05)",
+    },
+    dashboardReviewActions: {
+      display: "flex",
+      gap: "8px",
+      flexWrap: "wrap",
+      justifyContent: isMobile ? "stretch" : "flex-end",
+    },
+    dashboardReviewButton: {
+      padding: "9px 10px",
+      borderRadius: "8px",
+      border: "none",
+      cursor: "pointer",
+      fontWeight: "900",
+      fontSize: "12px",
+      flex: isMobile ? "1 1 130px" : "0 0 auto",
     },
     dashboardLabel: {
       fontSize: "13px",
@@ -3403,6 +3594,116 @@ updateAppointment={updateAppointment}
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  <div style={styles.dashboardReviewPanel}>
+                    <div style={styles.dashboardPaymentHeader}>
+                      <div style={{ fontWeight: "900", fontSize: "13px" }}>
+                        Pagadas pendientes de atencion
+                      </div>
+                      <div style={{ fontSize: "12px", color: "#64748b" }}>
+                        {paidReservationsPendingAttention.length} por revisar
+                      </div>
+                    </div>
+
+                    {paidReservationsPendingAttention.length === 0 ? (
+                      <div
+                        style={{
+                          backgroundColor: "#ffffff",
+                          border: "1px dashed #cbd5e1",
+                          borderRadius: "12px",
+                          color: "#64748b",
+                          fontSize: "13px",
+                          fontWeight: "700",
+                          padding: "12px",
+                        }}
+                      >
+                        Sin reservas pagadas pendientes de atencion para este dia.
+                      </div>
+                    ) : (
+                      <div style={styles.dashboardReviewList}>
+                        {paidReservationsPendingAttention.map((appointment) => {
+                          const appointmentDate = String(
+                            appointment.date || ""
+                          ).slice(0, 10);
+                          const appointmentTime = String(
+                            appointment.time || ""
+                          ).slice(0, 5);
+
+                          return (
+                            <div
+                              key={appointment.id}
+                              style={styles.dashboardReviewItem}
+                            >
+                              <div style={{ minWidth: 0 }}>
+                                <div
+                                  style={{
+                                    fontWeight: "900",
+                                    fontSize: "14px",
+                                    color: "#111827",
+                                  }}
+                                >
+                                  {appointment.name || "Cliente sin nombre"}
+                                </div>
+                                <div
+                                  style={{
+                                    color: "#475569",
+                                    fontSize: "12px",
+                                    fontWeight: "700",
+                                    marginTop: "3px",
+                                  }}
+                                >
+                                  {appointmentTime} · {appointment.barber || "-"}
+                                </div>
+                                <div
+                                  style={{
+                                    color: "#64748b",
+                                    fontSize: "12px",
+                                    marginTop: "3px",
+                                  }}
+                                >
+                                  {appointmentDate} ·{" "}
+                                  {formatCurrency(
+                                    getAppointmentTotalAmount(appointment)
+                                  )}
+                                </div>
+                              </div>
+
+                              <div style={styles.dashboardReviewActions}>
+                                <button
+                                  type="button"
+                                  style={{
+                                    ...styles.dashboardReviewButton,
+                                    backgroundColor:
+                                      theme.primary || "#16a34a",
+                                    color: "#ffffff",
+                                    opacity: submitting ? 0.7 : 1,
+                                  }}
+                                  onClick={() =>
+                                    markAppointmentAsAttended(appointment)
+                                  }
+                                  disabled={submitting}
+                                >
+                                  Marcar atendida
+                                </button>
+
+                                <button
+                                  type="button"
+                                  style={{
+                                    ...styles.dashboardReviewButton,
+                                    backgroundColor: "#e5e7eb",
+                                    color: "#111827",
+                                  }}
+                                  onClick={() => openPaymentPanel(appointment)}
+                                >
+                                  Ver pago
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

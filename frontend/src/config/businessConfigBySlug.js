@@ -431,6 +431,176 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
       { name: "Cancha 3", image: "/pinguino-club/pinguino-logo.jpg" },
     ],
   },
+  "centro-ama": {
+    id: "centro-ama",
+    tabTitle: "Centro AMA | AgendaSmart",
+    favicon: "/centro-ama/centro-ama-logo.png",
+    name: "Centro AMA Salud Integral",
+    subtitle: "Psicologia, nutricion y kinesiologia en Ovalle",
+    phone: "+56 9 3940 5619",
+    hours: "Lunes a viernes: 09:00 a 20:00. Sabado: 09:00 a 14:00",
+    location: "Ovalle",
+    address: "Ovalle, Region de Coquimbo",
+
+    image: "/centro-ama/centro-ama-hero.jpg",
+    logo: "/centro-ama/centro-ama-logo.png",
+    logoWidth: "120px",
+    logoHeight: "120px",
+
+    description:
+      "Agenda tu sesion en Centro AMA Salud Integral. Elige profesional, servicio, fecha y hora disponible de forma simple.",
+
+    whatsappUrl: "https://wa.me/56939405619",
+    whatsappLabel: "Agenda tu sesion por WhatsApp",
+
+    socialLinks: {
+      instagram: "https://www.instagram.com/centroama.cl/",
+    },
+
+    mapLink: "https://maps.google.com/?q=Ovalle,+Region+de+Coquimbo",
+    mapEmbedUrl:
+      "https://www.google.com/maps?q=Ovalle+Region+de+Coquimbo&output=embed",
+
+    bookingTitle: "Agenda tu sesion",
+    adminTitle: "Panel Centro AMA",
+
+    bookingPanelTitle: "Agenda tu atencion",
+    bookingPanelDescription:
+      "Selecciona una profesional, elige el servicio y confirma un horario disponible.",
+
+    calendarHelpText:
+      "Selecciona un horario disponible para agendar tu atencion.",
+
+    resourceLabelSingle: "Profesional",
+    resourceLabelPlural: "Profesionales",
+    serviceLabel: "servicio",
+    resourceFirstBookingFlow: true,
+    resourceStepTitle: "Elige una profesional",
+
+    clientNamePlaceholder: "Nombre paciente",
+    clientPhonePlaceholder: "Celular paciente (ej: 912345678)",
+
+    submitButtonLabel: "Agendar sesion",
+    submittingLabel: "Agendando...",
+    updateButtonLabel: "Actualizar sesion",
+    updatingLabel: "Actualizando...",
+    cancelEditLabel: "Cancelar edicion",
+
+    createButtonLabel: "Crear reserva",
+    creatingLabel: "Creando...",
+    newItemTitle: "Nueva sesion",
+    editItemTitle: "Editar sesion",
+
+    whatsappButtonLabel: "Abrir WhatsApp",
+    resourceSelectedLabel: "Profesional seleccionada",
+    resourceSelectPrompt: "Selecciona una profesional arriba",
+    resourceSelectOption: "Selecciona una profesional",
+    serviceSelectOption: "Selecciona un servicio",
+
+    blockedWeekdays: [0],
+    takenSlotLabel: "Ocupado",
+    pastSlotLabel: "Paso",
+    availableSlotLabel: "Disponible",
+
+    usesServiceDurations: true,
+    slotIntervalMinutes: 30,
+    paymentsEnabled: true,
+    depositFeatureEnabled: false,
+    depositOptional: false,
+    defaultDepositRate: 0.5,
+    paymentMethods: ["transferencia", "efectivo", "debito"],
+    onlinePaymentsEnabled: false,
+
+    barbers: [
+      "Antonia Marin Ardiles",
+      "Ignacia Marin Ardiles",
+      "Maria Jose Rojas",
+    ],
+
+    phones: {
+      "Antonia Marin Ardiles": "56939405619",
+      "Ignacia Marin Ardiles": "56939405619",
+      "Maria Jose Rojas": "56939405619",
+    },
+
+    services: [
+      "Psicoterapia individual (60 min - $30.000)",
+      "Evaluacion psicologica (60 min - $35.000)",
+      "Orientacion familiar (60 min - $30.000)",
+      "Kinesioterapia motora integral (60 min - $25.000)",
+      "Rehabilitacion musculoesqueletica (60 min - $28.000)",
+      "Kinesioterapia respiratoria (60 min - $25.000)",
+      "Consulta nutricional inicial (60 min - $28.000)",
+      "Control nutricional (60 min - $22.000)",
+      "Plan alimentario personalizado (60 min - $35.000)",
+    ],
+
+    servicesByResource: {
+      "Antonia Marin Ardiles": [
+        "Psicoterapia individual (60 min - $30.000)",
+        "Evaluacion psicologica (60 min - $35.000)",
+        "Orientacion familiar (60 min - $30.000)",
+      ],
+      "Ignacia Marin Ardiles": [
+        "Kinesioterapia motora integral (60 min - $25.000)",
+        "Rehabilitacion musculoesqueletica (60 min - $28.000)",
+        "Kinesioterapia respiratoria (60 min - $25.000)",
+      ],
+      "Maria Jose Rojas": [
+        "Consulta nutricional inicial (60 min - $28.000)",
+        "Control nutricional (60 min - $22.000)",
+        "Plan alimentario personalizado (60 min - $35.000)",
+      ],
+    },
+
+    scheduleSlots: [
+      "09:00",
+      "10:00",
+      "11:00",
+      "12:00",
+      "13:00",
+      "14:00",
+      "15:00",
+      "16:00",
+      "17:00",
+      "18:00",
+      "19:00",
+    ],
+
+    scheduleSlotsByWeekday: {
+      6: ["09:00", "10:00", "11:00", "12:00", "13:00"],
+    },
+
+    professionals: [
+      {
+        name: "Antonia Marin Ardiles",
+        subtitle: "Psicologia clinica",
+        image: "/centro-ama/centro-ama-logo.png",
+      },
+      {
+        name: "Ignacia Marin Ardiles",
+        subtitle: "Kinesiologia",
+        image: "/centro-ama/centro-ama-logo.png",
+      },
+      {
+        name: "Maria Jose Rojas",
+        subtitle: "Nutricion y dietetica",
+        image: "/centro-ama/centro-ama-logo.png",
+      },
+    ],
+
+    theme: {
+      primary: "#b08a3c",
+      primaryDark: "#2f5562",
+      primarySoft: "#f7f0df",
+      pageBackground: "#f7fbf9",
+      cardBackground: "#ffffff",
+      border: "#e7dcc4",
+      text: "#10202a",
+      mutedText: "#52616b",
+    },
+  },
+
   "odontologia-demo": {
     id: "odontologia-demo",
     tabTitle: "Odontologia Demo | AgendaSmart",

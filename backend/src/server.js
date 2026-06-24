@@ -1550,6 +1550,18 @@ const createTables = async () => {
 
     await pool.query(`
       INSERT INTO businesses (id, name, slug)
+      VALUES ('centro-ama', 'Centro AMA Salud Integral', 'centro-ama')
+      ON CONFLICT (id) DO NOTHING;
+    `);
+
+    await pool.query(`
+      UPDATE businesses
+      SET name = 'Centro AMA Salud Integral', slug = 'centro-ama'
+      WHERE id = 'centro-ama';
+    `);
+
+    await pool.query(`
+      INSERT INTO businesses (id, name, slug)
       VALUES ('giocata', 'Centro Deportivo La Giocata', 'giocata')
       ON CONFLICT (id) DO NOTHING;
     `);
@@ -1606,6 +1618,12 @@ const createTables = async () => {
       username: "admin_pinguino",
       businessId: "pinguino-club",
       passwordEnv: "SEED_PASSWORD_PINGUINO",
+    });
+
+    await seedUserIfConfigured({
+      username: "admin_centroama",
+      businessId: "centro-ama",
+      passwordEnv: "SEED_PASSWORD_CENTRO_AMA",
     });
 
     console.log("Tablas verificadas/creadas correctamente");
