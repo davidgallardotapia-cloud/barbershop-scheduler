@@ -440,7 +440,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     phone: "+56 9 3940 5619",
     hours: "Lunes a viernes: 09:00 a 20:00. Sabado: 09:00 a 14:00",
     location: "Ovalle",
-    address: "Ovalle, Region de Coquimbo",
+    address: "Marcelo Barrios 395, Ovalle",
 
     image: "/centro-ama/centro-ama-hero.jpg",
     logo: "/centro-ama/centro-ama-logo.png",
@@ -457,9 +457,9 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
       instagram: "https://www.instagram.com/centroama.cl/",
     },
 
-    mapLink: "https://maps.google.com/?q=Ovalle,+Region+de+Coquimbo",
+    mapLink: "https://maps.google.com/?q=Marcelo+Barrios+395,+Ovalle",
     mapEmbedUrl:
-      "https://www.google.com/maps?q=Ovalle+Region+de+Coquimbo&output=embed",
+      "https://www.google.com/maps?q=Marcelo+Barrios+395+Ovalle&output=embed",
 
     bookingTitle: "Agenda tu sesion",
     adminTitle: "Panel Centro AMA",
