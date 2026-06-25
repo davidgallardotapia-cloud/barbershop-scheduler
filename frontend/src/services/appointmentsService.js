@@ -12,6 +12,28 @@ export const getAdminAppointments = (filters = {}) => {
   });
 };
 
+export const getScheduleBlocks = (businessId, filters = {}) => {
+  return api.get("/schedule-blocks", {
+    params: { businessId, ...filters },
+  });
+};
+
+export const getAdminScheduleBlocks = (filters = {}) => {
+  return api.get("/admin/schedule-blocks", {
+    params: filters,
+  });
+};
+
+export const createScheduleBlock = (data) => {
+  return api.post("/schedule-blocks", data);
+};
+
+export const deleteScheduleBlock = (id, businessId) => {
+  return api.delete(`/schedule-blocks/${id}`, {
+    params: { businessId },
+  });
+};
+
 export const createAppointment = (data) => {
   return api.post("/appointments", data);
 };

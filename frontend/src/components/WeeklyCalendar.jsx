@@ -35,6 +35,7 @@ function WeeklyCalendar({
   isPastSlot,
   isPastDayOnly,
   isScheduleSlotAvailable = () => true,
+  getBlocksForSlot = () => [],
   openPaymentPanel,
 }) {
   const resourcePrompt = business?.hideResourceSelector
@@ -814,7 +815,9 @@ function WeeklyCalendar({
             <div
               key={formatDateToInput(day)}
               style={{
-                backgroundColor: business?.theme?.primaryDark || "#14532d",
+                backgroundColor: useSchedulePalette
+                  ? business?.theme?.primary || "#166534"
+                  : business?.theme?.primaryDark || "#14532d",
                 color: "#ffffff",
                 padding: "12px",
                 fontWeight: "900",
@@ -1048,6 +1051,7 @@ function WeeklyCalendar({
       ? mobileSlots.map((slot) => ({
           ...slot,
           appointments: slot.appointments || [],
+          blocks: slot.blocks || [],
         }))
       : [];
 
@@ -1138,7 +1142,10 @@ function WeeklyCalendar({
                   time.slice(0, 5) === normalizedSlotTime;
 
                 const isDisabled =
-                  slot.isOccupied || slot.isPast || !isBarberSelected;
+                  slot.isOccupied ||
+                  slot.isPast ||
+                  slot.isBlocked ||
+                  !isBarberSelected;
 
                 return (
                   <button
@@ -1153,10 +1160,16 @@ function WeeklyCalendar({
                     disabled={isDisabled}
                     style={{
                       ...styles.mobileSlotButton,
-                      ...(!slot.isOccupied && !slot.isPast && isBarberSelected
+                      ...(!slot.isOccupied &&
+                      !slot.isPast &&
+                      !slot.isBlocked &&
+                      isBarberSelected
                         ? themedAvailableSlotStyle
                         : {}),
-                      ...(slot.isOccupied || slot.isPast || !isBarberSelected
+                      ...(slot.isOccupied ||
+                      slot.isPast ||
+                      slot.isBlocked ||
+                      !isBarberSelected
                         ? styles.mobileSlotOccupied
                         : {}),
                       ...(isSelected ? styles.mobileSlotSelected : {}),
@@ -1169,6 +1182,8 @@ function WeeklyCalendar({
                         ? resourcePrompt
                         : slot.isPast
                         ? "No disponible"
+                        : slot.isBlocked
+                        ? "Bloqueado"
                         : slot.isOccupied
                         ? "Ocupado"
                         : "Disponible"}
@@ -1396,6 +1411,42 @@ function WeeklyCalendar({
                             </button>
                           </div>
                         </div>
+                        ))}
+                      </div>
+                  ) : slot.isBlocked ? (
+                    <div
+                      style={{
+                        border: "1px solid #cbd5e1",
+                        borderRadius: "14px",
+                        padding: "16px",
+                        textAlign: "left",
+                        fontWeight: "800",
+                        background: "#f1f5f9",
+                        color: "#334155",
+                      }}
+                    >
+                      <div>Bloqueado</div>
+                      {(slot.blocks || []).slice(0, 2).map((block) => (
+                        <div
+                          key={block.id}
+                          style={{
+                            marginTop: "6px",
+                            fontSize: "12px",
+                            fontWeight: "700",
+                            color: "#64748b",
+                          }}
+                        >
+                          {block.barber}
+                          {block.all_day
+                            ? " - Todo el dia"
+                            : ` - ${String(block.start_time || "").slice(
+                                0,
+                                5
+                              )} a ${String(block.end_time || "").slice(
+                                0,
+                                5
+                              )}`}
+                        </div>
                       ))}
                     </div>
                   ) : (
@@ -1435,6 +1486,11 @@ function WeeklyCalendar({
 
                 {weekDays.map((day, index) => {
                   const slotAppointments = getAppointmentsForSlot(day, hour);
+                  const slotBlocks = getBlocksForSlot(
+                    day,
+                    hour,
+                    isClientMode ? barber : ""
+                  );
 
                   const normalizedHour =
                     typeof hour === "string"
@@ -1444,6 +1500,7 @@ function WeeklyCalendar({
                   const isPast = isClientMode
                     ? isPastSlot(day, normalizedHour) || isSunday(day)
                     : false;
+                  const isBlocked = slotBlocks.length > 0;
 
                   return (
                     <div key={`${hour}-${index}`} style={styles.slotCell}>
@@ -1674,6 +1731,36 @@ function WeeklyCalendar({
                             </div>
                           ))}
                         </div>
+                      ) : isBlocked ? (
+                        <div
+                          style={{
+                            border: "1px solid #cbd5e1",
+                            borderRadius: "10px",
+                            padding: "10px",
+                            width: "100%",
+                            backgroundColor: "#f1f5f9",
+                            color: "#334155",
+                            fontWeight: "900",
+                            fontSize: "13px",
+                            boxSizing: "border-box",
+                          }}
+                        >
+                          <div>Bloqueado</div>
+                          {!isClientMode &&
+                            slotBlocks.slice(0, 2).map((block) => (
+                              <div
+                                key={block.id}
+                                style={{
+                                  marginTop: "4px",
+                                  fontSize: "11px",
+                                  fontWeight: "700",
+                                  color: "#64748b",
+                                }}
+                              >
+                                {block.barber}
+                              </div>
+                            ))}
+                        </div>
                       ) : isClientMode ? (
                         <button
                           style={{
@@ -1686,10 +1773,10 @@ function WeeklyCalendar({
                             }`,
                             ...themedAvailableSlotStyle,
                             width: "100%",
-                            ...(!isBarberSelected || isPast
+                            ...(!isBarberSelected || isPast || isBlocked
                               ? styles.disabledButton
                               : {}),
-                            ...(isPast
+                            ...(isPast || isBlocked
                               ? {
                                   backgroundColor: "#e5e7eb",
                                   color: "#9ca3af",
@@ -1698,15 +1785,17 @@ function WeeklyCalendar({
                               : {}),
                           }}
                           onClick={() => {
-                            if (!isBarberSelected || isPast) return;
+                            if (!isBarberSelected || isPast || isBlocked) return;
                             selectSlot(day, hour);
                           }}
-                          disabled={!isBarberSelected || isPast}
+                          disabled={!isBarberSelected || isPast || isBlocked}
                         >
                           {!isBarberSelected
                             ? resourcePrompt
                             : isPast
                             ? "No disponible"
+                            : isBlocked
+                            ? "Bloqueado"
                             : "Disponible"}
                         </button>
                       ) : (

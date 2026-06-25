@@ -841,6 +841,7 @@ function ClientBookingWizard({
     const isSelected = time === slot.value;
 const isDisabled = slot.disabled;
 const isLookingForOpponent = slot.status === "looking_opponent";
+const isBlocked = slot.status === "blocked";
 
     return (
       <button
@@ -876,6 +877,8 @@ const isLookingForOpponent = slot.status === "looking_opponent";
   ? business?.theme?.primarySoft || "#f3f4f6"
   : isLookingForOpponent
   ? "#dbeafe"
+  : isBlocked
+  ? "#f1f5f9"
   : slot.status === "taken"
   ? "#f3f4f6"
   : slot.status === "past"
@@ -885,6 +888,8 @@ const isLookingForOpponent = slot.status === "looking_opponent";
   ? "#111827"
   : isLookingForOpponent
   ? "#1e40af"
+  : isBlocked
+  ? "#64748b"
   : slot.status === "taken"
   ? "#6b7280"
   : slot.status === "past"
@@ -896,7 +901,7 @@ const isLookingForOpponent = slot.status === "looking_opponent";
             ? "0 6px 18px rgba(0,0,0,0.06)"
             : "none",
           fontSize: isMobile ? "14px" : "15px",
-          opacity: slot.status === "past" ? 0.75 : 1,
+          opacity: slot.status === "past" || isBlocked ? 0.75 : 1,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -913,6 +918,8 @@ const isLookingForOpponent = slot.status === "looking_opponent";
             color:
   isLookingForOpponent
     ? "#1d4ed8"
+    : isBlocked
+    ? "#64748b"
     : slot.status === "taken"
     ? "#6b7280"
     : slot.status === "past"
@@ -924,6 +931,8 @@ const isLookingForOpponent = slot.status === "looking_opponent";
         >
           {isLookingForOpponent
   ? "Se busca rival"
+  : isBlocked
+  ? "Bloqueado"
   : slot.status === "taken"
   ? business?.takenSlotLabel || "Reservado"
   : slot.status === "past"

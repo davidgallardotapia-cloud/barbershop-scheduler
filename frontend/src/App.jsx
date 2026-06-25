@@ -21,6 +21,10 @@ import {
 import {
   getAppointments as fetchAppointments,
   getAdminAppointments,
+  getScheduleBlocks,
+  getAdminScheduleBlocks,
+  createScheduleBlock as createScheduleBlockService,
+  deleteScheduleBlock as deleteScheduleBlockService,
   createAppointment as createAppointmentService,
   createMonthlyAppointment as createMonthlyAppointmentService,
   joinOpponentAppointment,
@@ -181,6 +185,7 @@ function App() {
   const [businessError, setBusinessError] = useState("");
 
   const [appointments, setAppointments] = useState([]);
+  const [scheduleBlocks, setScheduleBlocks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [loggingIn, setLoggingIn] = useState(false);
@@ -212,6 +217,7 @@ const [barber, setBarber] = useState("");
   const [clientSearch, setClientSearch] = useState("");
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -236,6 +242,18 @@ const [barber, setBarber] = useState("");
   const [editingPaymentId, setEditingPaymentId] = useState(null);
   const [paymentPanelError, setPaymentPanelError] = useState("");
   const [isMonthlyReservation, setIsMonthlyReservation] = useState(false);
+  const [blockResource, setBlockResource] = useState("");
+  const [blockStartDate, setBlockStartDate] = useState(() =>
+    formatDateToInput(new Date())
+  );
+  const [blockEndDate, setBlockEndDate] = useState(() =>
+    formatDateToInput(new Date())
+  );
+  const [blockAllDay, setBlockAllDay] = useState(false);
+  const [blockStartTime, setBlockStartTime] = useState("");
+  const [blockEndTime, setBlockEndTime] = useState("");
+  const [blockReason, setBlockReason] = useState("");
+  const [scheduleBlockMessage, setScheduleBlockMessage] = useState("");
 
   const currentBusinessConfig = useMemo(() => {
     return businessConfigBySlug[slug] || null;
@@ -526,6 +544,111 @@ const [barber, setBarber] = useState("");
       normalizeScheduleTime(scheduleSlots[scheduleSlots.length - 1])
     );
     return lastSlotMinutes === null ? null : lastSlotMinutes + slotIntervalMinutes;
+  };
+
+  const normalizeDateOnlyValue = (dateValue) => {
+    if (dateValue instanceof Date) {
+      return formatDateToInput(dateValue);
+    }
+
+    return String(dateValue || "").slice(0, 10);
+  };
+
+  const getScheduleBlockTimeRangeMinutes = (block) => {
+    if (Boolean(block?.all_day)) {
+      return {
+        startMinutes: 0,
+        endMinutes: 24 * 60,
+      };
+    }
+
+    return {
+      startMinutes: timeToMinutes(block?.start_time),
+      endMinutes: timeToMinutes(block?.end_time),
+    };
+  };
+
+  const scheduleBlockOverlapsRange = ({
+    block,
+    dateValue,
+    startMinutes,
+    endMinutes,
+    resourceName = "",
+  }) => {
+    const slotDate = normalizeDateOnlyValue(dateValue);
+    const blockStartDate = normalizeDateOnlyValue(block?.start_date);
+    const blockEndDate = normalizeDateOnlyValue(block?.end_date);
+
+    if (
+      !slotDate ||
+      !blockStartDate ||
+      !blockEndDate ||
+      slotDate < blockStartDate ||
+      slotDate > blockEndDate
+    ) {
+      return false;
+    }
+
+    if (resourceName && block?.barber !== resourceName) {
+      return false;
+    }
+
+    if (Boolean(block?.all_day)) {
+      return true;
+    }
+
+    const {
+      startMinutes: blockStartMinutes,
+      endMinutes: blockEndMinutes,
+    } = getScheduleBlockTimeRangeMinutes(block);
+
+    return rangesOverlap(
+      startMinutes,
+      endMinutes,
+      blockStartMinutes,
+      blockEndMinutes
+    );
+  };
+
+  const getBlocksForSlot = (day, hour, resourceName = "") => {
+    const normalizedHour = normalizeScheduleTime(hour);
+    const startMinutes = timeToMinutes(normalizedHour);
+    const endMinutes =
+      startMinutes === null ? null : startMinutes + slotIntervalMinutes;
+
+    return scheduleBlocks.filter((block) =>
+      scheduleBlockOverlapsRange({
+        block,
+        dateValue: day,
+        startMinutes,
+        endMinutes,
+        resourceName,
+      })
+    );
+  };
+
+  const getBlocksForReservationCandidate = ({
+    dateValue,
+    resourceName,
+    timeValue,
+    serviceName,
+  }) => {
+    const startMinutes = timeToMinutes(timeValue);
+    const durationMinutes = usesServiceDurations
+      ? getServiceDurationMinutes(serviceName)
+      : slotIntervalMinutes;
+    const endMinutes =
+      startMinutes === null ? null : startMinutes + durationMinutes;
+
+    return scheduleBlocks.filter((block) =>
+      scheduleBlockOverlapsRange({
+        block,
+        dateValue,
+        startMinutes,
+        endMinutes,
+        resourceName,
+      })
+    );
   };
 
   const selectedPaymentTotal = selectedAppointmentPayments.reduce(
@@ -912,27 +1035,9 @@ const [barber, setBarber] = useState("");
   }, [weekDays, selectedMobileDay]);
 
   const getAppointments = async (mode = "auto") => {
-  if (!businessId) return;
+    if (!businessId) return;
 
-  setLoading(true);
-
-  try {
-    const shouldUseAdminRoute =
-      mode === "admin"
-        ? true
-        : mode === "public"
-        ? false
-        : appMode === "admin" && isLoggedIn;
-
-    const dateRange = getAppointmentsDateRange(shouldUseAdminRoute);
-
-    const res = shouldUseAdminRoute
-      ? await getAdminAppointments(dateRange)
-      : await fetchAppointments(businessId, dateRange);
-
-    setAppointments(normalizeAppointmentsPaymentState(res.data));
-  } catch (err) {
-    console.error(err);
+    setLoading(true);
 
     const shouldUseAdminRoute =
       mode === "admin"
@@ -941,32 +1046,58 @@ const [barber, setBarber] = useState("");
         ? false
         : appMode === "admin" && isLoggedIn;
 
-    if (shouldUseAdminRoute && err.response?.status === 401) {
-      localStorage.removeItem("user");
-      localStorage.removeItem("authToken");
-      setIsLoggedIn(false);
-      setAppMode("client");
-      setMessage("Tu sesion expiro. Inicia sesion nuevamente.");
+    try {
+      const dateRange = getAppointmentsDateRange(shouldUseAdminRoute);
 
-      try {
-        const publicRes = await fetchAppointments(
-          businessId,
-          getAppointmentsDateRange(false)
-        );
-        setAppointments(normalizeAppointmentsPaymentState(publicRes.data));
-      } catch (publicErr) {
-        console.error(publicErr);
-        setMessage("Error al cargar reservas");
+      const [appointmentsRes, scheduleBlocksRes] = shouldUseAdminRoute
+        ? await Promise.all([
+            getAdminAppointments(dateRange),
+            getAdminScheduleBlocks(dateRange),
+          ])
+        : await Promise.all([
+            fetchAppointments(businessId, dateRange),
+            getScheduleBlocks(businessId, dateRange),
+          ]);
+
+      setAppointments(normalizeAppointmentsPaymentState(appointmentsRes.data));
+      setScheduleBlocks(
+        Array.isArray(scheduleBlocksRes.data) ? scheduleBlocksRes.data : []
+      );
+    } catch (err) {
+      console.error(err);
+
+      if (shouldUseAdminRoute && err.response?.status === 401) {
+        localStorage.removeItem("user");
+        localStorage.removeItem("authToken");
+        setIsLoggedIn(false);
+        setAppMode("client");
+        setScheduleBlocks([]);
+        setMessage("Tu sesion expiro. Inicia sesion nuevamente.");
+
+        try {
+          const publicDateRange = getAppointmentsDateRange(false);
+          const [publicRes, publicBlocksRes] = await Promise.all([
+            fetchAppointments(businessId, publicDateRange),
+            getScheduleBlocks(businessId, publicDateRange),
+          ]);
+
+          setAppointments(normalizeAppointmentsPaymentState(publicRes.data));
+          setScheduleBlocks(
+            Array.isArray(publicBlocksRes.data) ? publicBlocksRes.data : []
+          );
+        } catch (publicErr) {
+          console.error(publicErr);
+          setMessage("Error al cargar reservas");
+        }
+
+        return;
       }
 
-      return;
+      setMessage("Error al cargar reservas");
+    } finally {
+      setLoading(false);
     }
-
-    setMessage("Error al cargar reservas");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const loadAppointmentPayments = async (appointmentId) => {
     if (!paymentsEnabled || !businessId || !appointmentId) return;
@@ -1214,22 +1345,40 @@ const handleDeleteReservationFromPaymentPanel = async () => {
         const parsedUser = JSON.parse(savedUser);
 
         if (!parsedUser.business_id || parsedUser.business_id === businessId) {
+          const savedResourceName = mergedBusiness?.professionalSessionsEnabled
+            ? String(parsedUser.resource_name || "").trim()
+            : "";
+
+          setCurrentUser(parsedUser);
           setIsLoggedIn(true);
           setAppMode("admin");
+          setBarber(savedResourceName);
+          setWeeklyBarberFilter(savedResourceName);
           getAppointments("admin");
         } else {
+          setCurrentUser(null);
+          setWeeklyBarberFilter("");
           localStorage.removeItem("user");
           getAppointments("public");
         }
       } catch {
+        setCurrentUser(null);
+        setWeeklyBarberFilter("");
         localStorage.removeItem("user");
         getAppointments("public");
       }
     } else {
+      setCurrentUser(null);
+      setWeeklyBarberFilter("");
       getAppointments("public");
     }
 
-  }, [businessId, selectedWeekStart, mergedBusiness?.id]);
+  }, [
+    businessId,
+    selectedWeekStart,
+    mergedBusiness?.id,
+    mergedBusiness?.professionalSessionsEnabled,
+  ]);
 
   const resetForm = () => {
     setName("");
@@ -1237,7 +1386,11 @@ const handleDeleteReservationFromPaymentPanel = async () => {
     setDate("");
     setTime("");
     setService("");
-    setBarber("");
+    setBarber(
+      mergedBusiness?.professionalSessionsEnabled
+        ? String(currentUser?.resource_name || "").trim()
+        : ""
+    );
     setCustomServiceName("");
 setCustomServicePrice("");
 
@@ -1943,6 +2096,12 @@ setEditingId(appointment.id);
   };
 
  const selectSlot = (day, hour, selectedResource = "") => {
+  const scopedProfessionalResourceName = mergedBusiness?.professionalSessionsEnabled
+    ? String(currentUser?.resource_name || "").trim()
+    : "";
+  const resolvedSelectedResource =
+    selectedResource || (!isClientMode ? scopedProfessionalResourceName : "");
+
   setDate(formatDateToInput(day));
 
   if (typeof hour === "string") {
@@ -1951,8 +2110,8 @@ setEditingId(appointment.id);
     setTime(`${String(hour).padStart(2, "0")}:00`);
   }
 
-  if (selectedResource) {
-    setBarber(selectedResource);
+  if (resolvedSelectedResource) {
+    setBarber(resolvedSelectedResource);
 
     if (mergedBusiness?.hideResourceSelector) {
       const normalizeText = (value) =>
@@ -1962,7 +2121,7 @@ setEditingId(appointment.id);
           .replace(/\s+/g, " ")
           .trim();
 
-      const normalizedResource = normalizeText(selectedResource);
+      const normalizedResource = normalizeText(resolvedSelectedResource);
 
       const matchedService = SERVICES.find((serviceOption) =>
         normalizeText(serviceOption).includes(normalizedResource)
@@ -1976,8 +2135,8 @@ setEditingId(appointment.id);
 
   setEditingId(null);
   setMessage(
-    selectedResource
-      ? `Bloque seleccionado: ${selectedResource}`
+    resolvedSelectedResource
+      ? `Bloque seleccionado: ${resolvedSelectedResource}`
       : "Bloque horario seleccionado."
   );
   setWhatsappUrl("");
@@ -2016,8 +2175,14 @@ setEditingId(appointment.id);
       }
 
       setIsLoggedIn(true);
+      setCurrentUser(loggedUser);
       setLoginError("");
       setAppMode("admin");
+      const loginResourceName = mergedBusiness?.professionalSessionsEnabled
+        ? String(loggedUser.resource_name || "").trim()
+        : "";
+      setBarber(loginResourceName);
+      setWeeklyBarberFilter(loginResourceName);
       localStorage.setItem("user", JSON.stringify(loggedUser));
       localStorage.removeItem("authToken");
 
@@ -2043,9 +2208,11 @@ setEditingId(appointment.id);
     localStorage.removeItem("user");
     localStorage.removeItem("authToken");
     setIsLoggedIn(false);
+    setCurrentUser(null);
     setUsername("");
     setPassword("");
     setLoginError("");
+    setWeeklyBarberFilter("");
     setAppMode("client");
 
     await getAppointments("public");
@@ -2095,6 +2262,189 @@ setEditingId(appointment.id);
 
   const isClientMode = appMode === "client";
   const isAdminMode = appMode === "admin" && isLoggedIn;
+  const professionalSessionsEnabled = Boolean(
+    mergedBusiness?.professionalSessionsEnabled
+  );
+  const professionalResourceName = isAdminMode
+    ? professionalSessionsEnabled
+      ? String(currentUser?.resource_name || "").trim()
+      : ""
+    : "";
+  const isProfessionalSession = Boolean(professionalResourceName);
+  const adminBarbers = isProfessionalSession ? [professionalResourceName] : BARBERS;
+  const scheduleBlockingEnabled =
+    professionalSessionsEnabled && adminBarbers.length > 0;
+  const effectiveWeeklyBarberFilter = isProfessionalSession
+    ? professionalResourceName
+    : weeklyBarberFilter;
+
+  useEffect(() => {
+    if (!isProfessionalSession) return;
+
+    setBarber(professionalResourceName);
+    setWeeklyBarberFilter(professionalResourceName);
+    setBlockResource(professionalResourceName);
+  }, [isProfessionalSession, professionalResourceName]);
+
+  useEffect(() => {
+    if (isProfessionalSession) return;
+    if (blockResource || adminBarbers.length === 0) return;
+
+    setBlockResource(adminBarbers[0]);
+  }, [adminBarbers, blockResource, isProfessionalSession]);
+
+  const visibleScheduleBlocks = useMemo(() => {
+    const weekStart = formatDateToInput(selectedWeekStart);
+    const weekEnd = formatDateToInput(addDays(selectedWeekStart, 6));
+
+    return scheduleBlocks
+      .filter((block) => {
+        const blockStart = normalizeDateOnlyValue(block.start_date);
+        const blockEnd = normalizeDateOnlyValue(block.end_date);
+
+        if (blockEnd < weekStart || blockStart > weekEnd) return false;
+        if (effectiveWeeklyBarberFilter) {
+          return block.barber === effectiveWeeklyBarberFilter;
+        }
+
+        return true;
+      })
+      .sort((firstBlock, secondBlock) => {
+        const firstValue = `${normalizeDateOnlyValue(
+          firstBlock.start_date
+        )} ${String(firstBlock.start_time || "00:00").slice(0, 5)} ${
+          firstBlock.barber || ""
+        }`;
+        const secondValue = `${normalizeDateOnlyValue(
+          secondBlock.start_date
+        )} ${String(secondBlock.start_time || "00:00").slice(0, 5)} ${
+          secondBlock.barber || ""
+        }`;
+
+        return firstValue.localeCompare(secondValue);
+      });
+  }, [
+    scheduleBlocks,
+    selectedWeekStart,
+    effectiveWeeklyBarberFilter,
+  ]);
+
+  const resetScheduleBlockForm = () => {
+    setBlockStartDate(formatDateToInput(new Date()));
+    setBlockEndDate(formatDateToInput(new Date()));
+    setBlockAllDay(false);
+    setBlockStartTime("");
+    setBlockEndTime("");
+    setBlockReason("");
+    setBlockResource(professionalResourceName || blockResource || adminBarbers[0] || "");
+  };
+
+  const formatScheduleBlockLabel = (block) => {
+    const startDate = normalizeDateOnlyValue(block.start_date);
+    const endDate = normalizeDateOnlyValue(block.end_date);
+    const dateText = startDate === endDate ? startDate : `${startDate} a ${endDate}`;
+
+    if (block.all_day) {
+      return `${dateText} - Todo el dia`;
+    }
+
+    return `${dateText} - ${String(block.start_time || "").slice(
+      0,
+      5
+    )} a ${String(block.end_time || "").slice(0, 5)}`;
+  };
+
+  const handleCreateScheduleBlock = async () => {
+    if (submitting || !businessId) return;
+
+    const selectedResource = professionalResourceName || blockResource;
+    const selectedEndDate = blockEndDate || blockStartDate;
+
+    if (!selectedResource) {
+      setScheduleBlockMessage("Selecciona un profesional o recurso.");
+      return;
+    }
+
+    if (!blockStartDate || !selectedEndDate) {
+      setScheduleBlockMessage("Selecciona fecha de inicio y termino.");
+      return;
+    }
+
+    if (selectedEndDate < blockStartDate) {
+      setScheduleBlockMessage("La fecha de termino no puede ser anterior.");
+      return;
+    }
+
+    if (!blockAllDay) {
+      if (!blockStartTime || !blockEndTime) {
+        setScheduleBlockMessage("Selecciona hora de inicio y termino.");
+        return;
+      }
+
+      if (blockEndTime <= blockStartTime) {
+        setScheduleBlockMessage("La hora de termino debe ser posterior.");
+        return;
+      }
+    }
+
+    setSubmitting(true);
+    setScheduleBlockMessage("");
+
+    try {
+      await createScheduleBlockService({
+        businessId,
+        barber: selectedResource,
+        startDate: blockStartDate,
+        endDate: selectedEndDate,
+        allDay: blockAllDay,
+        startTime: blockAllDay ? null : blockStartTime,
+        endTime: blockAllDay ? null : blockEndTime,
+        reason: blockReason.trim() || null,
+      });
+
+      setScheduleBlockMessage("Bloqueo creado correctamente.");
+      resetScheduleBlockForm();
+      await getAppointments("admin");
+    } catch (err) {
+      console.error(err);
+      setScheduleBlockMessage(
+        err.response?.data?.message || "No se pudo crear el bloqueo."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteScheduleBlock = async (blockId) => {
+    if (submitting || !businessId || !blockId) return;
+
+    setSubmitting(true);
+    setScheduleBlockMessage("");
+
+    try {
+      await deleteScheduleBlockService(blockId, businessId);
+      setScheduleBlockMessage("Bloqueo eliminado correctamente.");
+      await getAppointments("admin");
+    } catch (err) {
+      console.error(err);
+      setScheduleBlockMessage(
+        err.response?.data?.message || "No se pudo eliminar el bloqueo."
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const adminCalendarBusiness = useMemo(() => {
+    if (!isProfessionalSession || !mergedBusiness) {
+      return mergedBusiness;
+    }
+
+    return {
+      ...mergedBusiness,
+      barbers: [professionalResourceName],
+    };
+  }, [isProfessionalSession, mergedBusiness, professionalResourceName]);
 
   const handleHeaderResourceSelect = (item) => {
   if (!item) return;
@@ -2209,8 +2559,8 @@ setEditingId(appointment.id);
       const appointmentDate = String(appointment.date || "").slice(0, 10);
 
       const matchesDashboardDate = appointmentDate === dashboardDate;
-      const matchesBarber = weeklyBarberFilter
-        ? appointment.barber === weeklyBarberFilter
+      const matchesBarber = effectiveWeeklyBarberFilter
+        ? appointment.barber === effectiveWeeklyBarberFilter
         : true;
       const matchesClient = appointmentMatchesClientSearch(
         appointment,
@@ -2219,7 +2569,7 @@ setEditingId(appointment.id);
 
       return matchesDashboardDate && matchesBarber && matchesClient;
     });
-  }, [appointments, dashboardDate, weeklyBarberFilter, clientSearch]);
+  }, [appointments, dashboardDate, effectiveWeeklyBarberFilter, clientSearch]);
 
   const totalDashboardDay = dashboardAppointments.length;
 
@@ -2312,7 +2662,9 @@ setEditingId(appointment.id);
     });
 
   const filteredAppointments = useMemo(() => {
-    const activeBarberFilter = isClientMode ? barber : weeklyBarberFilter;
+    const activeBarberFilter = isClientMode
+      ? barber
+      : effectiveWeeklyBarberFilter;
     const normalizedClientSearch = clientSearch.trim().toLowerCase();
 
     return appointments.filter((appointment) => {
@@ -2327,7 +2679,13 @@ setEditingId(appointment.id);
 
       return matchesBarber && matchesClient;
     });
-  }, [appointments, isClientMode, barber, weeklyBarberFilter, clientSearch]);
+  }, [
+    appointments,
+    isClientMode,
+    barber,
+    effectiveWeeklyBarberFilter,
+    clientSearch,
+  ]);
 
   const mobileClientSearchResults = useMemo(() => {
     const normalizedClientSearch = clientSearch.trim().toLowerCase();
@@ -2398,13 +2756,23 @@ setEditingId(appointment.id);
     return appointmentsBySlot.get(key) || [];
   };
 
+  const resolvedClientResource = getResolvedClientResource();
+
   const mobileSlots = useMemo(() => {
     if (!selectedMobileDay) return [];
 
     const selectedDayHours = getScheduleSlotsForDate(selectedMobileDay);
+    const mobileSlotResource = isClientMode
+      ? resolvedClientResource
+      : effectiveWeeklyBarberFilter;
 
     return selectedDayHours.map((hour) => {
       const slotAppointments = getAppointmentsForSlot(selectedMobileDay, hour);
+      const slotBlocks = getBlocksForSlot(
+        selectedMobileDay,
+        hour,
+        mobileSlotResource
+      );
 
       const normalizedHour =
         typeof hour === "string"
@@ -2419,7 +2787,9 @@ setEditingId(appointment.id);
         hour,
         label: typeof hour === "string" ? hour : formatHourLabel(hour),
         appointments: slotAppointments,
+        blocks: slotBlocks,
         isOccupied: slotAppointments.length > 0,
+        isBlocked: slotBlocks.length > 0,
         isPast,
       };
     });
@@ -2427,11 +2797,12 @@ setEditingId(appointment.id);
     selectedMobileDay,
     hours,
     appointmentsBySlot,
+    scheduleBlocks,
+    resolvedClientResource,
+    effectiveWeeklyBarberFilter,
     isClientMode,
     currentBusinessConfig,
   ]);
-
-  const resolvedClientResource = getResolvedClientResource();
 
   const availableDays = useMemo(() => {
     const days = [];
@@ -2536,6 +2907,15 @@ setEditingId(appointment.id);
       scheduleEndMinutes !== null &&
       candidateEndMinutes !== null &&
       candidateEndMinutes > scheduleEndMinutes;
+    const blockingBlocks =
+      resolvedClientResource && candidateEndMinutes !== null
+        ? getBlocksForReservationCandidate({
+            dateValue: date,
+            resourceName: resolvedClientResource,
+            timeValue: normalizedHour,
+            serviceName: service,
+          })
+        : [];
 
     const durationOverlaps =
       usesServiceDurations && resolvedClientResource && candidateEndMinutes !== null
@@ -2576,16 +2956,24 @@ setEditingId(appointment.id);
 
     const isTaken = relevantAppointments.length > 0;
     const isLookingForOpponent = isSportsBusiness && Boolean(opponentAppointment);
+    const isBlocked = blockingBlocks.length > 0;
 
     return {
       value: formattedHour,
       isPast,
       isTaken,
+      isBlocked,
       isLookingForOpponent,
       opponentAppointment: opponentAppointment || null,
-      disabled: isPast || exceedsSchedule || (isTaken && !isLookingForOpponent),
+      disabled:
+        isPast ||
+        exceedsSchedule ||
+        isBlocked ||
+        (isTaken && !isLookingForOpponent),
       status: isPast
         ? "past"
+        : isBlocked
+        ? "blocked"
         : exceedsSchedule
         ? "taken"
         : isLookingForOpponent
@@ -2601,6 +2989,7 @@ setEditingId(appointment.id);
   resolvedClientResource,
   appointmentsBySlot,
   appointments,
+  scheduleBlocks,
   blockedWeekdays,
   mergedBusiness?.id,
   service,
@@ -2849,7 +3238,7 @@ setEditingId(appointment.id);
       minWidth: isMobile ? "100%" : "1070px",
     },
     headerCell: {
-      backgroundColor: theme.primaryDark || "#111827",
+      backgroundColor: theme.primary || "#1f2937",
       color: "#fff",
       padding: "12px",
       fontWeight: "bold",
@@ -3350,6 +3739,13 @@ paymentHistoryItem: {
                     setTime={setTime}
                     setBarber={setBarber}
                     getAppointmentsForSlot={getAppointmentsForSlot}
+                    getBlocksForSlot={(dayValue, hourValue, resourceName) =>
+                      getBlocksForSlot(
+                        dayValue,
+                        hourValue,
+                        resourceName || barber || resolvedClientResource
+                      )
+                    }
                     getBarberColors={getBarberColors}
                     isClientMode={true}
                     barber={barber}
@@ -3366,26 +3762,28 @@ paymentHistoryItem: {
           </div>
         ) : (
           <div style={styles.layout}>
-            <AdminBookingPanel
-              styles={styles}
-              business={mergedBusiness}
-              isCompactAdmin={isCompactAdmin}
-              editingId={editingId}
-              name={name}
-              setName={setName}
-              phone={phone}
-              setPhone={setPhone}
-              date={date}
-              setDate={setDate}
-              time={time}
-              setTime={setTime}
-              service={service}
-              setService={setService}
-              barber={barber}
-              setBarber={setBarber}
-              BARBERS={BARBERS}
-              SERVICES={SERVICES}
-              customServiceName={customServiceName}
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <AdminBookingPanel
+                styles={styles}
+                business={mergedBusiness}
+                isCompactAdmin={isCompactAdmin}
+                editingId={editingId}
+                name={name}
+                setName={setName}
+                phone={phone}
+                setPhone={setPhone}
+                date={date}
+                setDate={setDate}
+                time={time}
+                setTime={setTime}
+                service={service}
+                setService={setService}
+                barber={barber}
+                setBarber={setBarber}
+                BARBERS={adminBarbers}
+                SERVICES={SERVICES}
+                lockedResourceName={professionalResourceName}
+                customServiceName={customServiceName}
 setCustomServiceName={setCustomServiceName}
 customServicePrice={customServicePrice}
 setCustomServicePrice={setCustomServicePrice}
@@ -3408,11 +3806,250 @@ setIsMonthlyReservation={setIsMonthlyReservation}
 createMonthlyAppointment={createMonthlyAppointment}
 
 updateAppointment={updateAppointment}
-              createAppointment={createAppointment}
-              resetForm={resetForm}
-              submitting={submitting}
-              message={message}
-            />
+                createAppointment={createAppointment}
+                resetForm={resetForm}
+                submitting={submitting}
+                message={message}
+              />
+
+              {scheduleBlockingEnabled && (
+              <div style={styles.card}>
+                <h2 style={{ marginTop: 0, marginBottom: "12px" }}>
+                  Bloquear horarios
+                </h2>
+
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "12px",
+                  }}
+                >
+                  <select
+                    style={styles.select}
+                    value={professionalResourceName || blockResource}
+                    onChange={(event) => setBlockResource(event.target.value)}
+                    disabled={isProfessionalSession}
+                  >
+                    <option value="">Selecciona profesional</option>
+                    {adminBarbers.map((barberName) => (
+                      <option key={barberName} value={barberName}>
+                        {barberName}
+                      </option>
+                    ))}
+                  </select>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                      gap: "10px",
+                    }}
+                  >
+                    <input
+                      style={styles.input}
+                      type="date"
+                      value={blockStartDate}
+                      onChange={(event) => {
+                        setBlockStartDate(event.target.value);
+                        if (!blockEndDate || blockEndDate < event.target.value) {
+                          setBlockEndDate(event.target.value);
+                        }
+                      }}
+                    />
+
+                    <input
+                      style={styles.input}
+                      type="date"
+                      value={blockEndDate}
+                      onChange={(event) => setBlockEndDate(event.target.value)}
+                    />
+                  </div>
+
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      fontWeight: "800",
+                      color: "#334155",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={blockAllDay}
+                      onChange={(event) => setBlockAllDay(event.target.checked)}
+                      style={{ width: "18px", height: "18px" }}
+                    />
+                    Todo el dia
+                  </label>
+
+                  {!blockAllDay && (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                        gap: "10px",
+                      }}
+                    >
+                      <input
+                        style={styles.input}
+                        type="time"
+                        value={blockStartTime}
+                        onChange={(event) => setBlockStartTime(event.target.value)}
+                      />
+
+                      <input
+                        style={styles.input}
+                        type="time"
+                        value={blockEndTime}
+                        onChange={(event) => setBlockEndTime(event.target.value)}
+                      />
+                    </div>
+                  )}
+
+                  <input
+                    style={styles.input}
+                    type="text"
+                    value={blockReason}
+                    onChange={(event) => setBlockReason(event.target.value)}
+                    placeholder="Motivo opcional"
+                  />
+
+                  <button
+                    type="button"
+                    style={{
+                      ...styles.button,
+                      ...styles.primaryButton,
+                      ...(submitting ? styles.disabledButton : {}),
+                    }}
+                    onClick={handleCreateScheduleBlock}
+                    disabled={submitting}
+                  >
+                    Crear bloqueo
+                  </button>
+
+                  {scheduleBlockMessage && (
+                    <div
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: "800",
+                        color: scheduleBlockMessage.includes("correctamente")
+                          ? theme.primaryDark || "#166534"
+                          : "#991b1b",
+                      }}
+                    >
+                      {scheduleBlockMessage}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ marginTop: "18px" }}>
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: "900",
+                      color: "#334155",
+                      marginBottom: "10px",
+                    }}
+                  >
+                    Bloqueos de la semana
+                  </div>
+
+                  {visibleScheduleBlocks.length === 0 ? (
+                    <div
+                      style={{
+                        border: "1px dashed #cbd5e1",
+                        borderRadius: "12px",
+                        padding: "12px",
+                        color: "#64748b",
+                        fontSize: "13px",
+                        fontWeight: "700",
+                      }}
+                    >
+                      Sin bloqueos para esta semana.
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                      }}
+                    >
+                      {visibleScheduleBlocks.map((block) => (
+                        <div
+                          key={block.id}
+                          style={{
+                            border: "1px solid #e2e8f0",
+                            borderRadius: "12px",
+                            padding: "10px",
+                            backgroundColor: "#f8fafc",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: "10px",
+                              alignItems: "flex-start",
+                            }}
+                          >
+                            <div style={{ minWidth: 0 }}>
+                              <div
+                                style={{
+                                  fontWeight: "900",
+                                  color: "#0f172a",
+                                  fontSize: "13px",
+                                }}
+                              >
+                                {block.barber}
+                              </div>
+                              <div
+                                style={{
+                                  color: "#475569",
+                                  fontSize: "12px",
+                                  fontWeight: "700",
+                                  marginTop: "3px",
+                                }}
+                              >
+                                {formatScheduleBlockLabel(block)}
+                              </div>
+                              {block.reason && (
+                                <div
+                                  style={{
+                                    color: "#64748b",
+                                    fontSize: "12px",
+                                    marginTop: "3px",
+                                  }}
+                                >
+                                  {block.reason}
+                                </div>
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              style={{
+                                ...styles.tinyButton,
+                                ...styles.dangerButton,
+                                minWidth: "72px",
+                                ...(submitting ? styles.disabledButton : {}),
+                              }}
+                              onClick={() => handleDeleteScheduleBlock(block.id)}
+                              disabled={submitting}
+                            >
+                              Quitar
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              )}
+            </div>
 
             <div style={styles.card}>
               <div style={styles.dashboardGrid}>
@@ -3726,22 +4363,34 @@ updateAppointment={updateAppointment}
                     onChange={(e) => setClientSearch(e.target.value)}
                   />
 
-                  <select
-                    style={{ ...styles.select, minWidth: "220px" }}
-                    value={weeklyBarberFilter}
-                    onChange={(e) => setWeeklyBarberFilter(e.target.value)}
-                  >
-                    <option value="">
-                      {`Todos los ${(
-                        mergedBusiness?.resourceLabelPlural || "recursos"
-                      ).toLowerCase()}`}
-                    </option>
-                    {BARBERS.map((barberName) => (
-                      <option key={barberName} value={barberName}>
-                        {barberName}
+                  {isProfessionalSession ? (
+                    <select
+                      style={{ ...styles.select, minWidth: "220px" }}
+                      value={professionalResourceName}
+                      disabled
+                    >
+                      <option value={professionalResourceName}>
+                        {professionalResourceName}
                       </option>
-                    ))}
-                  </select>
+                    </select>
+                  ) : (
+                    <select
+                      style={{ ...styles.select, minWidth: "220px" }}
+                      value={weeklyBarberFilter}
+                      onChange={(e) => setWeeklyBarberFilter(e.target.value)}
+                    >
+                      <option value="">
+                        {`Todos los ${(
+                          mergedBusiness?.resourceLabelPlural || "recursos"
+                        ).toLowerCase()}`}
+                      </option>
+                      {BARBERS.map((barberName) => (
+                        <option key={barberName} value={barberName}>
+                          {barberName}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div style={styles.weekActions}>
@@ -3768,7 +4417,7 @@ updateAppointment={updateAppointment}
 
               <WeeklyCalendar
                 styles={styles}
-                business={mergedBusiness}
+                business={adminCalendarBusiness}
                 loading={loading}
                 isMobile={isMobile}
                 weekDays={weekDays}
@@ -3791,6 +4440,13 @@ updateAppointment={updateAppointment}
                 setTime={setTime}
                 setBarber={setBarber}
                 getAppointmentsForSlot={getAppointmentsForSlot}
+                getBlocksForSlot={(dayValue, hourValue, resourceName) =>
+                  getBlocksForSlot(
+                    dayValue,
+                    hourValue,
+                    resourceName || effectiveWeeklyBarberFilter || barber
+                  )
+                }
                 getBarberColors={getBarberColors}
                 isClientMode={false}
                 barber={barber}

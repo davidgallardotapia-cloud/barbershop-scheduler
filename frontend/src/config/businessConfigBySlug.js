@@ -511,6 +511,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     defaultDepositRate: 0.5,
     paymentMethods: ["transferencia", "efectivo", "debito"],
     onlinePaymentsEnabled: false,
+    professionalSessionsEnabled: true,
 
     barbers: [
       "Antonia Marin Ardiles",
@@ -677,6 +678,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     defaultDepositRate: 0.5,
     paymentMethods: ["transferencia", "efectivo", "debito"],
     onlinePaymentsEnabled: false,
+    professionalSessionsEnabled: true,
 
     barbers: ["Dra. Valentina Rojas", "Dr. Matias Vega", "Box Higiene"],
 

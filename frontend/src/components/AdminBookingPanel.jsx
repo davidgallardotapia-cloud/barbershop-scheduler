@@ -19,6 +19,7 @@ function AdminBookingPanel({
   setBarber,
   BARBERS,
   SERVICES,
+  lockedResourceName = "",
   customServiceName,
   setCustomServiceName,
   customServicePrice,
@@ -259,7 +260,13 @@ function AdminBookingPanel({
           </div>
         )}
 
-        {!business?.hideResourceSelector && (
+        {!business?.hideResourceSelector && lockedResourceName && (
+          <select style={styles.select} value={lockedResourceName} disabled>
+            <option value={lockedResourceName}>{lockedResourceName}</option>
+          </select>
+        )}
+
+        {!business?.hideResourceSelector && !lockedResourceName && (
           <select
             style={styles.select}
             value={barber}

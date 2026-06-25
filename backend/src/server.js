@@ -410,6 +410,7 @@ const createAuthToken = (user) => {
       id: user.id,
       username: user.username,
       business_id: user.business_id,
+      resource_name: user.resource_name || null,
     },
     getJwtSecret(),
     { expiresIn: "12h" }
@@ -998,6 +999,70 @@ const optionalAuth = (req, res, next) => {
   }
 };
 
+const professionalSessionBusinessIds = new Set([
+  "centro-ama",
+  "odontologia-demo",
+]);
+
+const supportsProfessionalSessions = (businessId) => {
+  return professionalSessionBusinessIds.has(String(businessId || "").trim());
+};
+
+const getUserResourceName = (user, businessId = "") => {
+  const resourceName = String(user?.resource_name || "").trim();
+
+  if (!resourceName) {
+    return "";
+  }
+
+  if (businessId && !supportsProfessionalSessions(businessId)) {
+    return "";
+  }
+
+  return resourceName;
+};
+
+const userCanAccessResource = (user, resourceName, businessId) => {
+  const userResourceName = getUserResourceName(user, businessId);
+
+  if (!userResourceName) {
+    return true;
+  }
+
+  return userResourceName === String(resourceName || "").trim();
+};
+
+const requireUserResourceAccess = (req, res, resourceName, businessId) => {
+  if (userCanAccessResource(req.user, resourceName, businessId)) {
+    return true;
+  }
+
+  res.status(403).json({
+    message: "No tienes permiso para gestionar reservas de otra profesional",
+  });
+
+  return false;
+};
+
+const getScopedAppointmentById = async ({ appointmentId, businessId, user }) => {
+  const conditions = ["id = $1", "business_id = $2"];
+  const values = [appointmentId, businessId];
+  const userResourceName = getUserResourceName(user, businessId);
+
+  if (userResourceName) {
+    values.push(userResourceName);
+    conditions.push(`barber = $${values.length}`);
+  }
+
+  return pool.query(
+    `SELECT *
+     FROM appointments
+     WHERE ${conditions.join(" AND ")}
+     LIMIT 1`,
+    values
+  );
+};
+
 const normalizeChilePhone = (rawPhone) => {
   const digits = String(rawPhone || "").replace(/\D/g, "");
 
@@ -1081,7 +1146,19 @@ const getAppointmentDateRange = (query) => {
   };
 };
 
-const buildAppointmentDateFilter = (businessId, dateRange) => {
+const getScheduleBlockDateRange = (query) => {
+  return getAppointmentDateRange(query);
+};
+
+const normalizeDateOnlyValue = (value) => {
+  if (value instanceof Date) {
+    return formatDateOnly(value);
+  }
+
+  return String(value || "").slice(0, 10);
+};
+
+const buildAppointmentDateFilter = (businessId, dateRange, options = {}) => {
   const conditions = ["business_id = $1"];
   const values = [businessId];
 
@@ -1093,6 +1170,11 @@ const buildAppointmentDateFilter = (businessId, dateRange) => {
   if (dateRange.endDate) {
     values.push(dateRange.endDate);
     conditions.push(`date <= $${values.length}`);
+  }
+
+  if (options.resourceName) {
+    values.push(options.resourceName);
+    conditions.push(`barber = $${values.length}`);
   }
 
   return {
@@ -1175,12 +1257,122 @@ const getDurationAwareAppointmentMinutes = (serviceName) => {
   return parseServiceDurationMinutes(serviceName) || durationAwareSlotIntervalMinutes;
 };
 
+const getAppointmentDurationMinutesForBusiness = (businessId, serviceName) => {
+  return durationAwareBusinessIds.has(businessId)
+    ? getDurationAwareAppointmentMinutes(serviceName)
+    : 30;
+};
+
 const rangesOverlap = (startA, endA, startB, endB) => {
   if ([startA, endA, startB, endB].some((value) => value === null)) {
     return false;
   }
 
   return startA < endB && startB < endA;
+};
+
+const getScheduleBlockTimeRangeMinutes = (block) => {
+  if (Boolean(block?.all_day)) {
+    return { startMinutes: 0, endMinutes: 24 * 60 };
+  }
+
+  return {
+    startMinutes: timeToMinutes(block?.start_time),
+    endMinutes: timeToMinutes(block?.end_time),
+  };
+};
+
+const scheduleBlockOverlapsAppointment = ({
+  block,
+  date,
+  startMinutes,
+  endMinutes,
+}) => {
+  const appointmentDate = normalizeDateOnlyValue(date);
+  const blockStartDate = normalizeDateOnlyValue(block?.start_date);
+  const blockEndDate = normalizeDateOnlyValue(block?.end_date);
+
+  if (
+    !appointmentDate ||
+    !blockStartDate ||
+    !blockEndDate ||
+    appointmentDate < blockStartDate ||
+    appointmentDate > blockEndDate
+  ) {
+    return false;
+  }
+
+  if (Boolean(block?.all_day)) {
+    return true;
+  }
+
+  const { startMinutes: blockStartMinutes, endMinutes: blockEndMinutes } =
+    getScheduleBlockTimeRangeMinutes(block);
+
+  return rangesOverlap(
+    startMinutes,
+    endMinutes,
+    blockStartMinutes,
+    blockEndMinutes
+  );
+};
+
+const getOverlappingScheduleBlocks = async ({
+  businessId,
+  barber,
+  date,
+  time,
+  service,
+}) => {
+  const startMinutes = timeToMinutes(time);
+  const durationMinutes = getAppointmentDurationMinutesForBusiness(
+    businessId,
+    service
+  );
+  const endMinutes =
+    startMinutes === null ? null : startMinutes + durationMinutes;
+
+  if (startMinutes === null || endMinutes === null) {
+    return [];
+  }
+
+  const result = await pool.query(
+    `SELECT *
+     FROM schedule_blocks
+     WHERE business_id = $1
+       AND barber = $2
+       AND start_date <= $3
+       AND end_date >= $3`,
+    [businessId, barber, date]
+  );
+
+  return result.rows.filter((block) =>
+    scheduleBlockOverlapsAppointment({
+      block,
+      date,
+      startMinutes,
+      endMinutes,
+    })
+  );
+};
+
+const appointmentOverlapsScheduleBlock = ({ appointment, block, businessId }) => {
+  const appointmentStartMinutes = timeToMinutes(appointment?.time);
+  const appointmentEndMinutes =
+    appointmentStartMinutes === null
+      ? null
+      : appointmentStartMinutes +
+        getAppointmentDurationMinutesForBusiness(
+          businessId,
+          appointment?.service
+        );
+
+  return scheduleBlockOverlapsAppointment({
+    block,
+    date: appointment?.date,
+    startMinutes: appointmentStartMinutes,
+    endMinutes: appointmentEndMinutes,
+  });
 };
 
 const toPublicAppointment = (appointment) => {
@@ -1196,6 +1388,22 @@ const toPublicAppointment = (appointment) => {
     recurrence_group_id: appointment.recurrence_group_id,
     recurrence_type: appointment.recurrence_type,
     recurrence_index: appointment.recurrence_index,
+  };
+};
+
+const toPublicScheduleBlock = (block, options = {}) => {
+  const includeReason = Boolean(options.includeReason);
+
+  return {
+    id: block.id,
+    business_id: block.business_id,
+    barber: block.barber,
+    start_date: normalizeDateOnlyValue(block.start_date),
+    end_date: normalizeDateOnlyValue(block.end_date),
+    start_time: block.start_time ? String(block.start_time).slice(0, 5) : null,
+    end_time: block.end_time ? String(block.end_time).slice(0, 5) : null,
+    all_day: Boolean(block.all_day),
+    ...(includeReason ? { reason: block.reason || "" } : {}),
   };
 };
 
@@ -1262,7 +1470,12 @@ const recalculateAppointmentPaymentStatus = async (appointmentId) => {
   };
 };
 
-const seedUserIfConfigured = async ({ username, businessId, passwordEnv }) => {
+const seedUserIfConfigured = async ({
+  username,
+  businessId,
+  passwordEnv,
+  resourceName,
+}) => {
   const existingUser = await pool.query(
     "SELECT * FROM users WHERE username = $1",
     [username]
@@ -1273,6 +1486,13 @@ const seedUserIfConfigured = async ({ username, businessId, passwordEnv }) => {
       await pool.query(
         "UPDATE users SET business_id = $1 WHERE username = $2",
         [businessId, username]
+      );
+    }
+
+    if (resourceName && existingUser.rows[0].resource_name !== resourceName) {
+      await pool.query(
+        "UPDATE users SET resource_name = $1 WHERE username = $2",
+        [resourceName, username]
       );
     }
 
@@ -1295,8 +1515,8 @@ const seedUserIfConfigured = async ({ username, businessId, passwordEnv }) => {
   const hashedPassword = await bcrypt.hash(seedPassword, 12);
 
   await pool.query(
-    "INSERT INTO users (username, password, business_id) VALUES ($1, $2, $3)",
-    [username, hashedPassword, businessId]
+    "INSERT INTO users (username, password, business_id, resource_name) VALUES ($1, $2, $3, $4)",
+    [username, hashedPassword, businessId, resourceName || null]
   );
 };
 
@@ -1449,6 +1669,23 @@ const createTables = async () => {
     `);
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS schedule_blocks (
+        id SERIAL PRIMARY KEY,
+        business_id VARCHAR(100) NOT NULL,
+        barber VARCHAR(100) NOT NULL,
+        start_date DATE NOT NULL,
+        end_date DATE NOT NULL,
+        start_time TIME,
+        end_time TIME,
+        all_day BOOLEAN DEFAULT FALSE,
+        reason TEXT,
+        created_by INTEGER,
+        created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+      );
+    `);
+
+    await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_appointments_business_date_time
       ON appointments (business_id, date, time);
     `);
@@ -1480,6 +1717,11 @@ const createTables = async () => {
     `);
 
     await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_schedule_blocks_business_barber_dates
+      ON schedule_blocks (business_id, barber, start_date, end_date);
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         username VARCHAR(100) UNIQUE NOT NULL,
@@ -1490,6 +1732,24 @@ const createTables = async () => {
     await pool.query(`
       ALTER TABLE users
       ADD COLUMN IF NOT EXISTS business_id VARCHAR(100);
+    `);
+
+    await pool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS resource_name VARCHAR(100);
+    `);
+
+    await pool.query(`
+      ALTER TABLE schedule_blocks
+      DROP CONSTRAINT IF EXISTS fk_schedule_blocks_user;
+    `);
+
+    await pool.query(`
+      ALTER TABLE schedule_blocks
+      ADD CONSTRAINT fk_schedule_blocks_user
+      FOREIGN KEY (created_by)
+      REFERENCES users(id)
+      ON DELETE SET NULL;
     `);
 
     await pool.query(`
@@ -1626,6 +1886,27 @@ const createTables = async () => {
       passwordEnv: "SEED_PASSWORD_CENTRO_AMA",
     });
 
+    await seedUserIfConfigured({
+      username: "antonia_centroama",
+      businessId: "centro-ama",
+      passwordEnv: "SEED_PASSWORD_CENTRO_AMA_ANTONIA",
+      resourceName: "Antonia Marin Ardiles",
+    });
+
+    await seedUserIfConfigured({
+      username: "ignacia_centroama",
+      businessId: "centro-ama",
+      passwordEnv: "SEED_PASSWORD_CENTRO_AMA_IGNACIA",
+      resourceName: "Ignacia Marin Ardiles",
+    });
+
+    await seedUserIfConfigured({
+      username: "mariajose_centroama",
+      businessId: "centro-ama",
+      passwordEnv: "SEED_PASSWORD_CENTRO_AMA_MARIAJOSE",
+      resourceName: "Maria Jose Rojas",
+    });
+
     console.log("Tablas verificadas/creadas correctamente");
   } catch (error) {
     console.error("Error creando tablas:", error);
@@ -1634,6 +1915,286 @@ const createTables = async () => {
 
 app.get("/", async (_req, res) => {
   res.json({ ok: true, message: "Backend AgendaSmart operativo" });
+});
+
+app.get("/schedule-blocks", async (req, res) => {
+  const { businessId } = req.query;
+
+  if (!businessId) {
+    return res.status(400).json({ message: "businessId requerido" });
+  }
+
+  const dateRange = getScheduleBlockDateRange(req.query);
+
+  if (dateRange.error) {
+    return res.status(400).json({ message: dateRange.error });
+  }
+
+  const conditions = ["business_id = $1"];
+  const values = [businessId];
+
+  if (dateRange.startDate) {
+    values.push(dateRange.startDate);
+    conditions.push(`end_date >= $${values.length}`);
+  }
+
+  if (dateRange.endDate) {
+    values.push(dateRange.endDate);
+    conditions.push(`start_date <= $${values.length}`);
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT id, business_id, barber, start_date, end_date, start_time, end_time, all_day
+       FROM schedule_blocks
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY start_date ASC, start_time ASC NULLS FIRST, barber ASC`,
+      values
+    );
+
+    return res.json(result.rows.map((block) => toPublicScheduleBlock(block)));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al cargar bloqueos" });
+  }
+});
+
+app.get("/admin/schedule-blocks", requireAuth, async (req, res) => {
+  const businessId = req.user?.business_id;
+
+  if (!businessId) {
+    return res.status(403).json({ message: "Usuario sin negocio asignado" });
+  }
+
+  const dateRange = getScheduleBlockDateRange(req.query);
+
+  if (dateRange.error) {
+    return res.status(400).json({ message: dateRange.error });
+  }
+
+  const conditions = ["business_id = $1"];
+  const values = [businessId];
+  const userResourceName = getUserResourceName(req.user, businessId);
+
+  if (dateRange.startDate) {
+    values.push(dateRange.startDate);
+    conditions.push(`end_date >= $${values.length}`);
+  }
+
+  if (dateRange.endDate) {
+    values.push(dateRange.endDate);
+    conditions.push(`start_date <= $${values.length}`);
+  }
+
+  if (userResourceName) {
+    values.push(userResourceName);
+    conditions.push(`barber = $${values.length}`);
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT *
+       FROM schedule_blocks
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY start_date ASC, start_time ASC NULLS FIRST, barber ASC`,
+      values
+    );
+
+    return res.json(
+      result.rows.map((block) =>
+        toPublicScheduleBlock(block, { includeReason: true })
+      )
+    );
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al cargar bloqueos" });
+  }
+});
+
+app.post("/schedule-blocks", requireAuth, async (req, res) => {
+  const {
+    businessId,
+    barber,
+    startDate,
+    endDate,
+    startTime,
+    endTime,
+    allDay,
+    reason,
+  } = req.body || {};
+
+  if (!businessId || !barber || !startDate) {
+    return res.status(400).json({
+      message: "businessId, profesional y fecha de inicio son requeridos",
+    });
+  }
+
+  if (req.user?.business_id && req.user.business_id !== businessId) {
+    return res.status(403).json({
+      message: "No tienes permiso para modificar este negocio",
+    });
+  }
+
+  if (!requireUserResourceAccess(req, res, barber, businessId)) {
+    return;
+  }
+
+  const finalEndDate = endDate || startDate;
+  const finalAllDay = Boolean(allDay);
+
+  if (
+    !isValidDateOnlyString(startDate) ||
+    !isValidDateOnlyString(finalEndDate)
+  ) {
+    return res.status(400).json({
+      message: "Las fechas deben tener formato YYYY-MM-DD",
+    });
+  }
+
+  if (startDate > finalEndDate) {
+    return res.status(400).json({
+      message: "La fecha final no puede ser anterior a la fecha inicial",
+    });
+  }
+
+  let normalizedStartTime = null;
+  let normalizedEndTime = null;
+
+  if (!finalAllDay) {
+    normalizedStartTime = String(startTime || "").slice(0, 5);
+    normalizedEndTime = String(endTime || "").slice(0, 5);
+
+    const startMinutes = timeToMinutes(normalizedStartTime);
+    const endMinutes = timeToMinutes(normalizedEndTime);
+
+    if (
+      startMinutes === null ||
+      endMinutes === null ||
+      startMinutes >= endMinutes
+    ) {
+      return res.status(400).json({
+        message: "Indica una hora de inicio y termino valida",
+      });
+    }
+  }
+
+  const candidateBlock = {
+    start_date: startDate,
+    end_date: finalEndDate,
+    start_time: normalizedStartTime,
+    end_time: normalizedEndTime,
+    all_day: finalAllDay,
+  };
+
+  try {
+    const existingAppointments = await pool.query(
+      `SELECT id, date, time, service, name
+       FROM appointments
+       WHERE business_id = $1
+         AND barber = $2
+         AND date >= $3
+         AND date <= $4`,
+      [businessId, barber, startDate, finalEndDate]
+    );
+
+    const conflictingAppointment = existingAppointments.rows.find(
+      (appointment) =>
+        appointmentOverlapsScheduleBlock({
+          appointment,
+          block: candidateBlock,
+          businessId,
+        })
+    );
+
+    if (conflictingAppointment) {
+      return res.status(400).json({
+        message:
+          "No se puede bloquear ese tramo porque ya existe una reserva asignada",
+      });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO schedule_blocks (
+        business_id,
+        barber,
+        start_date,
+        end_date,
+        start_time,
+        end_time,
+        all_day,
+        reason,
+        created_by
+      )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING *`,
+      [
+        businessId,
+        barber,
+        startDate,
+        finalEndDate,
+        normalizedStartTime,
+        normalizedEndTime,
+        finalAllDay,
+        reason || null,
+        req.user?.id || null,
+      ]
+    );
+
+    return res.status(201).json({
+      message: "Bloqueo creado correctamente",
+      data: toPublicScheduleBlock(result.rows[0], { includeReason: true }),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al crear bloqueo" });
+  }
+});
+
+app.delete("/schedule-blocks/:id", requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const { businessId } = req.query;
+
+  if (!businessId) {
+    return res.status(400).json({ message: "businessId requerido" });
+  }
+
+  if (req.user?.business_id && req.user.business_id !== businessId) {
+    return res.status(403).json({
+      message: "No tienes permiso para modificar este negocio",
+    });
+  }
+
+  try {
+    const values = [id, businessId];
+    const conditions = ["id = $1", "business_id = $2"];
+    const userResourceName = getUserResourceName(req.user, businessId);
+
+    if (userResourceName) {
+      values.push(userResourceName);
+      conditions.push(`barber = $${values.length}`);
+    }
+
+    const result = await pool.query(
+      `DELETE FROM schedule_blocks
+       WHERE ${conditions.join(" AND ")}
+       RETURNING *`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: "Bloqueo no encontrado o no pertenece a esta profesional",
+      });
+    }
+
+    return res.json({
+      message: "Bloqueo eliminado correctamente",
+      data: toPublicScheduleBlock(result.rows[0], { includeReason: true }),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al eliminar bloqueo" });
+  }
 });
 
 app.get("/admin/appointments", requireAuth, async (req, res) => {
@@ -1652,7 +2213,9 @@ app.get("/admin/appointments", requireAuth, async (req, res) => {
       return res.status(400).json({ message: dateRange.error });
     }
 
-    const appointmentFilter = buildAppointmentDateFilter(businessId, dateRange);
+    const appointmentFilter = buildAppointmentDateFilter(businessId, dateRange, {
+      resourceName: getUserResourceName(req.user, businessId),
+    });
 
     const result = await pool.query(
       `SELECT
@@ -1830,6 +2393,7 @@ app.post("/login", loginLimiter, async (req, res) => {
         id: user.id,
         username: user.username,
         business_id: user.business_id,
+        resource_name: user.resource_name || null,
       },
     });
 
@@ -1909,6 +2473,10 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
     });
   }
 
+  if (isAdminRequest && !requireUserResourceAccess(req, res, barber, businessId)) {
+    return;
+  }
+
   if (!isValidChileMobilePhone(phone)) {
     return res.status(400).json({
       message: "Ingresa un celular chileno válido",
@@ -1944,6 +2512,20 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
   const finalOpponentName = isAdminRequest ? opponentName || null : null;
 
   try {
+    const overlappingScheduleBlocks = await getOverlappingScheduleBlocks({
+      businessId,
+      barber,
+      date,
+      time,
+      service,
+    });
+
+    if (overlappingScheduleBlocks.length > 0) {
+      return res.status(400).json({
+        message: "Ese horario esta bloqueado para ese recurso",
+      });
+    }
+
     if (durationAwareBusinessIds.has(businessId)) {
       const candidateStartMinutes = timeToMinutes(time);
       const candidateDurationMinutes = getDurationAwareAppointmentMinutes(service);
@@ -2089,6 +2671,10 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
     return res.status(400).json({ message: "Faltan campos obligatorios" });
   }
 
+  if (!requireUserResourceAccess(req, res, barber, businessId)) {
+    return;
+  }
+
   if (!isValidChileMobilePhone(phone)) {
     return res.status(400).json({
       message: "Ingresa un celular chileno válido",
@@ -2151,6 +2737,50 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
       return res.status(409).json({
         message: "No se pudo crear la reserva mensual. Hay horarios ocupados.",
         conflicts: conflicts.rows,
+      });
+    }
+
+    const scheduleBlocks = await client.query(
+      `SELECT *
+       FROM schedule_blocks
+       WHERE business_id = $1
+         AND barber = $2
+         AND start_date <= $3
+         AND end_date >= $4
+       ORDER BY start_date ASC, start_time ASC NULLS FIRST`,
+      [
+        businessId,
+        barber,
+        monthlyDates[monthlyDates.length - 1],
+        monthlyDates[0],
+      ]
+    );
+
+    const blockedDates = monthlyDates.filter((monthlyDate) =>
+      scheduleBlocks.rows.some((block) =>
+        appointmentOverlapsScheduleBlock({
+          appointment: {
+            date: monthlyDate,
+            time,
+            service,
+          },
+          block,
+          businessId,
+        })
+      )
+    );
+
+    if (blockedDates.length > 0) {
+      await client.query("ROLLBACK");
+
+      return res.status(409).json({
+        message: "No se pudo crear la reserva mensual. Hay horarios bloqueados.",
+        conflicts: blockedDates.map((blockedDate) => ({
+          date: blockedDate,
+          time,
+          barber,
+          reason: "blocked",
+        })),
       });
     }
 
@@ -2337,6 +2967,10 @@ app.put("/appointments/:id", requireAuth, async (req, res) => {
     return res.status(400).json({ message: "Faltan campos obligatorios" });
   }
 
+  if (!requireUserResourceAccess(req, res, barber, businessId)) {
+    return;
+  }
+
   if (!isValidChileMobilePhone(phone)) {
     return res.status(400).json({
       message: "Ingresa un celular chileno válido",
@@ -2355,6 +2989,32 @@ app.put("/appointments/:id", requireAuth, async (req, res) => {
     : null;
 
   try {
+    const scopedAppointmentResult = await getScopedAppointmentById({
+      appointmentId: id,
+      businessId,
+      user: req.user,
+    });
+
+    if (scopedAppointmentResult.rows.length === 0) {
+      return res.status(404).json({
+        message: "Cita no encontrada o no pertenece a esta profesional",
+      });
+    }
+
+    const overlappingScheduleBlocks = await getOverlappingScheduleBlocks({
+      businessId,
+      barber,
+      date,
+      time,
+      service,
+    });
+
+    if (overlappingScheduleBlocks.length > 0) {
+      return res.status(400).json({
+        message: "Ese horario esta bloqueado para ese recurso",
+      });
+    }
+
     if (durationAwareBusinessIds.has(businessId)) {
       const candidateStartMinutes = timeToMinutes(time);
       const candidateDurationMinutes = getDurationAwareAppointmentMinutes(service);
@@ -2824,10 +3484,11 @@ app.post("/appointments/:id/payments", requireAuth, async (req, res) => {
   }
 
   try {
-    const appointmentResult = await pool.query(
-      "SELECT * FROM appointments WHERE id = $1 AND business_id = $2",
-      [id, businessId]
-    );
+    const appointmentResult = await getScopedAppointmentById({
+      appointmentId: id,
+      businessId,
+      user: req.user,
+    });
 
     if (appointmentResult.rows.length === 0) {
       return res.status(404).json({
@@ -2892,10 +3553,11 @@ app.get("/appointments/:id/payments", requireAuth, async (req, res) => {
   }
 
   try {
-    const appointmentResult = await pool.query(
-      "SELECT * FROM appointments WHERE id = $1 AND business_id = $2",
-      [id, businessId]
-    );
+    const appointmentResult = await getScopedAppointmentById({
+      appointmentId: id,
+      businessId,
+      user: req.user,
+    });
 
     if (appointmentResult.rows.length === 0) {
       return res.status(404).json({
@@ -2958,10 +3620,11 @@ app.put("/appointments/:appointmentId/payments/:paymentId", requireAuth, async (
   }
 
   try {
-    const appointmentResult = await pool.query(
-      "SELECT * FROM appointments WHERE id = $1 AND business_id = $2",
-      [appointmentId, businessId]
-    );
+    const appointmentResult = await getScopedAppointmentById({
+      appointmentId,
+      businessId,
+      user: req.user,
+    });
 
     if (appointmentResult.rows.length === 0) {
       return res.status(404).json({
@@ -3041,10 +3704,11 @@ app.delete("/appointments/:appointmentId/payments/:paymentId", requireAuth, asyn
   }
 
   try {
-    const appointmentResult = await pool.query(
-      "SELECT * FROM appointments WHERE id = $1 AND business_id = $2",
-      [appointmentId, businessId]
-    );
+    const appointmentResult = await getScopedAppointmentById({
+      appointmentId,
+      businessId,
+      user: req.user,
+    });
 
     if (appointmentResult.rows.length === 0) {
       return res.status(404).json({
@@ -3103,9 +3767,20 @@ app.delete("/appointments/:id", requireAuth, async (req, res) => {
   }
 
   try {
+    const conditions = ["id = $1", "business_id = $2"];
+    const values = [id, businessId];
+    const userResourceName = getUserResourceName(req.user, businessId);
+
+    if (userResourceName) {
+      values.push(userResourceName);
+      conditions.push(`barber = $${values.length}`);
+    }
+
     const result = await pool.query(
-      "DELETE FROM appointments WHERE id = $1 AND business_id = $2 RETURNING *",
-      [id, businessId]
+      `DELETE FROM appointments
+       WHERE ${conditions.join(" AND ")}
+       RETURNING *`,
+      values
     );
 
     if (result.rows.length === 0) {
