@@ -603,6 +603,130 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     },
   },
 
+  "eu-curaciones-avanzadas": {
+    id: "eu-curaciones-avanzadas",
+    tabTitle: "Curaciones Avanzadas | AgendaSmart",
+    favicon: "/eu-curaciones-avanzadas/logo.svg",
+
+    name: "Curaciones Avanzadas",
+    subtitle: "Servicio de enfermeria profesional a domicilio",
+    phone: "+56 9 2604 6697",
+    hours: "Lunes a viernes: 17:00 a 21:00. Sabado: 10:00 a 14:00",
+    location: "Coquimbo - La Serena",
+    address: "Videla 340 oficina 212, Edificio Arenas, Coquimbo",
+
+    image: "/eu-curaciones-avanzadas/hero.svg",
+    logo: "/eu-curaciones-avanzadas/logo.svg",
+    logoWidth: "120px",
+    logoHeight: "120px",
+
+    description:
+      "Agenda una atencion de enfermeria a domicilio con Leslie Bustos Fernandez, especialista en manejo avanzado de heridas y ulceras cronicas.",
+
+    whatsappUrl: "https://wa.me/56926046697",
+    whatsappLabel: "Agenda tu cita por WhatsApp",
+
+    socialLinks: {
+      instagram: "https://www.instagram.com/eu_curacionesavanzadas/",
+    },
+
+    mapLink:
+      "https://www.google.com/maps/search/?api=1&query=Videla%20340%20oficina%20212%2C%20Edificio%20Arenas%2C%20Coquimbo",
+    mapEmbedUrl:
+      "https://www.google.com/maps?q=Videla+340+oficina+212,+Edificio+Arenas,+Coquimbo&output=embed",
+
+    bookingTitle: "Agenda tu atencion",
+    adminTitle: "Panel Curaciones Avanzadas",
+
+    bookingPanelTitle: "Agenda tu curacion",
+    bookingPanelDescription:
+      "Selecciona el servicio, revisa los horarios disponibles y confirma tu atencion a domicilio.",
+
+    calendarHelpText:
+      "Selecciona un horario disponible para agendar la atencion.",
+
+    resourceLabelSingle: "Profesional",
+    resourceLabelPlural: "Profesionales",
+    serviceLabel: "servicio",
+    resourceStepTitle: "Profesional asignada",
+
+    clientNamePlaceholder: "Nombre paciente",
+    clientPhonePlaceholder: "Celular paciente (ej: 912345678)",
+
+    submitButtonLabel: "Agendar atencion",
+    submittingLabel: "Agendando...",
+    updateButtonLabel: "Actualizar atencion",
+    updatingLabel: "Actualizando...",
+    cancelEditLabel: "Cancelar edicion",
+
+    createButtonLabel: "Crear reserva",
+    creatingLabel: "Creando...",
+    newItemTitle: "Nueva atencion",
+    editItemTitle: "Editar atencion",
+
+    whatsappButtonLabel: "Abrir WhatsApp",
+    resourceSelectedLabel: "Profesional seleccionada",
+    resourceSelectPrompt: "Leslie Bustos Fernandez",
+    resourceSelectOption: "Selecciona una profesional",
+    serviceSelectOption: "Selecciona un servicio",
+
+    blockedWeekdays: [0],
+    takenSlotLabel: "Ocupado",
+    pastSlotLabel: "Paso",
+    availableSlotLabel: "Disponible",
+
+    usesServiceDurations: true,
+    slotIntervalMinutes: 60,
+    paymentsEnabled: true,
+    depositFeatureEnabled: false,
+    depositOptional: false,
+    defaultDepositRate: 0.5,
+    paymentMethods: ["transferencia", "efectivo", "debito"],
+    onlinePaymentsEnabled: false,
+    professionalSessionsEnabled: false,
+
+    barbers: ["Leslie Bustos Fernandez"],
+
+    phones: {
+      "Leslie Bustos Fernandez": "56926046697",
+    },
+
+    services: [
+      "Ulcera de pie diabetico (60 min - $30.000)",
+      "Ulcera venosa (60 min - $30.000)",
+      "Ulcera por presion (60 min - $30.000)",
+      "Quemaduras (60 min - $28.000)",
+      "Ostomias y cuidados (60 min - $28.000)",
+      "Inyectables (60 min - $15.000)",
+      "Retiro de puntos (60 min - $18.000)",
+    ],
+
+    scheduleSlots: ["17:00", "18:00", "19:00", "20:00"],
+
+    scheduleSlotsByWeekday: {
+      6: ["10:00", "11:00", "12:00", "13:00"],
+    },
+
+    professionals: [
+      {
+        name: "Leslie Bustos Fernandez",
+        subtitle: "Enfermeria y curaciones avanzadas",
+        image: "/eu-curaciones-avanzadas/logo.svg",
+      },
+    ],
+
+    theme: {
+      primary: "#0f9ab8",
+      primaryDark: "#1d4ed8",
+      primarySoft: "#e0f7ff",
+      pageBackground: "#f0f9ff",
+      cardBackground: "#ffffff",
+      border: "#bae6fd",
+      text: "#0f172a",
+      mutedText: "#475569",
+    },
+  },
+
   "odontologia-demo": {
     id: "odontologia-demo",
     tabTitle: "Odontologia Demo | AgendaSmart",

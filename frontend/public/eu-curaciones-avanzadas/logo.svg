@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Curaciones Avanzadas</title>
+  <desc id="desc">Logo temporal para servicio de enfermeria a domicilio</desc>
+  <rect width="512" height="512" rx="120" fill="#f8fbff"/>
+  <circle cx="256" cy="256" r="198" fill="#e0f7ff" stroke="#58b8df" stroke-width="18"/>
+  <path d="M256 112c53 44 105 52 105 52v92c0 78-50 121-105 146-55-25-105-68-105-146v-92s52-8 105-52Z" fill="#ffffff" stroke="#2563eb" stroke-width="20" stroke-linejoin="round"/>
+  <path d="M256 176v150" stroke="#0f9ab8" stroke-width="34" stroke-linecap="round"/>
+  <path d="M181 251h150" stroke="#0f9ab8" stroke-width="34" stroke-linecap="round"/>
+  <path d="M337 134c42 16 65 48 71 93" stroke="#7dd3fc" stroke-width="18" stroke-linecap="round" fill="none"/>
+  <path d="M104 330c22 44 60 76 110 91" stroke="#bfdbfe" stroke-width="18" stroke-linecap="round" fill="none"/>
+</svg>

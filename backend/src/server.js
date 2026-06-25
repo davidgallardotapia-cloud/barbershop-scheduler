@@ -1822,6 +1822,18 @@ const createTables = async () => {
 
     await pool.query(`
       INSERT INTO businesses (id, name, slug)
+      VALUES ('eu-curaciones-avanzadas', 'Curaciones Avanzadas', 'eu-curaciones-avanzadas')
+      ON CONFLICT (id) DO NOTHING;
+    `);
+
+    await pool.query(`
+      UPDATE businesses
+      SET name = 'Curaciones Avanzadas', slug = 'eu-curaciones-avanzadas'
+      WHERE id = 'eu-curaciones-avanzadas';
+    `);
+
+    await pool.query(`
+      INSERT INTO businesses (id, name, slug)
       VALUES ('giocata', 'Centro Deportivo La Giocata', 'giocata')
       ON CONFLICT (id) DO NOTHING;
     `);
@@ -1884,6 +1896,12 @@ const createTables = async () => {
       username: "admin_centroama",
       businessId: "centro-ama",
       passwordEnv: "SEED_PASSWORD_CENTRO_AMA",
+    });
+
+    await seedUserIfConfigured({
+      username: "admin_curaciones",
+      businessId: "eu-curaciones-avanzadas",
+      passwordEnv: "SEED_PASSWORD_CURACIONES_AVANZADAS",
     });
 
     await seedUserIfConfigured({
