@@ -1002,6 +1002,7 @@ const optionalAuth = (req, res, next) => {
 const professionalSessionBusinessIds = new Set([
   "centro-ama",
   "odontologia-demo",
+  "eu-curaciones-avanzadas",
 ]);
 
 const supportsProfessionalSessions = (businessId) => {
@@ -1899,9 +1900,10 @@ const createTables = async () => {
     });
 
     await seedUserIfConfigured({
-      username: "admin_curaciones",
+      username: "leslie_bustos",
       businessId: "eu-curaciones-avanzadas",
       passwordEnv: "SEED_PASSWORD_CURACIONES_AVANZADAS",
+      resourceName: "Leslie Bustos Fernandez",
     });
 
     await seedUserIfConfigured({

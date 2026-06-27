@@ -57,6 +57,14 @@ const sharePages = {
     imageWidth: 1254,
     imageHeight: 1254,
   },
+  "/eu-curaciones-avanzadas": {
+    title: "Regencura | Curaciones Avanzadas",
+    description:
+      "Agenda atenciones de enfermeria y curaciones avanzadas con Leslie Bustos Fernandez.",
+    image: "/eu-curaciones-avanzadas/regencura-logo.png",
+    imageWidth: 1254,
+    imageHeight: 1254,
+  },
   "/urban-district-barber": {
     title: "Urban District Barber | Reserva online",
     description:

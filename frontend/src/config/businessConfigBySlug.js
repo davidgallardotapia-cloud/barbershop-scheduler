@@ -606,7 +606,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
   "eu-curaciones-avanzadas": {
     id: "eu-curaciones-avanzadas",
     tabTitle: "Curaciones Avanzadas | AgendaSmart",
-    favicon: "/eu-curaciones-avanzadas/logo.svg",
+    favicon: "/eu-curaciones-avanzadas/regencura-logo.png",
 
     name: "Curaciones Avanzadas",
     subtitle: "Servicio de enfermeria profesional a domicilio",
@@ -615,8 +615,8 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     location: "Coquimbo - La Serena",
     address: "Videla 340 oficina 212, Edificio Arenas, Coquimbo",
 
-    image: "/eu-curaciones-avanzadas/hero.svg",
-    logo: "/eu-curaciones-avanzadas/logo.svg",
+    image: "/eu-curaciones-avanzadas/regencura-hero.png",
+    logo: "/eu-curaciones-avanzadas/regencura-logo.png",
     logoWidth: "120px",
     logoHeight: "120px",
 
@@ -635,7 +635,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     mapEmbedUrl:
       "https://www.google.com/maps?q=Videla+340+oficina+212,+Edificio+Arenas,+Coquimbo&output=embed",
 
-    bookingTitle: "Agenda tu atencion",
+    bookingTitle: "Agenda tu atención",
     adminTitle: "Panel Curaciones Avanzadas",
 
     bookingPanelTitle: "Agenda tu curacion",
@@ -683,7 +683,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     defaultDepositRate: 0.5,
     paymentMethods: ["transferencia", "efectivo", "debito"],
     onlinePaymentsEnabled: false,
-    professionalSessionsEnabled: false,
+    professionalSessionsEnabled: true,
 
     barbers: ["Leslie Bustos Fernandez"],
 
@@ -711,19 +711,19 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
       {
         name: "Leslie Bustos Fernandez",
         subtitle: "Enfermeria y curaciones avanzadas",
-        image: "/eu-curaciones-avanzadas/logo.svg",
+        image: "/eu-curaciones-avanzadas/regencura-logo.png",
       },
     ],
 
     theme: {
-      primary: "#0f9ab8",
-      primaryDark: "#1d4ed8",
-      primarySoft: "#e0f7ff",
-      pageBackground: "#f0f9ff",
+      primary: "#b8872f",
+      primaryDark: "#111111",
+      primarySoft: "#fff6df",
+      pageBackground: "#fffaf2",
       cardBackground: "#ffffff",
-      border: "#bae6fd",
-      text: "#0f172a",
-      mutedText: "#475569",
+      border: "#ead7aa",
+      text: "#111111",
+      mutedText: "#57534e",
     },
   },
 

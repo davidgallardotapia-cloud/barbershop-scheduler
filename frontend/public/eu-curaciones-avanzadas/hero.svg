@@ -3,13 +3,13 @@
   <desc id="desc">Imagen temporal para servicio de enfermeria profesional a domicilio</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f8fbff"/>
-      <stop offset="0.52" stop-color="#e0f7ff"/>
-      <stop offset="1" stop-color="#bfdbfe"/>
+      <stop offset="0" stop-color="#fffdf7"/>
+      <stop offset="0.52" stop-color="#fff6df"/>
+      <stop offset="1" stop-color="#ead7aa"/>
     </linearGradient>
     <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#2563eb"/>
-      <stop offset="1" stop-color="#06b6d4"/>
+      <stop offset="0" stop-color="#111111"/>
+      <stop offset="1" stop-color="#b8872f"/>
     </linearGradient>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="28" stdDeviation="28" flood-color="#0f172a" flood-opacity="0.16"/>
@@ -18,24 +18,24 @@
   <rect width="1600" height="900" fill="url(#bg)"/>
   <circle cx="1270" cy="210" r="240" fill="#ffffff" opacity="0.48"/>
   <circle cx="145" cy="760" r="220" fill="#ffffff" opacity="0.55"/>
-  <path d="M1135 98c156 64 236 197 227 348" stroke="#7dd3fc" stroke-width="36" stroke-linecap="round" fill="none" opacity="0.8"/>
-  <path d="M1246 87c139 88 196 222 171 390" stroke="#2563eb" stroke-width="28" stroke-linecap="round" fill="none" opacity="0.55"/>
+  <path d="M1135 98c156 64 236 197 227 348" stroke="#ead7aa" stroke-width="36" stroke-linecap="round" fill="none" opacity="0.8"/>
+  <path d="M1246 87c139 88 196 222 171 390" stroke="#b8872f" stroke-width="28" stroke-linecap="round" fill="none" opacity="0.55"/>
   <g filter="url(#shadow)">
     <rect x="140" y="135" width="880" height="630" rx="56" fill="#ffffff"/>
-    <rect x="190" y="185" width="560" height="24" rx="12" fill="#bfdbfe"/>
-    <text x="190" y="302" fill="#1d4ed8" font-family="Arial, Helvetica, sans-serif" font-size="70" font-weight="800" letter-spacing="2">CURACIONES AVANZADAS</text>
-    <text x="190" y="382" fill="#0f766e" font-family="Arial, Helvetica, sans-serif" font-size="46" font-weight="700">Servicio de Enfermeria Profesional a domicilio</text>
+    <rect x="190" y="185" width="560" height="24" rx="12" fill="#ead7aa"/>
+    <text x="190" y="302" fill="#111111" font-family="Arial, Helvetica, sans-serif" font-size="70" font-weight="800" letter-spacing="2">CURACIONES AVANZADAS</text>
+    <text x="190" y="382" fill="#8a641f" font-family="Arial, Helvetica, sans-serif" font-size="46" font-weight="700">Servicio de Enfermeria Profesional a domicilio</text>
     <text x="190" y="454" fill="#334155" font-family="Arial, Helvetica, sans-serif" font-size="38">EU. Leslie Bustos Fernandez</text>
-    <rect x="190" y="520" width="360" height="68" rx="34" fill="#e0f7ff"/>
-    <text x="238" y="566" fill="#0f9ab8" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800">Agenda tu cita</text>
+    <rect x="190" y="520" width="360" height="68" rx="34" fill="#fff6df"/>
+    <text x="238" y="566" fill="#b8872f" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800">Agenda tu cita</text>
     <text x="190" y="656" fill="#0f172a" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700">Coquimbo - La Serena</text>
-    <text x="190" y="706" fill="#2563eb" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700">+56 9 2604 6697</text>
+    <text x="190" y="706" fill="#b8872f" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700">+56 9 2604 6697</text>
   </g>
   <g transform="translate(1095 245)" filter="url(#shadow)">
     <circle cx="180" cy="180" r="178" fill="#ffffff"/>
-    <circle cx="180" cy="180" r="134" fill="#e0f7ff"/>
+    <circle cx="180" cy="180" r="134" fill="#fff6df"/>
     <path d="M180 76c38 31 75 37 75 37v66c0 56-36 86-75 104-39-18-75-48-75-104v-66s37-6 75-37Z" fill="#ffffff" stroke="url(#blue)" stroke-width="18" stroke-linejoin="round"/>
-    <path d="M180 119v117" stroke="#0f9ab8" stroke-width="26" stroke-linecap="round"/>
-    <path d="M121 178h118" stroke="#0f9ab8" stroke-width="26" stroke-linecap="round"/>
+    <path d="M180 119v117" stroke="#b8872f" stroke-width="26" stroke-linecap="round"/>
+    <path d="M121 178h118" stroke="#b8872f" stroke-width="26" stroke-linecap="round"/>
   </g>
 </svg>
