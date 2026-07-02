@@ -18,6 +18,7 @@ export function buildBarberWhatsappUrl({
   needsOpponent = false,
 }) {
   const isSports = isSportsBusiness(business);
+  const resourceLabel = business?.resourceLabelSingle || "Barbero";
 
   const messageText = isSports
     ? `Nueva reserva de cancha
@@ -45,7 +46,7 @@ ${BULLET} Fecha: ${date}
 ${BULLET} Hora: ${time}
 
 ${BULLET} Servicio: ${service}
-${BULLET} Barbero: ${barber}`;
+${BULLET} ${resourceLabel}: ${barber}`;
 
   return `https://wa.me/${barberPhone}?text=${encodeURIComponent(messageText)}`;
 }
