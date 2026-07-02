@@ -1005,8 +1005,18 @@ const professionalSessionBusinessIds = new Set([
   "eu-curaciones-avanzadas",
 ]);
 
+const clinicalRecordsBusinessIds = new Set([
+  "centro-ama",
+  "odontologia-demo",
+  "eu-curaciones-avanzadas",
+]);
+
 const supportsProfessionalSessions = (businessId) => {
   return professionalSessionBusinessIds.has(String(businessId || "").trim());
+};
+
+const supportsClinicalRecords = (businessId) => {
+  return clinicalRecordsBusinessIds.has(String(businessId || "").trim());
 };
 
 const getUserResourceName = (user, businessId = "") => {
@@ -1064,6 +1074,98 @@ const getScopedAppointmentById = async ({ appointmentId, businessId, user }) => 
   );
 };
 
+const normalizeClinicalText = (value, maxLength = 3000) => {
+  const text = String(value || "").trim();
+
+  return text.length > maxLength ? text.slice(0, maxLength) : text;
+};
+
+const normalizeClinicalDate = (value) => {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  const text = String(value || "").slice(0, 10);
+
+  return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
+};
+
+const normalizeClinicalAge = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+
+  const parsedAge = Number(value);
+
+  if (!Number.isInteger(parsedAge) || parsedAge < 0 || parsedAge > 130) {
+    return null;
+  }
+
+  return parsedAge;
+};
+
+const normalizeEmail = (value) => {
+  const email = String(value || "").trim().toLowerCase();
+
+  if (!email) return "";
+
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "";
+};
+
+const createClinicalAuditLog = async ({
+  businessId,
+  userId,
+  action,
+  entityType,
+  entityId,
+  details = {},
+}) => {
+  try {
+    await pool.query(
+      `INSERT INTO clinical_audit_logs (
+        business_id,
+        user_id,
+        action,
+        entity_type,
+        entity_id,
+        details
+      )
+      VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        businessId,
+        userId || null,
+        action,
+        entityType,
+        entityId || null,
+        details,
+      ]
+    );
+  } catch (error) {
+    console.error("Error registrando auditoria clinica:", error.message);
+  }
+};
+
+const toPublicClinicalRecord = (record) => ({
+  id: record.id,
+  business_id: record.business_id,
+  patient_id: record.patient_id,
+  appointment_id: record.appointment_id,
+  professional_name: record.professional_name,
+  visit_date: record.visit_date,
+  chief_complaint: record.chief_complaint,
+  clinical_background: record.clinical_background,
+  assessment: record.assessment,
+  procedure_performed: record.procedure_performed,
+  indications: record.indications,
+  next_steps: record.next_steps,
+  created_at: record.created_at,
+  updated_at: record.updated_at,
+  patient_name: record.patient_name,
+  patient_phone: record.patient_phone,
+  patient_rut: record.patient_rut,
+  patient_email: record.patient_email,
+  patient_age: record.patient_age,
+  patient_address: record.patient_address,
+});
+
 const normalizeChilePhone = (rawPhone) => {
   const digits = String(rawPhone || "").replace(/\D/g, "");
 
@@ -1086,6 +1188,194 @@ const normalizeChilePhone = (rawPhone) => {
   }
 
   return digits;
+};
+
+const createClinicalDraftForAppointment = async ({
+  businessId,
+  appointment,
+  userId,
+}) => {
+  if (!supportsClinicalRecords(businessId) || !appointment?.id) {
+    return null;
+  }
+
+  const patientFields = {
+    name: normalizeClinicalText(appointment.name, 160),
+    phone:
+      normalizeChilePhone(appointment.phone) ||
+      normalizeClinicalText(appointment.phone, 30),
+    rut: normalizeClinicalText(appointment.client_rut, 30) || null,
+    email: normalizeEmail(appointment.client_email) || null,
+  };
+  const professionalName = normalizeClinicalText(appointment.barber, 100);
+  const visitDate = normalizeClinicalDate(appointment.date);
+
+  if (!patientFields.name || !professionalName || !visitDate) {
+    return null;
+  }
+
+  let patient = null;
+  const reusableValues = [businessId];
+  const matchConditions = [];
+
+  if (patientFields.rut) {
+    reusableValues.push(patientFields.rut);
+    matchConditions.push(`LOWER(rut) = LOWER($${reusableValues.length})`);
+  }
+
+  if (patientFields.phone) {
+    reusableValues.push(patientFields.phone);
+    matchConditions.push(`phone = $${reusableValues.length}`);
+  }
+
+  if (patientFields.email) {
+    reusableValues.push(patientFields.email);
+    matchConditions.push(`LOWER(email) = LOWER($${reusableValues.length})`);
+  }
+
+  if (matchConditions.length > 0) {
+    const patientResult = await pool.query(
+      `SELECT *
+       FROM clinical_patients
+       WHERE business_id = $1
+         AND (${matchConditions.join(" OR ")})
+       ORDER BY updated_at DESC
+       LIMIT 1`,
+      reusableValues
+    );
+
+    patient = patientResult.rows[0] || null;
+  }
+
+  if (patient) {
+    const updatedPatient = await pool.query(
+      `UPDATE clinical_patients
+       SET
+         full_name = $1,
+         phone = $2,
+         rut = COALESCE($3, rut),
+         email = COALESCE($4, email),
+         updated_at = NOW()
+       WHERE id = $5 AND business_id = $6
+       RETURNING *`,
+      [
+        patientFields.name,
+        patientFields.phone || null,
+        patientFields.rut,
+        patientFields.email,
+        patient.id,
+        businessId,
+      ]
+    );
+
+    patient = updatedPatient.rows[0];
+  } else {
+    const createdPatient = await pool.query(
+      `INSERT INTO clinical_patients (
+        business_id,
+        full_name,
+        phone,
+        rut,
+        email,
+        created_by
+      )
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *`,
+      [
+        businessId,
+        patientFields.name,
+        patientFields.phone || null,
+        patientFields.rut,
+        patientFields.email,
+        userId || null,
+      ]
+    );
+
+    patient = createdPatient.rows[0];
+  }
+
+  const existingRecord = await pool.query(
+    `SELECT *
+     FROM clinical_records
+     WHERE business_id = $1 AND appointment_id = $2
+     LIMIT 1`,
+    [businessId, appointment.id]
+  );
+
+  if (existingRecord.rows.length > 0) {
+    const updatedRecord = await pool.query(
+      `UPDATE clinical_records
+       SET
+         patient_id = $1,
+         professional_name = $2,
+         visit_date = $3,
+         updated_at = NOW()
+       WHERE id = $4 AND business_id = $5
+       RETURNING *`,
+      [
+        patient.id,
+        professionalName,
+        visitDate,
+        existingRecord.rows[0].id,
+        businessId,
+      ]
+    );
+
+    return {
+      ...updatedRecord.rows[0],
+      patient_name: patient.full_name,
+      patient_phone: patient.phone,
+      patient_rut: patient.rut,
+      patient_email: patient.email,
+      patient_age: patient.age,
+      patient_address: patient.address,
+    };
+  }
+
+  const recordResult = await pool.query(
+    `INSERT INTO clinical_records (
+      business_id,
+      patient_id,
+      appointment_id,
+      professional_name,
+      visit_date,
+      created_by
+    )
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING *`,
+    [
+      businessId,
+      patient.id,
+      appointment.id,
+      professionalName,
+      visitDate,
+      userId || null,
+    ]
+  );
+  const record = {
+    ...recordResult.rows[0],
+    patient_name: patient.full_name,
+    patient_phone: patient.phone,
+    patient_rut: patient.rut,
+    patient_email: patient.email,
+    patient_age: patient.age,
+    patient_address: patient.address,
+  };
+
+  await createClinicalAuditLog({
+    businessId,
+    userId,
+    action: "clinical_record_precreated",
+    entityType: "clinical_records",
+    entityId: record.id,
+    details: {
+      patientId: patient.id,
+      appointmentId: appointment.id,
+      professionalName,
+    },
+  });
+
+  return record;
 };
 
 const isValidChileMobilePhone = (rawPhone) => {
@@ -1541,6 +1831,16 @@ const createTables = async () => {
 
     await pool.query(`
       ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS client_rut VARCHAR(30);
+    `);
+
+    await pool.query(`
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS client_email VARCHAR(160);
+    `);
+
+    await pool.query(`
+      ALTER TABLE appointments
       ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'reservada';
     `);
 
@@ -1738,6 +2038,105 @@ const createTables = async () => {
     await pool.query(`
       ALTER TABLE users
       ADD COLUMN IF NOT EXISTS resource_name VARCHAR(100);
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS clinical_patients (
+        id SERIAL PRIMARY KEY,
+        business_id VARCHAR(100) NOT NULL,
+        full_name VARCHAR(160) NOT NULL,
+        phone VARCHAR(30),
+        rut VARCHAR(30),
+        email VARCHAR(160),
+        age INTEGER CHECK (age IS NULL OR (age >= 0 AND age <= 130)),
+        address TEXT,
+        created_by INTEGER,
+        created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+        CONSTRAINT fk_clinical_patients_user
+          FOREIGN KEY (created_by)
+          REFERENCES users(id)
+          ON DELETE SET NULL
+      );
+    `);
+
+    await pool.query(`
+      ALTER TABLE clinical_patients
+      ADD COLUMN IF NOT EXISTS email VARCHAR(160);
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS clinical_records (
+        id SERIAL PRIMARY KEY,
+        business_id VARCHAR(100) NOT NULL,
+        patient_id INTEGER NOT NULL,
+        appointment_id INTEGER,
+        professional_name VARCHAR(100) NOT NULL,
+        visit_date DATE NOT NULL,
+        chief_complaint TEXT,
+        clinical_background TEXT,
+        assessment TEXT,
+        procedure_performed TEXT,
+        indications TEXT,
+        next_steps TEXT,
+        created_by INTEGER,
+        created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+        CONSTRAINT fk_clinical_records_patient
+          FOREIGN KEY (patient_id)
+          REFERENCES clinical_patients(id)
+          ON DELETE CASCADE,
+        CONSTRAINT fk_clinical_records_appointment
+          FOREIGN KEY (appointment_id)
+          REFERENCES appointments(id)
+          ON DELETE SET NULL,
+        CONSTRAINT fk_clinical_records_user
+          FOREIGN KEY (created_by)
+          REFERENCES users(id)
+          ON DELETE SET NULL
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS clinical_audit_logs (
+        id SERIAL PRIMARY KEY,
+        business_id VARCHAR(100) NOT NULL,
+        user_id INTEGER,
+        action VARCHAR(80) NOT NULL,
+        entity_type VARCHAR(80) NOT NULL,
+        entity_id INTEGER,
+        details JSONB,
+        created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+        CONSTRAINT fk_clinical_audit_logs_user
+          FOREIGN KEY (user_id)
+          REFERENCES users(id)
+          ON DELETE SET NULL
+      );
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_clinical_patients_business_name
+      ON clinical_patients (business_id, full_name);
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_clinical_patients_business_email
+      ON clinical_patients (business_id, email);
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_clinical_records_business_visit
+      ON clinical_records (business_id, visit_date DESC);
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_clinical_records_business_professional
+      ON clinical_records (business_id, professional_name, visit_date DESC);
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_clinical_audit_logs_business_created
+      ON clinical_audit_logs (business_id, created_at DESC);
     `);
 
     await pool.query(`
@@ -2428,6 +2827,589 @@ app.post("/logout", (_req, res) => {
   return res.json({ message: "Sesion cerrada" });
 });
 
+app.get("/clinical-records", requireAuth, async (req, res) => {
+  const businessId = req.user?.business_id;
+
+  if (!businessId) {
+    return res.status(403).json({ message: "Usuario sin negocio asociado" });
+  }
+
+  if (!supportsClinicalRecords(businessId)) {
+    return res.status(403).json({
+      message: "Las fichas clinicas no estan habilitadas para este negocio",
+    });
+  }
+
+  const conditions = ["records.business_id = $1"];
+  const values = [businessId];
+  const userResourceName = getUserResourceName(req.user, businessId);
+  const search = normalizeClinicalText(req.query.search, 120);
+
+  if (userResourceName) {
+    values.push(userResourceName);
+    conditions.push(`records.professional_name = $${values.length}`);
+  }
+
+  if (search) {
+    values.push(`%${search}%`);
+    conditions.push(`(
+      patients.full_name ILIKE $${values.length}
+      OR COALESCE(patients.phone, '') ILIKE $${values.length}
+      OR COALESCE(patients.rut, '') ILIKE $${values.length}
+      OR COALESCE(patients.email, '') ILIKE $${values.length}
+      OR records.professional_name ILIKE $${values.length}
+    )`);
+  }
+
+  values.push(Math.min(Number(req.query.limit || 80) || 80, 120));
+  const limitPlaceholder = `$${values.length}`;
+
+  try {
+    const result = await pool.query(
+      `SELECT
+        records.*,
+        patients.full_name AS patient_name,
+        patients.phone AS patient_phone,
+        patients.rut AS patient_rut,
+        patients.email AS patient_email,
+        patients.age AS patient_age,
+        patients.address AS patient_address
+       FROM clinical_records AS records
+       INNER JOIN clinical_patients AS patients
+         ON patients.id = records.patient_id
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY records.visit_date DESC, records.created_at DESC
+       LIMIT ${limitPlaceholder}`,
+      values
+    );
+
+    await createClinicalAuditLog({
+      businessId,
+      userId: req.user?.id,
+      action: "clinical_records_viewed",
+      entityType: "clinical_records",
+      details: {
+        search: search ? "[filtered]" : "",
+        count: result.rows.length,
+        professionalName: userResourceName || "all",
+      },
+    });
+
+    return res.json(result.rows.map(toPublicClinicalRecord));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al cargar fichas clinicas" });
+  }
+});
+
+app.post("/clinical-records", requireAuth, async (req, res) => {
+  const businessId = req.user?.business_id;
+
+  if (!businessId) {
+    return res.status(403).json({ message: "Usuario sin negocio asociado" });
+  }
+
+  if (!supportsClinicalRecords(businessId)) {
+    return res.status(403).json({
+      message: "Las fichas clinicas no estan habilitadas para este negocio",
+    });
+  }
+
+  const {
+    patientId,
+    patientName,
+    patientPhone,
+    patientRut,
+    patientEmail,
+    patientAge,
+    patientAddress,
+    appointmentId,
+    professionalName,
+    visitDate,
+    chiefComplaint,
+    clinicalBackground,
+    assessment,
+    procedurePerformed,
+    indications,
+    nextSteps,
+  } = req.body || {};
+  const userResourceName = getUserResourceName(req.user, businessId);
+  const normalizedAppointmentId = appointmentId ? Number(appointmentId) : null;
+
+  let linkedAppointment = null;
+
+  try {
+    if (normalizedAppointmentId) {
+      const appointmentResult = await getScopedAppointmentById({
+        appointmentId: normalizedAppointmentId,
+        businessId,
+        user: req.user,
+      });
+
+      if (appointmentResult.rows.length === 0) {
+        return res.status(404).json({
+          message: "Reserva no encontrada o no pertenece a este negocio",
+        });
+      }
+
+      linkedAppointment = appointmentResult.rows[0];
+    }
+
+    const resolvedProfessionalName = normalizeClinicalText(
+      userResourceName ||
+        professionalName ||
+        linkedAppointment?.barber ||
+        "",
+      100
+    );
+    const resolvedPatientName = normalizeClinicalText(
+      patientName || linkedAppointment?.name || "",
+      160
+    );
+    const resolvedPatientPhone =
+      normalizeChilePhone(patientPhone || linkedAppointment?.phone || "") ||
+      normalizeClinicalText(patientPhone || linkedAppointment?.phone || "", 30);
+    const resolvedPatientEmail = normalizeEmail(
+      patientEmail || linkedAppointment?.client_email || ""
+    );
+    const resolvedVisitDate =
+      normalizeClinicalDate(visitDate) ||
+      normalizeClinicalDate(linkedAppointment?.date) ||
+      normalizeClinicalDate(new Date().toISOString());
+
+    if (!resolvedPatientName) {
+      return res.status(400).json({ message: "Nombre de paciente requerido" });
+    }
+
+    if (!resolvedProfessionalName) {
+      return res.status(400).json({ message: "Profesional requerido" });
+    }
+
+    if (!userCanAccessResource(req.user, resolvedProfessionalName, businessId)) {
+      return res.status(403).json({
+        message: "No tienes permiso para crear fichas de otra profesional",
+      });
+    }
+
+    const patientFields = {
+      name: resolvedPatientName,
+      phone: resolvedPatientPhone || null,
+      rut:
+        normalizeClinicalText(patientRut || linkedAppointment?.client_rut, 30) ||
+        null,
+      email: resolvedPatientEmail || null,
+      age: normalizeClinicalAge(patientAge),
+      address: normalizeClinicalText(patientAddress, 400) || null,
+    };
+    let patient = null;
+    const normalizedPatientId = patientId ? Number(patientId) : null;
+
+    if (normalizedPatientId) {
+      const patientResult = await pool.query(
+        `SELECT *
+         FROM clinical_patients
+         WHERE id = $1 AND business_id = $2
+         LIMIT 1`,
+        [normalizedPatientId, businessId]
+      );
+
+      patient = patientResult.rows[0] || null;
+    }
+
+    if (!patient && (patientFields.rut || patientFields.phone || patientFields.email)) {
+      const reusableConditions = ["business_id = $1"];
+      const reusableValues = [businessId];
+      const matchConditions = [];
+
+      if (patientFields.rut) {
+        reusableValues.push(patientFields.rut);
+        matchConditions.push(`LOWER(rut) = LOWER($${reusableValues.length})`);
+      }
+
+      if (patientFields.phone) {
+        reusableValues.push(patientFields.phone);
+        matchConditions.push(`phone = $${reusableValues.length}`);
+      }
+
+      if (patientFields.email) {
+        reusableValues.push(patientFields.email);
+        matchConditions.push(`LOWER(email) = LOWER($${reusableValues.length})`);
+      }
+
+      if (matchConditions.length > 0) {
+        const patientResult = await pool.query(
+          `SELECT *
+           FROM clinical_patients
+           WHERE ${reusableConditions.join(" AND ")}
+             AND (${matchConditions.join(" OR ")})
+           ORDER BY updated_at DESC
+           LIMIT 1`,
+          reusableValues
+        );
+
+        patient = patientResult.rows[0] || null;
+      }
+    }
+
+    if (patient) {
+      const updatedPatient = await pool.query(
+        `UPDATE clinical_patients
+         SET
+           full_name = $1,
+           phone = $2,
+           rut = $3,
+           email = $4,
+           age = $5,
+           address = $6,
+           updated_at = NOW()
+         WHERE id = $7 AND business_id = $8
+         RETURNING *`,
+        [
+          patientFields.name,
+          patientFields.phone,
+          patientFields.rut,
+          patientFields.email,
+          patientFields.age,
+          patientFields.address,
+          patient.id,
+          businessId,
+        ]
+      );
+
+      patient = updatedPatient.rows[0];
+    } else {
+      const createdPatient = await pool.query(
+        `INSERT INTO clinical_patients (
+          business_id,
+          full_name,
+          phone,
+          rut,
+          email,
+          age,
+          address,
+          created_by
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *`,
+        [
+          businessId,
+          patientFields.name,
+          patientFields.phone,
+          patientFields.rut,
+          patientFields.email,
+          patientFields.age,
+          patientFields.address,
+          req.user?.id || null,
+        ]
+      );
+
+      patient = createdPatient.rows[0];
+    }
+
+    const recordResult = await pool.query(
+      `INSERT INTO clinical_records (
+        business_id,
+        patient_id,
+        appointment_id,
+        professional_name,
+        visit_date,
+        chief_complaint,
+        clinical_background,
+        assessment,
+        procedure_performed,
+        indications,
+        next_steps,
+        created_by
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING *`,
+      [
+        businessId,
+        patient.id,
+        normalizedAppointmentId || null,
+        resolvedProfessionalName,
+        resolvedVisitDate,
+        normalizeClinicalText(chiefComplaint),
+        normalizeClinicalText(clinicalBackground),
+        normalizeClinicalText(assessment),
+        normalizeClinicalText(procedurePerformed),
+        normalizeClinicalText(indications),
+        normalizeClinicalText(nextSteps),
+        req.user?.id || null,
+      ]
+    );
+    const record = {
+      ...recordResult.rows[0],
+      patient_name: patient.full_name,
+      patient_phone: patient.phone,
+      patient_rut: patient.rut,
+      patient_email: patient.email,
+      patient_age: patient.age,
+      patient_address: patient.address,
+    };
+
+    await createClinicalAuditLog({
+      businessId,
+      userId: req.user?.id,
+      action: "clinical_record_created",
+      entityType: "clinical_records",
+      entityId: record.id,
+      details: {
+        patientId: patient.id,
+        appointmentId: normalizedAppointmentId || null,
+        professionalName: resolvedProfessionalName,
+      },
+    });
+
+    return res.status(201).json({
+      message: "Ficha clinica creada correctamente",
+      data: toPublicClinicalRecord(record),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al guardar ficha clinica" });
+  }
+});
+
+app.put("/clinical-records/:id", requireAuth, async (req, res) => {
+  const businessId = req.user?.business_id;
+  const recordId = Number(req.params.id);
+
+  if (!businessId) {
+    return res.status(403).json({ message: "Usuario sin negocio asociado" });
+  }
+
+  if (!supportsClinicalRecords(businessId)) {
+    return res.status(403).json({
+      message: "Las fichas clinicas no estan habilitadas para este negocio",
+    });
+  }
+
+  if (!Number.isInteger(recordId) || recordId <= 0) {
+    return res.status(400).json({ message: "Ficha invalida" });
+  }
+
+  const {
+    patientName,
+    patientPhone,
+    patientRut,
+    patientEmail,
+    patientAge,
+    patientAddress,
+    appointmentId,
+    professionalName,
+    visitDate,
+    chiefComplaint,
+    clinicalBackground,
+    assessment,
+    procedurePerformed,
+    indications,
+    nextSteps,
+  } = req.body || {};
+  const userResourceName = getUserResourceName(req.user, businessId);
+  const normalizedAppointmentId =
+    appointmentId === "" || appointmentId === null || typeof appointmentId === "undefined"
+      ? null
+      : Number(appointmentId);
+
+  if (
+    normalizedAppointmentId !== null &&
+    (!Number.isInteger(normalizedAppointmentId) || normalizedAppointmentId <= 0)
+  ) {
+    return res.status(400).json({ message: "Reserva invalida" });
+  }
+
+  let linkedAppointment = null;
+
+  try {
+    const currentRecordResult = await pool.query(
+      `SELECT
+        records.*,
+        patients.full_name AS patient_name,
+        patients.phone AS patient_phone,
+        patients.rut AS patient_rut,
+        patients.email AS patient_email,
+        patients.age AS patient_age,
+        patients.address AS patient_address
+       FROM clinical_records AS records
+       INNER JOIN clinical_patients AS patients
+         ON patients.id = records.patient_id
+       WHERE records.id = $1 AND records.business_id = $2
+       LIMIT 1`,
+      [recordId, businessId]
+    );
+
+    if (currentRecordResult.rows.length === 0) {
+      return res.status(404).json({ message: "Ficha no encontrada" });
+    }
+
+    const currentRecord = currentRecordResult.rows[0];
+
+    if (
+      !userCanAccessResource(
+        req.user,
+        currentRecord.professional_name,
+        businessId
+      )
+    ) {
+      return res.status(403).json({
+        message: "No tienes permiso para editar esta ficha",
+      });
+    }
+
+    if (normalizedAppointmentId) {
+      const appointmentResult = await getScopedAppointmentById({
+        appointmentId: normalizedAppointmentId,
+        businessId,
+        user: req.user,
+      });
+
+      if (appointmentResult.rows.length === 0) {
+        return res.status(404).json({
+          message: "Reserva no encontrada o no pertenece a este negocio",
+        });
+      }
+
+      linkedAppointment = appointmentResult.rows[0];
+    }
+
+    const resolvedProfessionalName = normalizeClinicalText(
+      userResourceName ||
+        professionalName ||
+        linkedAppointment?.barber ||
+        currentRecord.professional_name,
+      100
+    );
+    const resolvedPatientName = normalizeClinicalText(
+      patientName ?? linkedAppointment?.name ?? currentRecord.patient_name,
+      160
+    );
+    const rawPatientPhone =
+      patientPhone ?? linkedAppointment?.phone ?? currentRecord.patient_phone;
+    const resolvedPatientPhone =
+      normalizeChilePhone(rawPatientPhone) ||
+      normalizeClinicalText(rawPatientPhone, 30);
+    const resolvedPatientEmail = normalizeEmail(
+      patientEmail ?? linkedAppointment?.client_email ?? currentRecord.patient_email
+    );
+    const resolvedPatientRut =
+      normalizeClinicalText(
+        patientRut ?? linkedAppointment?.client_rut ?? currentRecord.patient_rut,
+        30
+      ) || null;
+    const resolvedPatientAge = normalizeClinicalAge(
+      patientAge ?? currentRecord.patient_age
+    );
+    const resolvedPatientAddress =
+      normalizeClinicalText(patientAddress ?? currentRecord.patient_address, 400) ||
+      null;
+    const resolvedVisitDate =
+      normalizeClinicalDate(visitDate) ||
+      normalizeClinicalDate(linkedAppointment?.date) ||
+      normalizeClinicalDate(currentRecord.visit_date) ||
+      normalizeClinicalDate(new Date().toISOString());
+
+    if (!resolvedPatientName) {
+      return res.status(400).json({ message: "Nombre de paciente requerido" });
+    }
+
+    if (!resolvedProfessionalName) {
+      return res.status(400).json({ message: "Profesional requerido" });
+    }
+
+    if (!userCanAccessResource(req.user, resolvedProfessionalName, businessId)) {
+      return res.status(403).json({
+        message: "No tienes permiso para editar fichas de otra profesional",
+      });
+    }
+
+    const updatedPatient = await pool.query(
+      `UPDATE clinical_patients
+       SET
+         full_name = $1,
+         phone = $2,
+         rut = $3,
+         email = $4,
+         age = $5,
+         address = $6,
+         updated_at = NOW()
+       WHERE id = $7 AND business_id = $8
+       RETURNING *`,
+      [
+        resolvedPatientName,
+        resolvedPatientPhone || null,
+        resolvedPatientRut,
+        resolvedPatientEmail || null,
+        resolvedPatientAge,
+        resolvedPatientAddress,
+        currentRecord.patient_id,
+        businessId,
+      ]
+    );
+
+    const patient = updatedPatient.rows[0];
+    const updatedRecord = await pool.query(
+      `UPDATE clinical_records
+       SET
+         appointment_id = $1,
+         professional_name = $2,
+         visit_date = $3,
+         chief_complaint = $4,
+         clinical_background = $5,
+         assessment = $6,
+         procedure_performed = $7,
+         indications = $8,
+         next_steps = $9,
+         updated_at = NOW()
+       WHERE id = $10 AND business_id = $11
+       RETURNING *`,
+      [
+        normalizedAppointmentId || currentRecord.appointment_id || null,
+        resolvedProfessionalName,
+        resolvedVisitDate,
+        normalizeClinicalText(chiefComplaint),
+        normalizeClinicalText(clinicalBackground),
+        normalizeClinicalText(assessment),
+        normalizeClinicalText(procedurePerformed),
+        normalizeClinicalText(indications),
+        normalizeClinicalText(nextSteps),
+        recordId,
+        businessId,
+      ]
+    );
+    const record = {
+      ...updatedRecord.rows[0],
+      patient_name: patient.full_name,
+      patient_phone: patient.phone,
+      patient_rut: patient.rut,
+      patient_email: patient.email,
+      patient_age: patient.age,
+      patient_address: patient.address,
+    };
+
+    await createClinicalAuditLog({
+      businessId,
+      userId: req.user?.id,
+      action: "clinical_record_updated",
+      entityType: "clinical_records",
+      entityId: record.id,
+      details: {
+        patientId: patient.id,
+        appointmentId: record.appointment_id || null,
+        professionalName: resolvedProfessionalName,
+      },
+    });
+
+    return res.json({
+      message: "Ficha clinica actualizada correctamente",
+      data: toPublicClinicalRecord(record),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al actualizar ficha clinica" });
+  }
+});
+
 app.post("/integrations/google-sheets/sync", requireAuth, async (req, res) => {
   const payload = req.body || {};
   const businessId = payload.businessId || req.user?.business_id;
@@ -2469,6 +3451,8 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
     service,
     barber,
     businessId,
+    clientRut,
+    clientEmail,
     status,
     totalAmount,
     depositRequired,
@@ -2486,6 +3470,7 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
   }
 
   const isAdminRequest = Boolean(req.user?.business_id);
+  const clinicalBusiness = supportsClinicalRecords(businessId);
 
   if (isAdminRequest && req.user.business_id !== businessId) {
     return res.status(403).json({
@@ -2510,6 +3495,19 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
   }
 
   const normalizedPhone = normalizeChilePhone(phone);
+  const normalizedClientRut = clinicalBusiness
+    ? normalizeClinicalText(clientRut, 30)
+    : null;
+  const normalizedClientEmail = clinicalBusiness
+    ? normalizeEmail(clientEmail)
+    : null;
+
+  if (clinicalBusiness && (!normalizedClientRut || !normalizedClientEmail)) {
+    return res.status(400).json({
+      message: "Ingresa RUT y correo del paciente",
+    });
+  }
+
   const normalizedOpponentPhone = isAdminRequest && opponentPhone
     ? normalizeChilePhone(opponentPhone)
     : null;
@@ -2610,6 +3608,8 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
         service,
         barber,
         business_id,
+        client_rut,
+        client_email,
         status,
         total_amount,
         deposit_required,
@@ -2621,7 +3621,7 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
         opponent_name,
         opponent_phone
       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
        RETURNING *`,
       [
         name,
@@ -2631,6 +3631,8 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
         service,
         barber,
         businessId,
+        normalizedClientRut,
+        normalizedClientEmail,
         finalStatus,
         finalTotalAmount,
         finalDepositRequired,
@@ -2645,6 +3647,21 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
     );
 
     const createdAppointment = result.rows[0];
+
+    if (clinicalBusiness) {
+      try {
+        await createClinicalDraftForAppointment({
+          businessId,
+          appointment: createdAppointment,
+          userId: req.user?.id || null,
+        });
+      } catch (clinicalError) {
+        console.error(
+          "Error creando preficha clinica:",
+          clinicalError.message
+        );
+      }
+    }
 
     if (!isAdminRequest) {
       syncGoogleSheetsInBackground(
@@ -2675,6 +3692,8 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
     service,
     barber,
     businessId,
+    clientRut,
+    clientEmail,
     status,
     totalAmount,
     depositRequired,
@@ -2716,6 +3735,20 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
   }
 
   const normalizedPhone = normalizeChilePhone(phone);
+  const clinicalBusiness = supportsClinicalRecords(businessId);
+  const normalizedClientRut = clinicalBusiness
+    ? normalizeClinicalText(clientRut, 30) || null
+    : null;
+  const normalizedClientEmail = clinicalBusiness
+    ? normalizeEmail(clientEmail) || null
+    : null;
+
+  if (clinicalBusiness && clientEmail && !normalizedClientEmail) {
+    return res.status(400).json({
+      message: "Ingresa un correo valido para el paciente",
+    });
+  }
+
   const normalizedOpponentPhone = opponentPhone
     ? normalizeChilePhone(opponentPhone)
     : null;
@@ -2971,6 +4004,8 @@ app.put("/appointments/:id", requireAuth, async (req, res) => {
     service,
     barber,
     businessId,
+    clientRut,
+    clientEmail,
     status,
     totalAmount,
     depositRequired,
@@ -3004,6 +4039,20 @@ app.put("/appointments/:id", requireAuth, async (req, res) => {
   }
 
   const normalizedPhone = normalizeChilePhone(phone);
+  const clinicalBusiness = supportsClinicalRecords(businessId);
+  const normalizedClientRut = clinicalBusiness
+    ? normalizeClinicalText(clientRut, 30) || null
+    : null;
+  const normalizedClientEmail = clinicalBusiness
+    ? normalizeEmail(clientEmail) || null
+    : null;
+
+  if (clinicalBusiness && clientEmail && !normalizedClientEmail) {
+    return res.status(400).json({
+      message: "Ingresa un correo valido para el paciente",
+    });
+  }
+
   const normalizedOpponentPhone = opponentPhone
     ? normalizeChilePhone(opponentPhone)
     : null;
@@ -3100,17 +4149,19 @@ app.put("/appointments/:id", requireAuth, async (req, res) => {
          service = $5,
          barber = $6,
          business_id = $7,
-         status = $8,
-         total_amount = $9,
-         deposit_required = $10,
-         required_deposit_amount = $11,
-         payment_status = $12,
-         deposit_receipt_url = $13,
-         notes = $14,
-         needs_opponent = $15,
-         opponent_name = $16,
-         opponent_phone = $17
-       WHERE id = $18 AND business_id = $7
+         client_rut = $8,
+         client_email = $9,
+         status = $10,
+         total_amount = $11,
+         deposit_required = $12,
+         required_deposit_amount = $13,
+         payment_status = $14,
+         deposit_receipt_url = $15,
+         notes = $16,
+         needs_opponent = $17,
+         opponent_name = $18,
+         opponent_phone = $19
+       WHERE id = $20 AND business_id = $7
        RETURNING *`,
       [
         name,
@@ -3120,6 +4171,8 @@ app.put("/appointments/:id", requireAuth, async (req, res) => {
         service,
         barber,
         businessId,
+        normalizedClientRut,
+        normalizedClientEmail,
         status || "reservada",
         totalAmount || 0,
         depositRequired ?? false,
@@ -3138,6 +4191,21 @@ app.put("/appointments/:id", requireAuth, async (req, res) => {
       return res.status(404).json({
         message: "Cita no encontrada o no pertenece a este negocio",
       });
+    }
+
+    if (clinicalBusiness) {
+      try {
+        await createClinicalDraftForAppointment({
+          businessId,
+          appointment: result.rows[0],
+          userId: req.user?.id || null,
+        });
+      } catch (clinicalError) {
+        console.error(
+          "Error actualizando preficha clinica:",
+          clinicalError.message
+        );
+      }
     }
 
     return res.json({

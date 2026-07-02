@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import LoginScreen from "./components/LoginScreen";
 import AdminBookingPanel from "./components/AdminBookingPanel";
+import ClinicalRecordsPanel from "./components/ClinicalRecordsPanel";
 import WeeklyCalendar from "./components/WeeklyCalendar";
 import BusinessHeader from "./components/BusinessHeader";
 import HomeLanding from "./components/HomeLanding";
@@ -192,6 +193,8 @@ function App() {
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [clientRut, setClientRut] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [service, setService] = useState("");
@@ -1383,6 +1386,8 @@ const handleDeleteReservationFromPaymentPanel = async () => {
   const resetForm = () => {
     setName("");
     setPhone("");
+    setClientRut("");
+    setClientEmail("");
     setDate("");
     setTime("");
     setService("");
@@ -1456,6 +1461,12 @@ setEditingId(null);
     return /^569\d{8}$/.test(normalized);
   };
 
+  const isValidEmail = (value) => {
+    const email = String(value || "").trim();
+
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
   const createAppointment = async () => {
     if (submitting || !businessId) return;
 
@@ -1477,6 +1488,16 @@ setEditingId(null);
 
     if (!isValidChileMobilePhone(phone)) {
       setMessage("Ingresa un celular chileno válido. Ejemplo: 912345678");
+      return;
+    }
+
+    if (clinicalRecordsEnabled && !clientRut.trim()) {
+      setMessage("Ingresa el RUT del paciente.");
+      return;
+    }
+
+    if (clinicalRecordsEnabled && !isValidEmail(clientEmail)) {
+      setMessage("Ingresa un correo valido del paciente.");
       return;
     }
 
@@ -1564,6 +1585,10 @@ const finalTotalAmount = getServicePrice(finalService) || 0;
 const createdAppointment = await createAppointmentService({
   name: name.trim(),
   phone: normalizedPhone,
+  clientRut: clinicalRecordsEnabled ? clientRut.trim() : null,
+  clientEmail: clinicalRecordsEnabled
+    ? clientEmail.trim().toLowerCase()
+    : null,
   date,
   time,
   service: finalService,
@@ -1868,6 +1893,11 @@ ${
       return;
     }
 
+    if (clinicalRecordsEnabled && clientEmail.trim() && !isValidEmail(clientEmail)) {
+      setMessage("Ingresa un correo valido del paciente.");
+      return;
+    }
+
     setSubmitting(true);
     setMessage("");
     setWhatsappUrl("");
@@ -1882,6 +1912,10 @@ const currentAppointment = appointments.find((a) => a.id === editingId);
 await updateAppointmentService(editingId, {
   name: name.trim(),
   phone: normalizedPhone,
+  clientRut: clinicalRecordsEnabled ? clientRut.trim() || null : null,
+  clientEmail: clinicalRecordsEnabled
+    ? clientEmail.trim().toLowerCase() || null
+    : null,
   date,
   time,
   service: finalService,
@@ -2047,6 +2081,8 @@ await updateAppointmentService(editingId, {
   const editAppointment = (appointment) => {
     setName(appointment.name || "");
     setPhone(appointment.phone || "");
+    setClientRut(appointment.client_rut || "");
+    setClientEmail(appointment.client_email || "");
     setDate(String(appointment.date || "").slice(0, 10));
     setTime(String(appointment.time || "").slice(0, 5));
     setService(appointment.service || "");
@@ -2262,6 +2298,7 @@ setEditingId(appointment.id);
 
   const isClientMode = appMode === "client";
   const isAdminMode = appMode === "admin" && isLoggedIn;
+  const clinicalRecordsEnabled = Boolean(mergedBusiness?.clinicalRecordsEnabled);
   const professionalSessionsEnabled = Boolean(
     mergedBusiness?.professionalSessionsEnabled
   );
@@ -3508,6 +3545,8 @@ paymentHistoryItem: {
   const isClientFormComplete =
     name.trim() &&
     phone.trim() &&
+    (!clinicalRecordsEnabled ||
+      (clientRut.trim() && isValidEmail(clientEmail))) &&
     date &&
     time &&
     service.trim() &&
@@ -3645,6 +3684,10 @@ paymentHistoryItem: {
                 setName={setName}
                 phone={phone}
                 setPhone={setPhone}
+                clientRut={clientRut}
+                setClientRut={setClientRut}
+                clientEmail={clientEmail}
+                setClientEmail={setClientEmail}
                 availableDays={availableDays}
                 availableTimes={availableTimes}
                 blockedWeekdays={blockedWeekdays}
@@ -3772,6 +3815,10 @@ paymentHistoryItem: {
                 setName={setName}
                 phone={phone}
                 setPhone={setPhone}
+                clientRut={clientRut}
+                setClientRut={setClientRut}
+                clientEmail={clientEmail}
+                setClientEmail={setClientEmail}
                 date={date}
                 setDate={setDate}
                 time={time}
@@ -4343,6 +4390,16 @@ updateAppointment={updateAppointment}
                     )}
                   </div>
                 </div>
+              )}
+
+              {clinicalRecordsEnabled && (
+                <ClinicalRecordsPanel
+                  styles={styles}
+                  business={mergedBusiness}
+                  appointments={appointments}
+                  currentUser={currentUser}
+                  isMobile={isMobile}
+                />
               )}
 
               <div style={styles.topBar}>

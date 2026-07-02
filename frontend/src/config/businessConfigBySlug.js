@@ -512,6 +512,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     paymentMethods: ["transferencia", "efectivo", "debito"],
     onlinePaymentsEnabled: false,
     professionalSessionsEnabled: true,
+    clinicalRecordsEnabled: true,
 
     barbers: [
       "Antonia Marin Ardiles",
@@ -684,6 +685,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     paymentMethods: ["transferencia", "efectivo", "debito"],
     onlinePaymentsEnabled: false,
     professionalSessionsEnabled: true,
+    clinicalRecordsEnabled: true,
 
     barbers: ["Leslie Bustos Fernandez"],
 
@@ -803,6 +805,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     paymentMethods: ["transferencia", "efectivo", "debito"],
     onlinePaymentsEnabled: false,
     professionalSessionsEnabled: true,
+    clinicalRecordsEnabled: true,
 
     barbers: ["Dra. Valentina Rojas", "Dr. Matias Vega", "Box Higiene"],
 

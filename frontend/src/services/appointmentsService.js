@@ -95,3 +95,17 @@ export const deleteAppointmentPayment = (appointmentId, paymentId, businessId) =
 export const createMercadoPagoPreference = (data) => {
   return api.post("/payments/mercadopago/preferences", data);
 };
+
+export const getClinicalRecords = (filters = {}) => {
+  return api.get("/clinical-records", {
+    params: filters,
+  });
+};
+
+export const createClinicalRecord = (data) => {
+  return api.post("/clinical-records", data);
+};
+
+export const updateClinicalRecord = (recordId, data) => {
+  return api.put(`/clinical-records/${recordId}`, data);
+};

@@ -9,6 +9,10 @@ function AdminBookingPanel({
   setName,
   phone,
   setPhone,
+  clientRut = "",
+  setClientRut = () => {},
+  clientEmail = "",
+  setClientEmail = () => {},
   date,
   setDate,
   time,
@@ -88,6 +92,25 @@ function AdminBookingPanel({
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
         />
+
+        {business?.clinicalRecordsEnabled && (
+          <>
+            <input
+              style={styles.input}
+              placeholder="RUT paciente"
+              value={clientRut}
+              onChange={(e) => setClientRut(e.target.value)}
+            />
+
+            <input
+              style={styles.input}
+              type="email"
+              placeholder="Correo paciente"
+              value={clientEmail}
+              onChange={(e) => setClientEmail(e.target.value)}
+            />
+          </>
+        )}
 
         <input
           style={styles.input}

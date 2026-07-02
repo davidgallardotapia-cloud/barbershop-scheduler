@@ -23,6 +23,10 @@ function ClientBookingWizard({
   setName,
   phone,
   setPhone,
+  clientRut = "",
+  setClientRut = () => {},
+  clientEmail = "",
+  setClientEmail = () => {},
   availableDays = [],
   availableTimes = [],
   blockedWeekdays = [],
@@ -1042,7 +1046,40 @@ const isBlocked = slot.status === "blocked";
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
               />
+
+              {business?.clinicalRecordsEnabled && (
+                <>
+                  <input
+                    style={styles.input}
+                    placeholder="RUT paciente"
+                    value={clientRut}
+                    onChange={(e) => setClientRut(e.target.value)}
+                  />
+
+                  <input
+                    style={styles.input}
+                    type="email"
+                    placeholder="Correo paciente"
+                    value={clientEmail}
+                    onChange={(e) => setClientEmail(e.target.value)}
+                  />
+                </>
+              )}
             </div>
+
+            {business?.clinicalRecordsEnabled && (
+              <p
+                style={{
+                  margin: "-4px 0 14px",
+                  color: "#64748b",
+                  fontSize: "13px",
+                  lineHeight: 1.45,
+                }}
+              >
+                Estos datos crean una ficha inicial para que la profesional la
+                complete durante la atencion.
+              </p>
+            )}
 
             <div
               style={{
