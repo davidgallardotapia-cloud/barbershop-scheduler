@@ -110,13 +110,13 @@ function AgendaSmartFooter({ isMobile, theme }) {
           alt=""
           aria-hidden="true"
           style={{
-            width: "22px",
-            height: "22px",
+            width: "26px",
+            height: "26px",
             objectFit: "contain",
             borderRadius: "6px",
           }}
         />
-        <span>Creado por AgendaSmart</span>
+        <span>AgendaSmart</span>
       </a>
     </footer>
   );
