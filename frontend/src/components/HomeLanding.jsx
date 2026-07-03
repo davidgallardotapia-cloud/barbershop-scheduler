@@ -373,6 +373,22 @@ const exampleBusinesses = [
     logo: "/giocata/giocata-logo-optimized.jpg",
   },
   {
+    name: "Centro AMA Salud Integral",
+    category: "Centro de salud",
+    description:
+      "Agenda por profesional para psicologia, kinesiologia y nutricion.",
+    href: "/centro-ama",
+    logo: "/centro-ama/centro-ama-logo.png",
+  },
+  {
+    name: "Curaciones Avanzadas",
+    category: "Enfermeria a domicilio",
+    description:
+      "Reservas para curaciones, procedimientos y atencion clinica.",
+    href: "/eu-curaciones-avanzadas",
+    logo: "/eu-curaciones-avanzadas/regencura-logo.png",
+  },
+  {
     name: "Urban District Barber",
     category: "Barbería",
     description: "Flujo de reserva para servicios, horarios y clientes.",
@@ -1753,7 +1769,7 @@ function HomeLanding() {
           <h2
             style={smallSectionTitleStyle}
           >
-            Explora agendas reales y demos
+            Explora agendas reales
           </h2>
 
           <p style={{ ...responsiveTextStyle, maxWidth: "680px" }}>

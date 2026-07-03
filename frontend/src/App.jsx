@@ -81,6 +81,47 @@ function BusinessLoadingState({ styles, business }) {
   );
 }
 
+function AgendaSmartFooter({ isMobile, theme }) {
+  return (
+    <footer
+      style={{
+        marginTop: isMobile ? "22px" : "30px",
+        padding: isMobile ? "16px 0 6px" : "22px 0 4px",
+        display: "flex",
+        justifyContent: "flex-end",
+      }}
+    >
+      <a
+        href="/"
+        aria-label="Ir a AgendaSmart"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "9px",
+          color: theme?.primaryDark || "#0f172a",
+          textDecoration: "none",
+          fontSize: isMobile ? "13px" : "14px",
+          fontWeight: "800",
+          opacity: 0.78,
+        }}
+      >
+        <img
+          src="/agendasmart/agendasmart-favicon.png"
+          alt=""
+          aria-hidden="true"
+          style={{
+            width: "22px",
+            height: "22px",
+            objectFit: "contain",
+            borderRadius: "6px",
+          }}
+        />
+        <span>Creado por AgendaSmart</span>
+      </a>
+    </footer>
+  );
+}
+
 function AppAnimationStyles() {
   return (
     <style>{`
@@ -4520,6 +4561,8 @@ updateAppointment={updateAppointment}
             </div>
           </div>
         )}
+
+        <AgendaSmartFooter isMobile={isMobile} theme={theme} />
 
         {isAdminMode && paymentsEnabled && paymentAppointment && (
           <div style={styles.paymentModalOverlay} onClick={closePaymentPanel}>
