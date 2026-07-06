@@ -274,6 +274,7 @@ const [barber, setBarber] = useState("");
     typeof window !== "undefined" ? window.innerWidth < 1180 : false
   );
   const [selectedMobileDay, setSelectedMobileDay] = useState(null);
+  const [isDailyDashboardOpen, setIsDailyDashboardOpen] = useState(false);
 
   const [selectedAppointmentPayments, setSelectedAppointmentPayments] = useState(
     []
@@ -3109,6 +3110,32 @@ setEditingId(appointment.id);
       width: "100%",
       minWidth: 0,
     },
+    dashboardToggleButton: {
+      width: "100%",
+      border: `1px solid ${theme.border || "#bbf7d0"}`,
+      backgroundColor: isDailyDashboardOpen
+        ? theme.primary || "#16a34a"
+        : theme.primarySoft || "#dcfce7",
+      color: isDailyDashboardOpen ? "#ffffff" : theme.primaryDark || "#14532d",
+      borderRadius: "12px",
+      padding: isMobile ? "13px 14px" : "14px 18px",
+      marginBottom: isDailyDashboardOpen ? "16px" : "6px",
+      cursor: "pointer",
+      fontWeight: "900",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: "12px",
+      boxShadow: "0 4px 14px rgba(15, 23, 42, 0.06)",
+      textAlign: "left",
+    },
+    dashboardToggleMeta: {
+      fontSize: isMobile ? "11px" : "12px",
+      fontWeight: "800",
+      opacity: 0.82,
+      whiteSpace: isMobile ? "normal" : "nowrap",
+      textAlign: "right",
+    },
     dashboardGrid: {
       display: "grid",
       gridTemplateColumns: isMobile
@@ -4140,6 +4167,26 @@ updateAppointment={updateAppointment}
             </div>
 
             <div style={styles.card}>
+              <button
+                type="button"
+                style={styles.dashboardToggleButton}
+                onClick={() =>
+                  setIsDailyDashboardOpen((currentValue) => !currentValue)
+                }
+              >
+                <span>
+                  {isDailyDashboardOpen
+                    ? "Ocultar resumen del dia"
+                    : "Ver resumen del dia"}
+                </span>
+                <span style={styles.dashboardToggleMeta}>
+                  {totalDashboardDay} reservas ·{" "}
+                  {formatCurrency(revenueDashboardDay)}
+                </span>
+              </button>
+
+              {isDailyDashboardOpen && (
+                <>
               <div style={styles.dashboardGrid}>
                 <div style={styles.dashboardCard}>
                   <div style={styles.dashboardLabel}>
@@ -4431,6 +4478,8 @@ updateAppointment={updateAppointment}
                     )}
                   </div>
                 </div>
+              )}
+                </>
               )}
 
               {clinicalRecordsEnabled && (
