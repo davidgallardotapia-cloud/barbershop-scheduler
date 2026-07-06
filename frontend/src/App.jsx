@@ -2350,6 +2350,18 @@ setEditingId(appointment.id);
       : ""
     : "";
   const isProfessionalSession = Boolean(professionalResourceName);
+  const currentUsername = String(currentUser?.username || "")
+    .trim()
+    .toLowerCase();
+  const dailyDashboardOwnerUsersByBusiness = {
+    giocata: ["veronica_giocata"],
+  };
+  const dailyDashboardOwnerUsers =
+    dailyDashboardOwnerUsersByBusiness[mergedBusiness?.id] || null;
+  const dailyDashboardEnabled =
+    isAdminMode &&
+    (!dailyDashboardOwnerUsers ||
+      dailyDashboardOwnerUsers.includes(currentUsername));
   const adminBarbers = isProfessionalSession ? [professionalResourceName] : BARBERS;
   const scheduleBlockingEnabled =
     professionalSessionsEnabled && adminBarbers.length > 0;
@@ -4167,26 +4179,28 @@ updateAppointment={updateAppointment}
             </div>
 
             <div style={styles.card}>
-              <button
-                type="button"
-                style={styles.dashboardToggleButton}
-                onClick={() =>
-                  setIsDailyDashboardOpen((currentValue) => !currentValue)
-                }
-              >
-                <span>
-                  {isDailyDashboardOpen
-                    ? "Ocultar resumen del dia"
-                    : "Ver resumen del dia"}
-                </span>
-                <span style={styles.dashboardToggleMeta}>
-                  {totalDashboardDay} reservas ·{" "}
-                  {formatCurrency(revenueDashboardDay)}
-                </span>
-              </button>
-
-              {isDailyDashboardOpen && (
+              {dailyDashboardEnabled && (
                 <>
+                  <button
+                    type="button"
+                    style={styles.dashboardToggleButton}
+                    onClick={() =>
+                      setIsDailyDashboardOpen((currentValue) => !currentValue)
+                    }
+                  >
+                    <span>
+                      {isDailyDashboardOpen
+                        ? "Ocultar resumen del dia"
+                        : "Ver resumen del dia"}
+                    </span>
+                    <span style={styles.dashboardToggleMeta}>
+                      {totalDashboardDay} reservas ·{" "}
+                      {formatCurrency(revenueDashboardDay)}
+                    </span>
+                  </button>
+
+                  {isDailyDashboardOpen && (
+                    <>
               <div style={styles.dashboardGrid}>
                 <div style={styles.dashboardCard}>
                   <div style={styles.dashboardLabel}>
@@ -4479,7 +4493,9 @@ updateAppointment={updateAppointment}
                   </div>
                 </div>
               )}
-                </>
+                    </>
+                  )}
+                  </>
               )}
 
               {clinicalRecordsEnabled && (
