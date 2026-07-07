@@ -7,6 +7,13 @@ import BusinessHeader from "./components/BusinessHeader";
 import HomeLanding from "./components/HomeLanding";
 import ClientBookingWizard from "./components/ClientBookingWizard";
 import {
+  FaCalendarAlt,
+  FaFacebookF,
+  FaInstagram,
+  FaMapMarkerAlt,
+  FaWhatsapp,
+} from "react-icons/fa";
+import {
   getMonday,
   formatDateToInput,
   formatHourLabel,
@@ -122,6 +129,256 @@ function AgendaSmartFooter({ isMobile, theme }) {
   );
 }
 
+function BusinessLinkPage({ business, isMobile, slug }) {
+  const theme = business?.linkTheme || business?.theme || {};
+  const primary = theme.primary || "#166534";
+  const primaryDark = theme.primaryDark || "#14532d";
+  const primarySoft = theme.primarySoft || "#dcfce7";
+  const border = theme.border || "#bbf7d0";
+  const whatsappColor = theme.whatsapp || "#16a34a";
+  const whatsappHref =
+    business?.whatsappUrl ||
+    `https://wa.me/${String(business?.phone || "").replace(/\D/g, "")}`;
+  const businessRoute = slug || business?.slug || business?.id || "";
+  const bookingHref = `/${businessRoute}#booking-form-section`;
+  const facebookHref = business?.socialLinks?.facebook || "";
+  const instagramHref = business?.socialLinks?.instagram || "";
+  const socialHref = facebookHref || instagramHref;
+  const SocialIcon = instagramHref && !facebookHref ? FaInstagram : FaFacebookF;
+  const isSportsBusiness = ["giocata", "pinguino-club"].includes(
+    business?.id || businessRoute
+  );
+  const bookingLabel =
+    business?.linkBookingLabel ||
+    (isSportsBusiness
+      ? "Reserva tu cancha"
+      : business?.bookingPanelTitle || business?.bookingTitle || "Agenda tu hora");
+  const linkHero = business?.linkHero || {};
+  const linkLogo = business?.linkLogo || {};
+
+  const linkButtonStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    width: "100%",
+    padding: "15px 16px",
+    borderRadius: "14px",
+    border: `1px solid ${border}`,
+    backgroundColor: primary,
+    color: "#ffffff",
+    textDecoration: "none",
+    fontSize: "15px",
+    fontWeight: "900",
+    boxSizing: "border-box",
+    boxShadow: "0 10px 22px rgba(15, 23, 42, 0.14)",
+  };
+
+  const iconBoxStyle = {
+    width: "42px",
+    height: "42px",
+    borderRadius: "12px",
+    backgroundColor: "#ffffff",
+    color: primary,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    fontSize: "18px",
+  };
+
+  return (
+    <>
+      <AppAnimationStyles />
+
+      <main
+        style={{
+          minHeight: "100vh",
+          background: `linear-gradient(180deg, ${primarySoft} 0%, #ffffff 44%, ${primarySoft} 100%)`,
+          fontFamily: "Arial, sans-serif",
+          color: "#0f172a",
+          padding: isMobile ? "12px" : "28px",
+          boxSizing: "border-box",
+        }}
+      >
+        <section
+          style={{
+            width: "100%",
+            maxWidth: "430px",
+            margin: "0 auto",
+            borderRadius: "28px",
+            overflow: "hidden",
+            backgroundColor: "#ffffff",
+            border: `1px solid ${border}`,
+            boxShadow: "0 18px 50px rgba(15, 23, 42, 0.16)",
+          }}
+        >
+          <div
+            style={{
+              position: "relative",
+              minHeight: linkHero.height || "170px",
+              backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.42)), url(${business?.image})`,
+              backgroundSize: linkHero.backgroundSize || "cover",
+              backgroundPosition: linkHero.backgroundPosition || "center",
+            }}
+          >
+            <a
+              href="/"
+              aria-label="Ir a AgendaSmart"
+              style={{
+                position: "absolute",
+                top: "12px",
+                right: "12px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "7px",
+                padding: "8px 10px",
+                borderRadius: "999px",
+                backgroundColor: "rgba(255,255,255,0.92)",
+                color: primaryDark,
+                fontSize: "12px",
+                fontWeight: "900",
+                textDecoration: "none",
+              }}
+            >
+              <img
+                src="/agendasmart/agendasmart-favicon.png"
+                alt=""
+                aria-hidden="true"
+                style={{ width: "18px", height: "18px", borderRadius: "4px" }}
+              />
+              AgendaSmart
+            </a>
+          </div>
+
+          <div
+            style={{
+              padding: "0 22px 24px",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{
+                width: linkLogo.size || "112px",
+                height: linkLogo.size || "112px",
+                borderRadius: "999px",
+                backgroundColor: "#ffffff",
+                border: "5px solid #ffffff",
+                margin: linkLogo.margin || "-56px auto 14px",
+                overflow: "hidden",
+                position: "relative",
+                boxShadow: "0 12px 28px rgba(15, 23, 42, 0.18)",
+              }}
+            >
+              <img
+                src={business?.logo}
+                alt={`${business?.name || "Negocio"} logo`}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  display: "block",
+                }}
+              />
+            </div>
+
+            <h1
+              style={{
+                margin: "0 0 6px",
+                color: primaryDark,
+                fontSize: "23px",
+                lineHeight: 1.15,
+              }}
+            >
+              {business?.name}
+            </h1>
+
+            <p
+              style={{
+                margin: "0 0 18px",
+                color: "#475569",
+                fontSize: "14px",
+                lineHeight: 1.45,
+                fontWeight: "700",
+              }}
+            >
+              {business?.subtitle || "Reserva tu hora online"}
+            </p>
+
+            <div style={{ display: "grid", gap: "12px", textAlign: "left" }}>
+              <a href={bookingHref} style={linkButtonStyle}>
+                <span style={iconBoxStyle}>
+                  <FaCalendarAlt />
+                </span>
+                <span>{bookingLabel}</span>
+              </a>
+
+              {business?.phone && (
+                <a
+                  href={whatsappHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    ...linkButtonStyle,
+                    backgroundColor: whatsappColor,
+                  }}
+                >
+                  <span style={{ ...iconBoxStyle, color: whatsappColor }}>
+                    <FaWhatsapp />
+                  </span>
+                  <span>Hablar por WhatsApp</span>
+                </a>
+              )}
+
+              {business?.mapLink && (
+                <a
+                  href={business.mapLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    ...linkButtonStyle,
+                    backgroundColor: primaryDark,
+                  }}
+                >
+                  <span style={{ ...iconBoxStyle, color: primaryDark }}>
+                    <FaMapMarkerAlt />
+                  </span>
+                  <span>Nuestra ubicacion</span>
+                </a>
+              )}
+
+              {socialHref && (
+                <a
+                  href={socialHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    ...linkButtonStyle,
+                    backgroundColor: "#ffffff",
+                    color: primaryDark,
+                    border: `1px solid ${border}`,
+                    boxShadow: "0 6px 16px rgba(15, 23, 42, 0.08)",
+                  }}
+                >
+                  <span
+                    style={{
+                      ...iconBoxStyle,
+                      backgroundColor: primarySoft,
+                      color: primary,
+                    }}
+                  >
+                    <SocialIcon />
+                  </span>
+                  <span>Siguenos en redes</span>
+                </a>
+              )}
+            </div>
+          </div>
+        </section>
+      </main>
+    </>
+  );
+}
+
 function AppAnimationStyles() {
   return (
     <style>{`
@@ -212,14 +469,35 @@ function getWeekdayFromDateValue(dateValue) {
 }
 
 function App() {
-  const getSlugFromUrl = () => {
-    if (typeof window === "undefined") return "urban-district-barber";
+  const getRouteInfoFromUrl = () => {
+    if (typeof window === "undefined") {
+      return {
+        slug: "urban-district-barber",
+        isBusinessLinkPage: false,
+      };
+    }
 
-    const path = window.location.pathname.replace(/^\/+|\/+$/g, "");
-    return path || "";
+    const segments = window.location.pathname
+      .replace(/^\/+|\/+$/g, "")
+      .split("/")
+      .filter(Boolean);
+
+    if (segments[0] === "l" && segments[1]) {
+      return {
+        slug: segments[1],
+        isBusinessLinkPage: true,
+      };
+    }
+
+    return {
+      slug: segments[0] || "",
+      isBusinessLinkPage: segments[1] === "link",
+    };
   };
 
-  const [slug] = useState(getSlugFromUrl);
+  const [routeInfo] = useState(getRouteInfoFromUrl);
+  const slug = routeInfo.slug;
+  const isBusinessLinkPage = routeInfo.isBusinessLinkPage;
 
   const [business, setBusiness] = useState(null);
   const [businessId, setBusinessId] = useState("");
@@ -3661,6 +3939,16 @@ paymentHistoryItem: {
           {businessError || "No se encontró el negocio solicitado."}
         </div>
       </div>
+    );
+  }
+
+  if (isBusinessLinkPage) {
+    return (
+      <BusinessLinkPage
+        business={mergedBusiness}
+        isMobile={isMobile}
+        slug={slug}
+      />
     );
   }
 

@@ -24,6 +24,27 @@ export const businessConfigBySlug = {
 
     bookingTitle: "Reserva tu hora 💈",
     adminTitle: "Agenda Barbería 💈",
+    linkTheme: {
+      pageBackground: "#f4f4f5",
+      cardBackground: "#ffffff",
+      primary: "#71717a",
+      primaryDark: "#3f3f46",
+      primarySoft: "#e4e4e7",
+      border: "#d4d4d8",
+      text: "#18181b",
+      mutedText: "#52525b",
+      whatsapp: "#52525b",
+    },
+    linkHero: {
+      height: "205px",
+      backgroundPosition: "center 34%",
+      backgroundSize: "cover",
+    },
+    linkLogo: {
+      size: "104px",
+      margin: "-52px auto 14px",
+    },
+
     bookingPanelTitle: "Agenda tu hora",
     bookingPanelDescription:
       "Elige tu barbero, selecciona un bloque disponible y confirma tu reserva en segundos.",

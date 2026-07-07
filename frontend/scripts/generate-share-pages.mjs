@@ -41,6 +41,22 @@ const sharePages = {
     imageWidth: 1254,
     imageHeight: 1254,
   },
+  "/giocata/link": {
+    title: "Canchas Giocata | Reserva online",
+    description:
+      "Reserva tu cancha, habla por WhatsApp o revisa la ubicacion de Centro Deportivo La Giocata.",
+    image: "/giocata/giocata-logo.png",
+    imageWidth: 1254,
+    imageHeight: 1254,
+  },
+  "/l/giocata": {
+    title: "Canchas Giocata | Reserva online",
+    description:
+      "Reserva tu cancha, habla por WhatsApp o revisa la ubicacion de Centro Deportivo La Giocata.",
+    image: "/giocata/giocata-logo.png",
+    imageWidth: 1254,
+    imageHeight: 1254,
+  },
   "/pinguino-club": {
     title: "Pinguino Club | Reserva online",
     description:
@@ -69,6 +85,22 @@ const sharePages = {
     title: "Urban District Barber | Reserva online",
     description:
       "Agenda tu hora para cortes de cabello y barba profesionales.",
+    image: "/urban-district-barber/logo-james.jpg",
+    imageWidth: 1536,
+    imageHeight: 1024,
+  },
+  "/urban-district-barber/link": {
+    title: "Urban District Barber | Reserva online",
+    description:
+      "Agenda tu hora, habla por WhatsApp o revisa la ubicacion de Urban District Barber.",
+    image: "/urban-district-barber/logo-james.jpg",
+    imageWidth: 1536,
+    imageHeight: 1024,
+  },
+  "/l/urban-district-barber": {
+    title: "Urban District Barber | Reserva online",
+    description:
+      "Agenda tu hora, habla por WhatsApp o revisa la ubicacion de Urban District Barber.",
     image: "/urban-district-barber/logo-james.jpg",
     imageWidth: 1536,
     imageHeight: 1024,
