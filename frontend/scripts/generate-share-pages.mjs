@@ -81,6 +81,22 @@ const sharePages = {
     imageWidth: 1254,
     imageHeight: 1254,
   },
+  "/eu-curaciones-avanzadas/link": {
+    title: "Regencura | Curaciones Avanzadas",
+    description:
+      "Agenda tu atencion, habla por WhatsApp o revisa la ubicacion de Regencura.",
+    image: "/eu-curaciones-avanzadas/regencura-logo.png",
+    imageWidth: 1254,
+    imageHeight: 1254,
+  },
+  "/l/eu-curaciones-avanzadas": {
+    title: "Regencura | Curaciones Avanzadas",
+    description:
+      "Agenda tu atencion, habla por WhatsApp o revisa la ubicacion de Regencura.",
+    image: "/eu-curaciones-avanzadas/regencura-logo.png",
+    imageWidth: 1254,
+    imageHeight: 1254,
+  },
   "/urban-district-barber": {
     title: "Urban District Barber | Reserva online",
     description:

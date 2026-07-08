@@ -659,6 +659,27 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
 
     bookingTitle: "Agenda tu atención",
     adminTitle: "Panel Curaciones Avanzadas",
+    linkBookingLabel: "Agenda tu atención",
+    linkTheme: {
+      pageBackground: "#fffaf2",
+      cardBackground: "#ffffff",
+      primary: "#b8872f",
+      primaryDark: "#111111",
+      primarySoft: "#fff6df",
+      border: "#ead7aa",
+      text: "#111111",
+      mutedText: "#57534e",
+      whatsapp: "#7c5a1c",
+    },
+    linkHero: {
+      height: "205px",
+      backgroundPosition: "center 42%",
+      backgroundSize: "cover",
+    },
+    linkLogo: {
+      size: "106px",
+      margin: "-53px auto 14px",
+    },
 
     bookingPanelTitle: "Agenda tu curacion",
     bookingPanelDescription:
