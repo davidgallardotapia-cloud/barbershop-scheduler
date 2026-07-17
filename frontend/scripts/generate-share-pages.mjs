@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+﻿import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -73,27 +73,27 @@ const sharePages = {
     imageWidth: 1254,
     imageHeight: 1254,
   },
-  "/eu-curaciones-avanzadas": {
+  "/regencura": {
     title: "Regencura | Curaciones Avanzadas",
     description:
       "Agenda atenciones de enfermeria y curaciones avanzadas con Leslie Bustos Fernandez.",
-    image: "/eu-curaciones-avanzadas/regencura-logo.png",
+    image: "/regencura/regencura-logo.png",
     imageWidth: 1254,
     imageHeight: 1254,
   },
-  "/eu-curaciones-avanzadas/link": {
+  "/regencura/link": {
     title: "Regencura | Curaciones Avanzadas",
     description:
       "Agenda tu atencion, habla por WhatsApp o revisa la ubicacion de Regencura.",
-    image: "/eu-curaciones-avanzadas/regencura-logo.png",
+    image: "/regencura/regencura-logo.png",
     imageWidth: 1254,
     imageHeight: 1254,
   },
-  "/l/eu-curaciones-avanzadas": {
+  "/l/regencura": {
     title: "Regencura | Curaciones Avanzadas",
     description:
       "Agenda tu atencion, habla por WhatsApp o revisa la ubicacion de Regencura.",
-    image: "/eu-curaciones-avanzadas/regencura-logo.png",
+    image: "/regencura/regencura-logo.png",
     imageWidth: 1254,
     imageHeight: 1254,
   },

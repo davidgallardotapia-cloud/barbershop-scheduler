@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import {
   FaWhatsapp,
   FaArrowRight,
@@ -381,12 +381,12 @@ const exampleBusinesses = [
     logo: "/centro-ama/centro-ama-logo.png",
   },
   {
-    name: "Curaciones Avanzadas",
+    name: "Regencura",
     category: "Enfermeria a domicilio",
     description:
       "Reservas para curaciones, procedimientos y atencion clinica.",
-    href: "/eu-curaciones-avanzadas",
-    logo: "/eu-curaciones-avanzadas/regencura-logo.png",
+    href: "/regencura",
+    logo: "/regencura/regencura-logo.png",
   },
   {
     name: "Urban District Barber",

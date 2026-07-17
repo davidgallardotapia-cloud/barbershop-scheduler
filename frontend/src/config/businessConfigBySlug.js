@@ -1,4 +1,4 @@
-export const businessConfigBySlug = {
+﻿export const businessConfigBySlug = {
   "urban-district-barber": {
     id: "barberia-james",
     tabTitle: "Urban District Barber | AgendaSmart",
@@ -625,20 +625,20 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     },
   },
 
-  "eu-curaciones-avanzadas": {
+  "regencura": {
     id: "eu-curaciones-avanzadas",
-    tabTitle: "Curaciones Avanzadas | AgendaSmart",
-    favicon: "/eu-curaciones-avanzadas/regencura-logo.png",
+    tabTitle: "Regencura | AgendaSmart",
+    favicon: "/regencura/regencura-logo.png",
 
-    name: "Curaciones Avanzadas",
-    subtitle: "Servicio de enfermeria profesional a domicilio",
+    name: "Regencura",
+    subtitle: "Curaciones avanzadas a domicilio",
     phone: "+56 9 2604 6697",
     hours: "Lunes a viernes: 17:00 a 21:00. Sabado: 10:00 a 14:00",
     location: "Coquimbo - La Serena",
     address: "Videla 340 oficina 212, Edificio Arenas, Coquimbo",
 
-    image: "/eu-curaciones-avanzadas/regencura-hero.png",
-    logo: "/eu-curaciones-avanzadas/regencura-logo.png",
+    image: "/regencura/regencura-hero.png",
+    logo: "/regencura/regencura-logo.png",
     logoWidth: "120px",
     logoHeight: "120px",
 
@@ -658,7 +658,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
       "https://www.google.com/maps?q=Videla+340+oficina+212,+Edificio+Arenas,+Coquimbo&output=embed",
 
     bookingTitle: "Agenda tu atención",
-    adminTitle: "Panel Curaciones Avanzadas",
+    adminTitle: "Panel Regencura",
     linkBookingLabel: "Agenda tu atención",
     linkTheme: {
       pageBackground: "#fffaf2",
@@ -755,7 +755,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
       {
         name: "Leslie Bustos Fernandez",
         subtitle: "Enfermeria y curaciones avanzadas",
-        image: "/eu-curaciones-avanzadas/regencura-logo.png",
+        image: "/regencura/regencura-logo.png",
       },
     ],
 

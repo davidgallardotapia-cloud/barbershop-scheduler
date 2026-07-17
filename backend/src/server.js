@@ -1,4 +1,4 @@
-require("dotenv").config();
+﻿require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
@@ -2337,13 +2337,13 @@ const createTables = async () => {
 
     await pool.query(`
       INSERT INTO businesses (id, name, slug)
-      VALUES ('eu-curaciones-avanzadas', 'Curaciones Avanzadas', 'eu-curaciones-avanzadas')
+      VALUES ('eu-curaciones-avanzadas', 'Regencura', 'regencura')
       ON CONFLICT (id) DO NOTHING;
     `);
 
     await pool.query(`
       UPDATE businesses
-      SET name = 'Curaciones Avanzadas', slug = 'eu-curaciones-avanzadas'
+      SET name = 'Regencura', slug = 'regencura'
       WHERE id = 'eu-curaciones-avanzadas';
     `);
 
