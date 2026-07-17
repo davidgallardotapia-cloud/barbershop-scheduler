@@ -13,6 +13,12 @@ const buildUrl = (path, params) => {
   return url.toString();
 };
 
+const getStoredAuthToken = () => {
+  if (typeof window === "undefined") return "";
+
+  return window.localStorage.getItem("authToken") || "";
+};
+
 const parseResponseBody = async (response) => {
   const text = await response.text();
 
@@ -28,14 +34,16 @@ const parseResponseBody = async (response) => {
 };
 
 const request = async (method, path, options = {}) => {
+  const token = getStoredAuthToken();
+  const headers = {
+    ...(options.data ? { "Content-Type": "application/json" } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
   const response = await fetch(buildUrl(path, options.params), {
     method,
     credentials: "include",
-    headers: options.data
-      ? {
-          "Content-Type": "application/json",
-        }
-      : undefined,
+    headers: Object.keys(headers).length > 0 ? headers : undefined,
     body: options.data ? JSON.stringify(options.data) : undefined,
   });
 

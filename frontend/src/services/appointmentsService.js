@@ -12,6 +12,12 @@ export const getAdminAppointments = (filters = {}) => {
   });
 };
 
+export const getAdminClientSuggestions = (filters = {}) => {
+  return api.get("/admin/client-suggestions", {
+    params: filters,
+  });
+};
+
 export const getScheduleBlocks = (businessId, filters = {}) => {
   return api.get("/schedule-blocks", {
     params: { businessId, ...filters },
@@ -108,4 +114,11 @@ export const createClinicalRecord = (data) => {
 
 export const updateClinicalRecord = (recordId, data) => {
   return api.put(`/clinical-records/${recordId}`, data);
+};
+export const getClinicalIndications = (recordId) => {
+  return api.get(`/clinical-records/${recordId}/indications`);
+};
+
+export const createClinicalIndication = (recordId, data) => {
+  return api.post(`/clinical-records/${recordId}/indications`, data);
 };

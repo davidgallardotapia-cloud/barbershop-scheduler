@@ -9,6 +9,11 @@ function AdminBookingPanel({
   setName,
   phone,
   setPhone,
+  clientSuggestions = [],
+  loadingClientSuggestions = false,
+  clientSuggestionQuery = "",
+  clientSuggestionError = "",
+  onClientSuggestionSelect = () => {},
   clientRut = "",
   setClientRut = () => {},
   clientEmail = "",
@@ -61,6 +66,19 @@ function AdminBookingPanel({
     setService(`${serviceWithoutPrice} ($${formattedPrice})`);
   };
 
+
+  const hasClientSuggestions = clientSuggestions.length > 0;
+  const shouldShowClientSuggestions = clientSuggestionQuery.trim().length >= 2;
+  const formatSuggestionPhone = (value) => {
+    const digits = String(value || "").replace(/\D/g, "");
+
+    if (digits.startsWith("569") && digits.length === 11) {
+      return `+56 9 ${digits.slice(3, 7)} ${digits.slice(7)}`;
+    }
+
+    return value || "Sin telefono";
+  };
+
   const handleCreateClick = () => {
     if (isMonthlyReservation && createMonthlyAppointment) {
       createMonthlyAppointment();
@@ -92,6 +110,59 @@ function AdminBookingPanel({
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
         />
+
+        {shouldShowClientSuggestions && (
+          <div
+            style={{
+              border: "1px solid #bbf7d0",
+              borderRadius: "12px",
+              backgroundColor: "#f0fdf4",
+              padding: "10px",
+            }}
+          >
+            <div
+              style={{
+                color: "#14532d",
+                fontSize: "13px",
+                fontWeight: "800",
+                marginBottom: hasClientSuggestions || clientSuggestionError ? "8px" : 0,
+              }}
+            >
+              {loadingClientSuggestions
+                ? "Buscando clientes..."
+                : "Clientes encontrados"}
+            </div>
+
+            {hasClientSuggestions && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {clientSuggestions.map((client) => (
+                  <button
+                    key={`${client.phone || client.name}-${client.clientRut || ""}`}
+                    type="button"
+                    onClick={() => onClientSuggestionSelect(client)}
+                    style={{
+                      border: "1px solid #86efac",
+                      borderRadius: "10px",
+                      backgroundColor: "#ffffff",
+                      color: "#052e16",
+                      cursor: "pointer",
+                      padding: "10px 12px",
+                      textAlign: "left",
+                    }}
+                  >
+                    <div style={{ fontWeight: "900" }}>{client.name}</div>
+                    <div style={{ color: "#166534", fontSize: "13px", marginTop: "2px" }}>
+                      {formatSuggestionPhone(client.phone)}
+                    </div>
+                    <div style={{ color: "#64748b", fontSize: "12px", marginTop: "2px" }}>
+                      {client.reservationsCount || 1} reserva(s) previas
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {business?.clinicalRecordsEnabled && (
           <>

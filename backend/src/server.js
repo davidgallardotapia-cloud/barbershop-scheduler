@@ -1166,6 +1166,72 @@ const toPublicClinicalRecord = (record) => ({
   patient_address: record.patient_address,
 });
 
+const clinicalIndicationTypes = new Set([
+  "indicaciones",
+  "insumos",
+  "control",
+  "receta_simulada",
+]);
+
+const normalizeClinicalIndicationType = (value) => {
+  const type = String(value || "").trim();
+
+  return clinicalIndicationTypes.has(type) ? type : "indicaciones";
+};
+
+const toPublicClinicalIndication = (indication) => ({
+  id: indication.id,
+  business_id: indication.business_id,
+  clinical_record_id: indication.clinical_record_id,
+  appointment_id: indication.appointment_id,
+  patient_id: indication.patient_id,
+  professional_name: indication.professional_name,
+  issue_date: indication.issue_date,
+  document_type: indication.document_type,
+  title: indication.title,
+  diagnosis_or_reason: indication.diagnosis_or_reason,
+  instructions: indication.instructions,
+  supplies: indication.supplies,
+  frequency_duration: indication.frequency_duration,
+  next_control_date: indication.next_control_date,
+  status: indication.status,
+  created_at: indication.created_at,
+  updated_at: indication.updated_at,
+  patient_name: indication.patient_name,
+  patient_phone: indication.patient_phone,
+  patient_rut: indication.patient_rut,
+  patient_email: indication.patient_email,
+  patient_age: indication.patient_age,
+  patient_address: indication.patient_address,
+});
+
+const getScopedClinicalRecordById = async ({ recordId, businessId, user }) => {
+  const conditions = ["records.id = $1", "records.business_id = $2"];
+  const values = [recordId, businessId];
+  const userResourceName = getUserResourceName(user, businessId);
+
+  if (userResourceName) {
+    values.push(userResourceName);
+    conditions.push(`records.professional_name = $${values.length}`);
+  }
+
+  return pool.query(
+    `SELECT
+      records.*,
+      patients.full_name AS patient_name,
+      patients.phone AS patient_phone,
+      patients.rut AS patient_rut,
+      patients.email AS patient_email,
+      patients.age AS patient_age,
+      patients.address AS patient_address
+     FROM clinical_records AS records
+     INNER JOIN clinical_patients AS patients
+       ON patients.id = records.patient_id
+     WHERE ${conditions.join(" AND ")}
+     LIMIT 1`,
+    values
+  );
+};
 const normalizeChilePhone = (rawPhone) => {
   const digits = String(rawPhone || "").replace(/\D/g, "");
 
@@ -2098,6 +2164,46 @@ const createTables = async () => {
     `);
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS clinical_indications (
+        id SERIAL PRIMARY KEY,
+        business_id VARCHAR(100) NOT NULL,
+        clinical_record_id INTEGER NOT NULL,
+        appointment_id INTEGER,
+        patient_id INTEGER NOT NULL,
+        professional_name VARCHAR(100) NOT NULL,
+        issue_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        document_type VARCHAR(40) NOT NULL DEFAULT 'indicaciones'
+          CHECK (document_type IN ('indicaciones', 'insumos', 'control', 'receta_simulada')),
+        title VARCHAR(120) NOT NULL DEFAULT 'Indicaciones clinicas',
+        diagnosis_or_reason TEXT,
+        instructions TEXT,
+        supplies TEXT,
+        frequency_duration TEXT,
+        next_control_date DATE,
+        status VARCHAR(30) NOT NULL DEFAULT 'issued'
+          CHECK (status IN ('draft', 'issued', 'voided')),
+        created_by INTEGER,
+        created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+        CONSTRAINT fk_clinical_indications_record
+          FOREIGN KEY (clinical_record_id)
+          REFERENCES clinical_records(id)
+          ON DELETE CASCADE,
+        CONSTRAINT fk_clinical_indications_appointment
+          FOREIGN KEY (appointment_id)
+          REFERENCES appointments(id)
+          ON DELETE SET NULL,
+        CONSTRAINT fk_clinical_indications_patient
+          FOREIGN KEY (patient_id)
+          REFERENCES clinical_patients(id)
+          ON DELETE CASCADE,
+        CONSTRAINT fk_clinical_indications_user
+          FOREIGN KEY (created_by)
+          REFERENCES users(id)
+          ON DELETE SET NULL
+      );
+    `);
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS clinical_audit_logs (
         id SERIAL PRIMARY KEY,
         business_id VARCHAR(100) NOT NULL,
@@ -2134,6 +2240,15 @@ const createTables = async () => {
       ON clinical_records (business_id, professional_name, visit_date DESC);
     `);
 
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_clinical_indications_record_created
+      ON clinical_indications (business_id, clinical_record_id, created_at DESC);
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_clinical_indications_professional_date
+      ON clinical_indications (business_id, professional_name, issue_date DESC);
+    `);
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_clinical_audit_logs_business_created
       ON clinical_audit_logs (business_id, created_at DESC);
@@ -2616,6 +2731,94 @@ app.delete("/schedule-blocks/:id", requireAuth, async (req, res) => {
   }
 });
 
+app.get("/admin/client-suggestions", requireAuth, async (req, res) => {
+  const businessId = req.user?.business_id;
+
+  if (!businessId) {
+    return res.status(403).json({ message: "Usuario sin negocio asociado" });
+  }
+
+  const rawSearch = String(req.query.search || "").trim();
+  const normalizedSearch = rawSearch.toLowerCase();
+
+  if (normalizedSearch.length < 2) {
+    return res.json([]);
+  }
+
+  const searchDigits = rawSearch.replace(/\D/g, "");
+  const values = [businessId, `%${normalizedSearch}%`];
+  const conditions = [
+    "LOWER(name) LIKE $2",
+    "LOWER(COALESCE(client_email, '')) LIKE $2",
+    "LOWER(COALESCE(client_rut, '')) LIKE $2",
+  ];
+
+  if (searchDigits.length >= 3) {
+    values.push(`%${searchDigits}%`);
+    conditions.push(
+      `REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9]', '', 'g') LIKE $${values.length}`
+    );
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT DISTINCT ON (client_key)
+        client_key,
+        name,
+        phone,
+        client_rut,
+        client_email,
+        last_date,
+        last_time,
+        reservations_count
+       FROM (
+        SELECT
+          CASE
+            WHEN REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9]', '', 'g') <> ''
+              THEN REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9]', '', 'g')
+            ELSE LOWER(TRIM(name))
+          END AS client_key,
+          TRIM(name) AS name,
+          COALESCE(phone, '') AS phone,
+          COALESCE(client_rut, '') AS client_rut,
+          COALESCE(client_email, '') AS client_email,
+          date AS last_date,
+          time AS last_time,
+          COUNT(*) OVER (
+            PARTITION BY CASE
+              WHEN REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9]', '', 'g') <> ''
+                THEN REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9]', '', 'g')
+              ELSE LOWER(TRIM(name))
+            END
+          ) AS reservations_count
+        FROM appointments
+        WHERE business_id = $1
+          AND TRIM(COALESCE(name, '')) <> ''
+          AND (${conditions.join(" OR ")})
+       ) AS clients
+       WHERE client_key <> ''
+       ORDER BY client_key, last_date DESC, last_time DESC
+       LIMIT 8`,
+      values
+    );
+
+    return res.json(
+      result.rows.map((row) => ({
+        name: row.name || "",
+        phone: row.phone || "",
+        clientRut: row.client_rut || "",
+        clientEmail: row.client_email || "",
+        lastDate: row.last_date || null,
+        lastTime: row.last_time || null,
+        reservationsCount: Number(row.reservations_count || 0),
+      }))
+    );
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al buscar clientes" });
+  }
+});
+
 app.get("/admin/appointments", requireAuth, async (req, res) => {
   const businessId = req.user?.business_id;
 
@@ -2808,6 +3011,7 @@ app.post("/login", loginLimiter, async (req, res) => {
 
     return res.json({
       message: "Login correcto",
+      token,
       user: {
         id: user.id,
         username: user.username,
@@ -3410,6 +3614,211 @@ app.put("/clinical-records/:id", requireAuth, async (req, res) => {
   }
 });
 
+app.get("/clinical-records/:id/indications", requireAuth, async (req, res) => {
+  const businessId = req.user?.business_id;
+  const recordId = Number(req.params.id);
+
+  if (!businessId) {
+    return res.status(403).json({ message: "Usuario sin negocio asociado" });
+  }
+
+  if (!supportsClinicalRecords(businessId)) {
+    return res.status(403).json({
+      message: "Las fichas clinicas no estan habilitadas para este negocio",
+    });
+  }
+
+  if (!Number.isInteger(recordId) || recordId <= 0) {
+    return res.status(400).json({ message: "Ficha invalida" });
+  }
+
+  try {
+    const recordResult = await getScopedClinicalRecordById({
+      recordId,
+      businessId,
+      user: req.user,
+    });
+
+    if (recordResult.rows.length === 0) {
+      return res.status(404).json({ message: "Ficha no encontrada" });
+    }
+
+    const record = recordResult.rows[0];
+    const result = await pool.query(
+      `SELECT
+        indications.*,
+        patients.full_name AS patient_name,
+        patients.phone AS patient_phone,
+        patients.rut AS patient_rut,
+        patients.email AS patient_email,
+        patients.age AS patient_age,
+        patients.address AS patient_address
+       FROM clinical_indications AS indications
+       INNER JOIN clinical_patients AS patients
+         ON patients.id = indications.patient_id
+       WHERE indications.business_id = $1
+         AND indications.clinical_record_id = $2
+       ORDER BY indications.issue_date DESC, indications.created_at DESC`,
+      [businessId, record.id]
+    );
+
+    await createClinicalAuditLog({
+      businessId,
+      userId: req.user?.id,
+      action: "clinical_indications_viewed",
+      entityType: "clinical_indications",
+      entityId: record.id,
+      details: {
+        clinicalRecordId: record.id,
+        count: result.rows.length,
+      },
+    });
+
+    return res.json(result.rows.map(toPublicClinicalIndication));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "Error al cargar indicaciones clinicas",
+    });
+  }
+});
+
+app.post("/clinical-records/:id/indications", requireAuth, async (req, res) => {
+  const businessId = req.user?.business_id;
+  const recordId = Number(req.params.id);
+
+  if (!businessId) {
+    return res.status(403).json({ message: "Usuario sin negocio asociado" });
+  }
+
+  if (!supportsClinicalRecords(businessId)) {
+    return res.status(403).json({
+      message: "Las fichas clinicas no estan habilitadas para este negocio",
+    });
+  }
+
+  if (!Number.isInteger(recordId) || recordId <= 0) {
+    return res.status(400).json({ message: "Ficha invalida" });
+  }
+
+  const {
+    documentType,
+    title,
+    issueDate,
+    diagnosisOrReason,
+    instructions,
+    supplies,
+    frequencyDuration,
+    nextControlDate,
+  } = req.body || {};
+
+  try {
+    const recordResult = await getScopedClinicalRecordById({
+      recordId,
+      businessId,
+      user: req.user,
+    });
+
+    if (recordResult.rows.length === 0) {
+      return res.status(404).json({ message: "Ficha no encontrada" });
+    }
+
+    const record = recordResult.rows[0];
+    const normalizedTitle =
+      normalizeClinicalText(title, 120) || "Indicaciones clinicas";
+    const normalizedDiagnosis = normalizeClinicalText(diagnosisOrReason);
+    const normalizedInstructions = normalizeClinicalText(instructions);
+    const normalizedSupplies = normalizeClinicalText(supplies);
+    const normalizedFrequency = normalizeClinicalText(frequencyDuration, 500);
+    const normalizedNextControlDate = normalizeClinicalDate(nextControlDate);
+    const normalizedIssueDate =
+      normalizeClinicalDate(issueDate) || normalizeClinicalDate(new Date());
+
+    if (
+      !normalizedDiagnosis &&
+      !normalizedInstructions &&
+      !normalizedSupplies &&
+      !normalizedFrequency &&
+      !normalizedNextControlDate
+    ) {
+      return res.status(400).json({
+        message: "Ingresa al menos una indicacion clinica",
+      });
+    }
+
+    const indicationResult = await pool.query(
+      `INSERT INTO clinical_indications (
+        business_id,
+        clinical_record_id,
+        appointment_id,
+        patient_id,
+        professional_name,
+        issue_date,
+        document_type,
+        title,
+        diagnosis_or_reason,
+        instructions,
+        supplies,
+        frequency_duration,
+        next_control_date,
+        status,
+        created_by
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'issued', $14)
+      RETURNING *`,
+      [
+        businessId,
+        record.id,
+        record.appointment_id || null,
+        record.patient_id,
+        record.professional_name,
+        normalizedIssueDate,
+        normalizeClinicalIndicationType(documentType),
+        normalizedTitle,
+        normalizedDiagnosis,
+        normalizedInstructions,
+        normalizedSupplies,
+        normalizedFrequency,
+        normalizedNextControlDate,
+        req.user?.id || null,
+      ]
+    );
+    const indication = {
+      ...indicationResult.rows[0],
+      patient_name: record.patient_name,
+      patient_phone: record.patient_phone,
+      patient_rut: record.patient_rut,
+      patient_email: record.patient_email,
+      patient_age: record.patient_age,
+      patient_address: record.patient_address,
+    };
+
+    await createClinicalAuditLog({
+      businessId,
+      userId: req.user?.id,
+      action: "clinical_indication_created",
+      entityType: "clinical_indications",
+      entityId: indication.id,
+      details: {
+        clinicalRecordId: record.id,
+        patientId: record.patient_id,
+        appointmentId: record.appointment_id || null,
+        professionalName: record.professional_name,
+        documentType: indication.document_type,
+      },
+    });
+
+    return res.status(201).json({
+      message: "Indicacion clinica generada correctamente",
+      data: toPublicClinicalIndication(indication),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      message: "Error al generar indicacion clinica",
+    });
+  }
+});
 app.post("/integrations/google-sheets/sync", requireAuth, async (req, res) => {
   const payload = req.body || {};
   const businessId = payload.businessId || req.user?.business_id;

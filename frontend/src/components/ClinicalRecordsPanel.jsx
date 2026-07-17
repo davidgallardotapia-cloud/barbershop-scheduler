@@ -1,9 +1,61 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  createClinicalIndication,
   createClinicalRecord,
+  getClinicalIndications,
   getClinicalRecords,
   updateClinicalRecord,
 } from "../services/appointmentsService";
+
+const clinicalIndicationTypeLabels = {
+  indicaciones: "Indicaciones clinicas",
+  insumos: "Insumos y cuidados",
+  control: "Control y seguimiento",
+  receta_simulada: "Receta simulada",
+};
+
+const getTodayDate = () => new Date().toISOString().slice(0, 10);
+
+const formatClinicalDate = (value) => {
+  const date = String(value || "").slice(0, 10);
+
+  if (!date) return "-";
+
+  const [year, month, day] = date.split("-");
+
+  return year && month && day ? `${day}-${month}-${year}` : date;
+};
+
+const escapeHtml = (value) =>
+  String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+const resolveAssetUrl = (value) => {
+  const asset = String(value || "").trim();
+
+  if (!asset) return "";
+
+  try {
+    return new URL(asset, window.location.origin).toString();
+  } catch {
+    return asset;
+  }
+};
+const renderPrintableParagraph = (label, value) => {
+  const text = String(value || "").trim();
+
+  if (!text) return "";
+
+  return `
+    <section class="print-section">
+      <h2>${escapeHtml(label)}</h2>
+      <p>${escapeHtml(text).replace(/\n/g, "<br />")}</p>
+    </section>`;
+};
 
 function ClinicalRecordsPanel({
   styles,
@@ -25,6 +77,19 @@ function ClinicalRecordsPanel({
   const [editingRecordId, setEditingRecordId] = useState(null);
   const [recordMessage, setRecordMessage] = useState("");
   const [search, setSearch] = useState("");
+  const [clinicalIndications, setClinicalIndications] = useState([]);
+  const [loadingClinicalIndications, setLoadingClinicalIndications] = useState(false);
+  const [savingClinicalIndication, setSavingClinicalIndication] = useState(false);
+  const [clinicalIndicationMessage, setClinicalIndicationMessage] = useState("");
+  const [clinicalIndicationFormOpen, setClinicalIndicationFormOpen] = useState(false);
+  const [indicationDocumentType, setIndicationDocumentType] = useState("indicaciones");
+  const [indicationTitle, setIndicationTitle] = useState("Indicaciones clinicas");
+  const [indicationIssueDate, setIndicationIssueDate] = useState(getTodayDate);
+  const [indicationReason, setIndicationReason] = useState("");
+  const [indicationInstructions, setIndicationInstructions] = useState("");
+  const [indicationSupplies, setIndicationSupplies] = useState("");
+  const [indicationFrequency, setIndicationFrequency] = useState("");
+  const [indicationNextControl, setIndicationNextControl] = useState("");
   const [selectedAppointmentId, setSelectedAppointmentId] = useState("");
   const [patientName, setPatientName] = useState("");
   const [patientPhone, setPatientPhone] = useState("");
@@ -105,6 +170,172 @@ function ClinicalRecordsPanel({
     }
   };
 
+  const resetClinicalIndicationForm = () => {
+    setClinicalIndicationFormOpen(false);
+    setClinicalIndicationMessage("");
+    setIndicationDocumentType("indicaciones");
+    setIndicationTitle("Indicaciones clinicas");
+    setIndicationIssueDate(getTodayDate());
+    setIndicationReason("");
+    setIndicationInstructions("");
+    setIndicationSupplies("");
+    setIndicationFrequency("");
+    setIndicationNextControl("");
+  };
+
+  const loadClinicalIndications = async (recordId) => {
+    if (!recordId) {
+      setClinicalIndications([]);
+      return;
+    }
+
+    setLoadingClinicalIndications(true);
+    setClinicalIndicationMessage("");
+
+    try {
+      const response = await getClinicalIndications(recordId);
+      setClinicalIndications(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error(error);
+      setClinicalIndications([]);
+      setClinicalIndicationMessage(
+        error.response?.data?.message ||
+          "No se pudieron cargar las indicaciones clinicas"
+      );
+    } finally {
+      setLoadingClinicalIndications(false);
+    }
+  };
+
+  const handleSaveClinicalIndication = async () => {
+    if (savingClinicalIndication || !editingRecordId) return;
+
+    if (
+      !indicationReason.trim() &&
+      !indicationInstructions.trim() &&
+      !indicationSupplies.trim() &&
+      !indicationFrequency.trim() &&
+      !indicationNextControl
+    ) {
+      setClinicalIndicationMessage(
+        "Ingresa al menos una indicacion antes de generar el documento."
+      );
+      return;
+    }
+
+    setSavingClinicalIndication(true);
+    setClinicalIndicationMessage("");
+
+    try {
+      await createClinicalIndication(editingRecordId, {
+        documentType: indicationDocumentType,
+        title: indicationTitle,
+        issueDate: indicationIssueDate,
+        diagnosisOrReason: indicationReason,
+        instructions: indicationInstructions,
+        supplies: indicationSupplies,
+        frequencyDuration: indicationFrequency,
+        nextControlDate: indicationNextControl || null,
+      });
+
+      resetClinicalIndicationForm();
+      await loadClinicalIndications(editingRecordId);
+      setClinicalIndicationMessage("Indicacion clinica generada correctamente.");
+    } catch (error) {
+      console.error(error);
+      setClinicalIndicationMessage(
+        error.response?.data?.message || "No se pudo generar la indicacion"
+      );
+    } finally {
+      setSavingClinicalIndication(false);
+    }
+  };
+
+  const openPrintClinicalIndication = (indication) => {
+    const printableWindow = window.open("", "_blank", "width=860,height=920");
+
+    if (!printableWindow) {
+      setClinicalIndicationMessage(
+        "El navegador bloqueo la ventana de impresion. Permite ventanas emergentes e intenta nuevamente."
+      );
+      return;
+    }
+
+    const businessName = business?.name || "AgendaSmart";
+    const businessLogo = resolveAssetUrl(business?.logo || business?.image);
+    const documentTitle =
+      indication.title ||
+      clinicalIndicationTypeLabels[indication.document_type] ||
+      "Indicaciones clinicas";
+    const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(documentTitle)}</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #111827; margin: 0; padding: 32px; background: #f8fafc; }
+    .sheet { max-width: 780px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 18px; padding: 30px; }
+    .header { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; border-bottom: 2px solid #e5e7eb; padding-bottom: 18px; }
+    .brand { display: flex; gap: 14px; align-items: center; }
+    .logo { width: 64px; height: 64px; border-radius: 14px; object-fit: contain; border: 1px solid #e5e7eb; }
+    h1 { margin: 0; font-size: 26px; }
+    .muted { color: #64748b; font-size: 14px; margin-top: 4px; }
+    .meta { text-align: right; color: #475569; font-weight: 700; }
+    .patient { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 22px 0; }
+    .box { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 14px; background: #f8fafc; }
+    .label { color: #64748b; font-size: 12px; font-weight: 800; text-transform: uppercase; }
+    .value { margin-top: 4px; font-size: 16px; font-weight: 800; }
+    .print-section { border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 16px; }
+    .print-section h2 { margin: 0 0 8px; font-size: 17px; }
+    .print-section p { margin: 0; line-height: 1.55; white-space: normal; }
+    .signature { margin-top: 42px; display: flex; justify-content: flex-end; }
+    .signature-box { width: 260px; border-top: 1px solid #111827; text-align: center; padding-top: 8px; font-weight: 800; }
+    @media print { body { background: #fff; padding: 0; } .sheet { border: 0; border-radius: 0; } }
+  </style>
+</head>
+<body>
+  <main class="sheet">
+    <header class="header">
+      <div class="brand">
+        ${businessLogo ? `<img class="logo" src="${escapeHtml(businessLogo)}" />` : ""}
+        <div>
+          <h1>${escapeHtml(documentTitle)}</h1>
+          <div class="muted">${escapeHtml(businessName)}</div>
+        </div>
+      </div>
+      <div class="meta">
+        <div>Fecha: ${escapeHtml(formatClinicalDate(indication.issue_date))}</div>
+        <div>Folio: ${escapeHtml(indication.id)}</div>
+      </div>
+    </header>
+
+    <section class="patient">
+      <div class="box"><div class="label">Paciente</div><div class="value">${escapeHtml(indication.patient_name)}</div></div>
+      <div class="box"><div class="label">RUT</div><div class="value">${escapeHtml(indication.patient_rut || "No indicado")}</div></div>
+      <div class="box"><div class="label">Telefono</div><div class="value">${escapeHtml(indication.patient_phone || "No indicado")}</div></div>
+      <div class="box"><div class="label">Correo</div><div class="value">${escapeHtml(indication.patient_email || "No indicado")}</div></div>
+      <div class="box"><div class="label">Profesional</div><div class="value">${escapeHtml(indication.professional_name)}</div></div>
+      <div class="box"><div class="label">Proximo control</div><div class="value">${escapeHtml(formatClinicalDate(indication.next_control_date))}</div></div>
+    </section>
+
+    ${renderPrintableParagraph("Motivo / diagnostico", indication.diagnosis_or_reason)}
+    ${renderPrintableParagraph("Indicaciones", indication.instructions)}
+    ${renderPrintableParagraph("Insumos / cuidados", indication.supplies)}
+    ${renderPrintableParagraph("Frecuencia / duracion", indication.frequency_duration)}
+
+    <footer class="signature">
+      <div class="signature-box">${escapeHtml(indication.professional_name)}</div>
+    </footer>
+  </main>
+</body>
+</html>`;
+
+    printableWindow.document.open();
+    printableWindow.document.write(html);
+    printableWindow.document.close();
+    printableWindow.focus();
+    setTimeout(() => printableWindow.print(), 350);
+  };
   useEffect(() => {
     loadRecords();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -127,6 +358,8 @@ function ClinicalRecordsPanel({
     setProcedurePerformed("");
     setIndications("");
     setNextSteps("");
+    setClinicalIndications([]);
+    resetClinicalIndicationForm();
   };
 
   const openRecordModal = () => {
@@ -184,6 +417,8 @@ function ClinicalRecordsPanel({
     setIndications(record.indications || "");
     setNextSteps(record.next_steps || "");
     setRecordMessage("");
+    resetClinicalIndicationForm();
+    void loadClinicalIndications(record.id);
     setIsRecordFormOpen(true);
   };
 
@@ -421,6 +656,259 @@ function ClinicalRecordsPanel({
     </div>
   );
 
+  const clinicalIndicationsSection = editingRecordId ? (
+    <div
+      style={{
+        border: "1px solid #e2e8f0",
+        borderRadius: "16px",
+        padding: "16px",
+        backgroundColor: "#ffffff",
+        boxShadow: "0 4px 14px rgba(15,23,42,0.05)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: "10px",
+          alignItems: "center",
+          flexWrap: "wrap",
+          marginBottom: "12px",
+        }}
+      >
+        <div>
+          <h4 style={{ margin: 0, fontSize: "17px" }}>
+            Indicaciones clinicas
+          </h4>
+          <p style={{ margin: "4px 0 0", color: "#64748b", fontWeight: 700 }}>
+            Documentos emitidos para esta ficha.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          style={{
+            ...styles.button,
+            ...styles.secondaryButton,
+            width: isMobile ? "100%" : "auto",
+          }}
+          onClick={() => setClinicalIndicationFormOpen((value) => !value)}
+        >
+          {clinicalIndicationFormOpen ? "Ocultar formulario" : "Nueva indicacion"}
+        </button>
+      </div>
+
+      {clinicalIndicationMessage && (
+        <p
+          style={{
+            ...styles.message,
+            marginTop: 0,
+            color: clinicalIndicationMessage.includes("correctamente")
+              ? theme.primaryDark || "#166534"
+              : "#991b1b",
+          }}
+        >
+          {clinicalIndicationMessage}
+        </p>
+      )}
+
+      {loadingClinicalIndications ? (
+        <div style={{ color: "#64748b", fontWeight: "800" }}>
+          Cargando indicaciones...
+        </div>
+      ) : clinicalIndications.length === 0 ? (
+        <div
+          style={{
+            border: "1px dashed #cbd5e1",
+            borderRadius: "14px",
+            padding: "14px",
+            color: "#64748b",
+            fontWeight: "800",
+            backgroundColor: "#f8fafc",
+            marginBottom: clinicalIndicationFormOpen ? "14px" : 0,
+          }}
+        >
+          Aun no hay indicaciones emitidas para esta ficha.
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gap: "10px",
+            marginBottom: clinicalIndicationFormOpen ? "14px" : 0,
+          }}
+        >
+          {clinicalIndications.map((indication) => (
+            <div
+              key={indication.id}
+              style={{
+                border: "1px solid #e2e8f0",
+                borderRadius: "14px",
+                padding: "14px",
+                backgroundColor: "#f8fafc",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "10px",
+                  flexWrap: "wrap",
+                  alignItems: "flex-start",
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: "900", color: "#0f172a" }}>
+                    {indication.title ||
+                      clinicalIndicationTypeLabels[indication.document_type] ||
+                      "Indicaciones clinicas"}
+                  </div>
+                  <div
+                    style={{
+                      color: "#64748b",
+                      fontSize: "12px",
+                      fontWeight: "800",
+                      marginTop: "3px",
+                    }}
+                  >
+                    {formatClinicalDate(indication.issue_date)} - {indication.professional_name}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  style={{
+                    ...styles.button,
+                    ...styles.secondaryButton,
+                    width: isMobile ? "100%" : "auto",
+                  }}
+                  onClick={() => openPrintClinicalIndication(indication)}
+                >
+                  Imprimir / PDF
+                </button>
+              </div>
+
+              {indication.instructions && (
+                <p style={{ margin: "10px 0 0", color: "#334155" }}>
+                  <strong>Indicaciones:</strong> {indication.instructions}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {clinicalIndicationFormOpen && (
+        <div
+          style={{
+            borderTop: "1px solid #e2e8f0",
+            paddingTop: "14px",
+            display: "grid",
+            gap: "10px",
+          }}
+        >
+          <div style={fieldGridStyle}>
+            <select
+              style={{ ...styles.select, marginBottom: 0 }}
+              value={indicationDocumentType}
+              onChange={(event) => {
+                const value = event.target.value;
+                setIndicationDocumentType(value);
+                setIndicationTitle(
+                  clinicalIndicationTypeLabels[value] || "Indicaciones clinicas"
+                );
+              }}
+            >
+              <option value="indicaciones">Indicaciones clinicas</option>
+              <option value="insumos">Insumos y cuidados</option>
+              <option value="control">Control y seguimiento</option>
+              <option value="receta_simulada">Receta simulada</option>
+            </select>
+
+            <input
+              style={{ ...styles.input, marginBottom: 0 }}
+              type="date"
+              value={indicationIssueDate}
+              onChange={(event) => setIndicationIssueDate(event.target.value)}
+            />
+          </div>
+
+          <input
+            style={{ ...styles.input, marginBottom: 0 }}
+            value={indicationTitle}
+            onChange={(event) => setIndicationTitle(event.target.value)}
+            placeholder="Titulo del documento"
+          />
+
+          <textarea
+            style={textareaStyle}
+            value={indicationReason}
+            onChange={(event) => setIndicationReason(event.target.value)}
+            placeholder="Motivo, diagnostico o contexto clinico"
+          />
+
+          <textarea
+            style={{ ...textareaStyle, minHeight: "110px" }}
+            value={indicationInstructions}
+            onChange={(event) => setIndicationInstructions(event.target.value)}
+            placeholder="Indicaciones para el paciente"
+          />
+
+          <textarea
+            style={textareaStyle}
+            value={indicationSupplies}
+            onChange={(event) => setIndicationSupplies(event.target.value)}
+            placeholder="Insumos, cuidados o materiales recomendados"
+          />
+
+          <div style={fieldGridStyle}>
+            <input
+              style={{ ...styles.input, marginBottom: 0 }}
+              value={indicationFrequency}
+              onChange={(event) => setIndicationFrequency(event.target.value)}
+              placeholder="Frecuencia / duracion"
+            />
+
+            <input
+              style={{ ...styles.input, marginBottom: 0 }}
+              type="date"
+              value={indicationNextControl}
+              onChange={(event) => setIndicationNextControl(event.target.value)}
+            />
+          </div>
+
+          <button
+            type="button"
+            style={{
+              ...styles.button,
+              ...styles.primaryButton,
+              width: "100%",
+              ...(savingClinicalIndication ? styles.disabledButton : {}),
+            }}
+            onClick={handleSaveClinicalIndication}
+            disabled={savingClinicalIndication}
+          >
+            {savingClinicalIndication
+              ? "Generando indicacion..."
+              : "Generar indicacion clinica"}
+          </button>
+        </div>
+      )}
+    </div>
+  ) : (
+    <div
+      style={{
+        border: "1px dashed #cbd5e1",
+        borderRadius: "16px",
+        padding: "14px",
+        color: "#64748b",
+        backgroundColor: "#f8fafc",
+        fontWeight: "800",
+      }}
+    >
+      Guarda o abre una ficha existente para emitir indicaciones clinicas.
+    </div>
+  );
   const recordForm = (
     <div
       style={{
@@ -597,6 +1085,8 @@ function ClinicalRecordsPanel({
             ? "Actualizar ficha clinica"
             : "Guardar ficha clinica"}
         </button>
+
+        {clinicalIndicationsSection}
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import LoginScreen from "./components/LoginScreen";
 import AdminBookingPanel from "./components/AdminBookingPanel";
 import ClinicalRecordsPanel from "./components/ClinicalRecordsPanel";
@@ -29,6 +29,7 @@ import {
 import {
   getAppointments as fetchAppointments,
   getAdminAppointments,
+  getAdminClientSuggestions,
   getScheduleBlocks,
   getAdminScheduleBlocks,
   createScheduleBlock as createScheduleBlockService,
@@ -50,6 +51,310 @@ import {
 } from "./services/appointmentsService";
 import { businessConfigBySlug } from "./config/businessConfigBySlug";
 
+function ReservationVoucherModal({ voucher, business, theme, isMobile, onClose }) {
+  if (!voucher) return null;
+
+  const primary = theme?.primary || "#166534";
+  const primarySoft = theme?.primarySoft || "#dcfce7";
+  const border = theme?.border || "#bbf7d0";
+  const logo = business?.logo || "/agendasmart/agendasmart-favicon.png";
+
+  const printReservationVoucher = () => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+
+    const voucherElement = document.querySelector(".reservation-voucher-print-card");
+
+    if (!voucherElement) {
+      window.print();
+      return;
+    }
+
+    const printWindow = window.open("", "_blank", "width=820,height=900");
+
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <title>Comprobante de reserva</title>
+          <style>
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              padding: 24px;
+              background: #ffffff;
+              color: #0f172a;
+              font-family: Arial, sans-serif;
+            }
+            .reservation-voucher-print-card {
+              width: 100% !important;
+              max-width: 760px !important;
+              max-height: none !important;
+              overflow: visible !important;
+              margin: 0 auto !important;
+              box-shadow: none !important;
+            }
+            .reservation-voucher-no-print { display: none !important; }
+            @page { margin: 14mm; }
+          </style>
+        </head>
+        <body>${voucherElement.outerHTML}</body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
+  const rows = [
+    { label: "Servicio", value: voucher.service, icon: "S" },
+    { label: voucher.resourceLabel || "Profesional", value: voucher.resource, icon: "R" },
+    { label: "Fecha y hora", value: `${voucher.dateLabel} - ${voucher.timeLabel}`, icon: "F" },
+    { label: "Duración", value: voucher.durationLabel, icon: "D" },
+    { label: "Ubicación", value: voucher.locationLabel, icon: "U" },
+    { label: "Precio", value: voucher.priceLabel, icon: "$" },
+  ].filter((row) => row.value);
+
+  return (
+    <>
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+
+          .reservation-voucher-print-card,
+          .reservation-voucher-print-card * {
+            visibility: visible !important;
+          }
+
+          .reservation-voucher-print-overlay {
+            position: static !important;
+            inset: auto !important;
+            display: block !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
+
+          .reservation-voucher-print-card {
+            position: static !important;
+            width: 100% !important;
+            max-width: 760px !important;
+            max-height: none !important;
+            overflow: visible !important;
+            margin: 0 auto !important;
+            box-shadow: none !important;
+            border-radius: 18px !important;
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+
+          .reservation-voucher-no-print {
+            display: none !important;
+          }
+
+          @page {
+            margin: 14mm;
+          }
+        }
+      `}</style>
+
+      <div
+        className="reservation-voucher-print-overlay"
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 10000,
+          backgroundColor: "rgba(15, 23, 42, 0.55)",
+          display: "flex",
+          alignItems: isMobile ? "flex-end" : "center",
+          justifyContent: "center",
+          padding: isMobile ? "12px" : "24px",
+        }}
+        onClick={onClose}
+      >
+        <div
+          className="reservation-voucher-print-card"
+          style={{
+            width: "100%",
+            maxWidth: "520px",
+            maxHeight: isMobile ? "92vh" : "86vh",
+            overflowY: "auto",
+            backgroundColor: "#ffffff",
+            borderRadius: isMobile ? "24px 24px 18px 18px" : "24px",
+            border: `1px solid ${border}`,
+            boxShadow: "0 24px 70px rgba(15, 23, 42, 0.28)",
+          }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div
+            style={{
+              padding: isMobile ? "20px" : "24px",
+              background: `linear-gradient(135deg, ${primarySoft}, #ffffff 62%)`,
+              borderBottom: `1px solid ${border}`,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "14px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <img
+                  src={logo}
+                  alt={business?.name || "AgendaSmart"}
+                  style={{
+                    width: "52px",
+                    height: "52px",
+                    borderRadius: "16px",
+                    objectFit: "cover",
+                    backgroundColor: "#ffffff",
+                    border: `1px solid ${border}`,
+                  }}
+                />
+                <div>
+                  <div style={{ fontSize: "13px", fontWeight: 800, color: primary }}>
+                    Comprobante de reserva
+                  </div>
+                  <h2 style={{ margin: "3px 0 0", fontSize: isMobile ? "23px" : "28px" }}>
+                    {business?.name || "AgendaSmart"}
+                  </h2>
+                </div>
+              </div>
+
+              <button
+                className="reservation-voucher-no-print"
+                type="button"
+                onClick={onClose}
+                style={{
+                  border: "0",
+                  borderRadius: "12px",
+                  padding: "10px 13px",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  backgroundColor: "#e5e7eb",
+                  color: "#111827",
+                }}
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div
+              style={{
+                marginTop: "18px",
+                padding: "14px 16px",
+                borderRadius: "16px",
+                backgroundColor: "#ffffff",
+                border: `1px solid ${border}`,
+              }}
+            >
+              <div style={{ fontSize: "13px", color: "#64748b", fontWeight: 700 }}>
+                {voucher.clientLabel || "Cliente"}
+              </div>
+              <div style={{ fontSize: "22px", fontWeight: 900, color: "#0f172a" }}>
+                {voucher.clientName}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ padding: isMobile ? "8px 20px 22px" : "12px 24px 24px" }}>
+            {rows.map((row) => (
+              <div
+                key={row.label}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "44px 1fr",
+                  gap: "14px",
+                  padding: "18px 0",
+                  borderBottom: "1px solid #e5e7eb",
+                }}
+              >
+                <div
+                  style={{
+                    width: "42px",
+                    height: "42px",
+                    borderRadius: "14px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: primarySoft,
+                    color: primary,
+                    fontWeight: 900,
+                    border: `1px solid ${border}`,
+                  }}
+                >
+                  {row.icon}
+                </div>
+                <div>
+                  <div style={{ fontSize: "18px", fontWeight: 900, color: "#374151" }}>
+                    {row.label}
+                  </div>
+                  <div style={{ marginTop: "6px", fontSize: "20px", lineHeight: 1.35, color: "#4b5563" }}>
+                    {row.value}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            <div
+              className="reservation-voucher-no-print"
+              style={{
+                display: "flex",
+                gap: "10px",
+                marginTop: "20px",
+                flexDirection: isMobile ? "column" : "row",
+              }}
+            >
+              <button
+                type="button"
+                onClick={printReservationVoucher}
+                style={{
+                  flex: 1,
+                  border: `1px solid ${border}`,
+                  borderRadius: "14px",
+                  padding: "14px 16px",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  backgroundColor: primary,
+                  color: "#ffffff",
+                }}
+              >
+                Imprimir / guardar
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  flex: 1,
+                  border: "1px solid #d1d5db",
+                  borderRadius: "14px",
+                  padding: "14px 16px",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  backgroundColor: "#ffffff",
+                  color: "#111827",
+                }}
+              >
+                Volver a la agenda
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
 function BusinessLoadingState({ styles, business }) {
   const logo = business?.logo || "/agendasmart/agendasmart-favicon.png";
   const businessName = business?.name || "AgendaSmart";
@@ -531,12 +836,17 @@ const [barber, setBarber] = useState("");
   const [whatsappUrl, setWhatsappUrl] = useState("");
   const [whatsappButtonText, setWhatsappButtonText] = useState("Abrir WhatsApp");
   const [reserveWithoutPayment, setReserveWithoutPayment] = useState(false);
+  const [reservationVoucher, setReservationVoucher] = useState(null);
 
   const [selectedWeekStart, setSelectedWeekStart] = useState(
     getMonday(new Date())
   );
   const [weeklyBarberFilter, setWeeklyBarberFilter] = useState("");
   const [clientSearch, setClientSearch] = useState("");
+  const [clientSuggestions, setClientSuggestions] = useState([]);
+  const [loadingClientSuggestions, setLoadingClientSuggestions] = useState(false);
+  const [clientSuggestionQuery, setClientSuggestionQuery] = useState("");
+  const [clientSuggestionError, setClientSuggestionError] = useState("");
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -1019,13 +1329,73 @@ const [barber, setBarber] = useState("");
     return `$${Number(value || 0).toLocaleString("es-CL")}`;
   };
 
+  const formatVoucherDate = (value) => {
+    if (!value) return "Sin fecha";
+
+    const [year, month, day] = String(value).slice(0, 10).split("-");
+    const parsedDate = new Date(Number(year), Number(month) - 1, Number(day));
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return String(value);
+    }
+
+    return parsedDate.toLocaleDateString("es-CL", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  const getVoucherDurationLabel = (serviceName) => {
+    const explicitDuration = String(serviceName || "").match(/(\d+)\s*min/i);
+
+    if (explicitDuration) {
+      return `${explicitDuration[1]} minutos`;
+    }
+
+    return "60 minutos";
+  };
+
+  const openReservationVoucher = ({
+    appointment,
+    clientName,
+    serviceName,
+    resourceName,
+    reservationDate,
+    reservationTime,
+    totalAmount,
+  }) => {
+    const locationParts = [mergedBusiness?.address, mergedBusiness?.location].filter(Boolean);
+    const isSportsBusiness = ["giocata", "pinguino-club"].includes(mergedBusiness?.id);
+    const resourceLabel = mergedBusiness?.resourceLabelSingle || "Profesional";
+
+    setReservationVoucher({
+      id: appointment?.id || "",
+      clientLabel: isSportsBusiness
+        ? "Cliente / Equipo"
+        : mergedBusiness?.clinicalRecordsEnabled
+        ? "Paciente"
+        : "Cliente",
+      clientName: clientName || appointment?.name || "Cliente",
+      service: serviceName || appointment?.service || "Reserva",
+      resourceLabel,
+      resource: resourceName || appointment?.barber || resourceLabel,
+      dateLabel: formatVoucherDate(reservationDate || appointment?.date),
+      timeLabel: String(reservationTime || appointment?.time || "").slice(0, 5),
+      durationLabel: getVoucherDurationLabel(serviceName || appointment?.service),
+      locationLabel: locationParts.join(", ") || "Ubicación por confirmar",
+      priceLabel: formatCurrency(totalAmount || getAppointmentTotalAmount(appointment)),
+      statusLabel: "Reserva registrada",
+    });
+  };
   const getReservationStatusMeta = (status) => {
     const normalized = String(status || "reservada").toLowerCase();
 
     if (normalized === "atendida") {
       return {
         label: "Atendida",
-        icon: "🟢",
+        icon: "ðŸŸ¢",
         background: "#dcfce7",
         border: "#86efac",
         color: "#166534",
@@ -1035,7 +1405,7 @@ const [barber, setBarber] = useState("");
     if (normalized === "no_asistio" || normalized === "no asistio") {
       return {
         label: "No asistió",
-        icon: "🔴",
+        icon: "ðŸ”´",
         background: "#fee2e2",
         border: "#fca5a5",
         color: "#991b1b",
@@ -1054,7 +1424,7 @@ const [barber, setBarber] = useState("");
 
     return {
       label: "Reservada",
-      icon: "🟡",
+      icon: "ðŸŸ¡",
       background: "#fef3c7",
       border: "#fcd34d",
       color: "#92400e",
@@ -1077,7 +1447,7 @@ const [barber, setBarber] = useState("");
     if (normalized === "partially_paid") {
       return {
         label: "Pago parcial",
-        icon: "🟡",
+        icon: "ðŸŸ¡",
         background: "#fef3c7",
         border: "#fcd34d",
         color: "#92400e",
@@ -1087,7 +1457,7 @@ const [barber, setBarber] = useState("");
     if (normalized === "deposit_paid") {
       return {
         label: "Abono registrado",
-        icon: "🟠",
+        icon: "ðŸŸ ",
         background: "#ffedd5",
         border: "#fdba74",
         color: "#9a3412",
@@ -1116,7 +1486,7 @@ const [barber, setBarber] = useState("");
 
     return {
       label: "Sin pago",
-      icon: "🔴",
+      icon: "ðŸ”´",
       background: "#fee2e2",
       border: "#fca5a5",
       color: "#991b1b",
@@ -1661,7 +2031,6 @@ const handleDeleteReservationFromPaymentPanel = async () => {
     if (!businessId) return;
 
     const savedUser = localStorage.getItem("user");
-    localStorage.removeItem("authToken");
 
     if (savedUser) {
       try {
@@ -1703,6 +2072,63 @@ const handleDeleteReservationFromPaymentPanel = async () => {
     mergedBusiness?.professionalSessionsEnabled,
   ]);
 
+  useEffect(() => {
+    if (!isLoggedIn || appMode !== "admin" || !businessId || editingId) {
+      setClientSuggestions([]);
+      setLoadingClientSuggestions(false);
+      setClientSuggestionQuery("");
+      setClientSuggestionError("");
+      return undefined;
+    }
+
+    const searchValue = `${name} ${phone}`.trim();
+    setClientSuggestionQuery(searchValue);
+
+    if (searchValue.length < 2) {
+      setClientSuggestions([]);
+      setLoadingClientSuggestions(false);
+      setClientSuggestionError("");
+      return undefined;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        setLoadingClientSuggestions(true);
+        setClientSuggestionError("");
+        const response = await getAdminClientSuggestions({ search: searchValue });
+
+        if (!cancelled) {
+          setClientSuggestions(Array.isArray(response.data) ? response.data : []);
+        }
+      } catch (error) {
+        console.error("Error al buscar clientes para autorrelleno", error);
+        if (!cancelled) {
+          setClientSuggestions([]);
+          setClientSuggestionError("No se pudo consultar clientes guardados");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingClientSuggestions(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [appMode, businessId, editingId, isLoggedIn, name, phone]);
+
+  const handleClientSuggestionSelect = (client) => {
+    if (!client) return;
+
+    setName(client.name || "");
+    setPhone(client.phone || "");
+    setClientRut(client.clientRut || "");
+    setClientEmail(client.clientEmail || "");
+    setClientSuggestions([]);
+  };
   const resetForm = () => {
     setName("");
     setPhone("");
@@ -1890,7 +2316,7 @@ if (generatedOpponentWhatsappUrl) {
 
     setMessage(`✅ Te sumaste como rival correctamente
 
-📅 ${date} a las ${time}
+ðŸ“… ${date} a las ${time}
 ${mergedBusiness?.resourceLabelSingle || "Cancha"}: ${resolvedBarber}
 
 ⚽ Partido completado`);
@@ -1960,6 +2386,15 @@ const generatedWhatsappUrl = barberPhone
       setSelectedWeekStart(getMonday(new Date()));
       await getAppointments();
 
+      openReservationVoucher({
+        appointment: createdAppointment?.data?.data,
+        clientName: name.trim(),
+        serviceName: finalService,
+        resourceName: resolvedBarber,
+        reservationDate: date,
+        reservationTime: time,
+        totalAmount: finalTotalAmount,
+      });
       if (shouldUseOnlinePayment) {
         const response = await createMercadoPagoPreference({
           appointmentId: createdAppointment.data.data.id,
@@ -2008,31 +2443,33 @@ const generatedWhatsappUrl = barberPhone
         );
 
         if (!whatsappOpened) {
-          setMessage(`✅ ${
+          setMessage(`${
             mergedBusiness?.submitButtonLabel || "Reserva"
           } registrada correctamente
 
-📅 ${date} a las ${time}
+Fecha: ${date}
+Hora: ${time}
 ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}
 
-📲 ${mergedBusiness?.whatsappLabel || "Confirma por WhatsApp"}`);
+${mergedBusiness?.whatsappLabel || "Confirma por WhatsApp"}`);
         } else {
-          setMessage(`✅ ${
+          setMessage(`${
             mergedBusiness?.submitButtonLabel || "Reserva"
           } registrada correctamente
 
-📅 ${date} a las ${time}
+Fecha: ${date}
+Hora: ${time}
 ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
         }
       } else {
-        setMessage(`✅ ${
+        setMessage(`${
           mergedBusiness?.submitButtonLabel || "Reserva"
         } registrada correctamente
 
-📅 ${date} a las ${time}
+Fecha: ${date}
+Hora: ${time}
 ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
       }
-
       resetForm();
     } catch (err) {
       if (err.response?.data?.message) {
@@ -2540,7 +2977,12 @@ setEditingId(appointment.id);
       setBarber(loginResourceName);
       setWeeklyBarberFilter(loginResourceName);
       localStorage.setItem("user", JSON.stringify(loggedUser));
-      localStorage.removeItem("authToken");
+
+      if (res.data?.token) {
+        localStorage.setItem("authToken", res.data.token);
+      } else {
+        localStorage.removeItem("authToken");
+      }
 
       await getAppointments("admin");
     } catch (err) {
@@ -2632,7 +3074,7 @@ setEditingId(appointment.id);
     .trim()
     .toLowerCase();
   const dailyDashboardOwnerUsersByBusiness = {
-    giocata: ["veronica_giocata"],
+    giocata: ["veronica_giocata", "admin_giocata"],
   };
   const dailyDashboardOwnerUsers =
     dailyDashboardOwnerUsersByBusiness[mergedBusiness?.id] || null;
@@ -4052,6 +4494,11 @@ paymentHistoryItem: {
                 setName={setName}
                 phone={phone}
                 setPhone={setPhone}
+                clientSuggestions={clientSuggestions}
+                loadingClientSuggestions={loadingClientSuggestions}
+                clientSuggestionQuery={clientSuggestionQuery}
+                clientSuggestionError={clientSuggestionError}
+                onClientSuggestionSelect={handleClientSuggestionSelect}
                 clientRut={clientRut}
                 setClientRut={setClientRut}
                 clientEmail={clientEmail}
@@ -4110,7 +4557,7 @@ paymentHistoryItem: {
                         style={{ ...styles.button, ...styles.secondaryButton }}
                         onClick={goToPreviousWeek}
                       >
-                        ← Semana anterior
+                        {"← Semana anterior"}
                       </button>
                       <button
                         style={{ ...styles.button, ...styles.primaryButton }}
@@ -4122,7 +4569,7 @@ paymentHistoryItem: {
                         style={{ ...styles.button, ...styles.secondaryButton }}
                         onClick={goToNextWeek}
                       >
-                        Semana siguiente →
+                        {"Semana siguiente →"}
                       </button>
                     </div>
                   </div>
@@ -4183,6 +4630,11 @@ paymentHistoryItem: {
                 setName={setName}
                 phone={phone}
                 setPhone={setPhone}
+                clientSuggestions={clientSuggestions}
+                loadingClientSuggestions={loadingClientSuggestions}
+                clientSuggestionQuery={clientSuggestionQuery}
+                clientSuggestionError={clientSuggestionError}
+                onClientSuggestionSelect={handleClientSuggestionSelect}
                 clientRut={clientRut}
                 setClientRut={setClientRut}
                 clientEmail={clientEmail}
@@ -4478,8 +4930,8 @@ updateAppointment={updateAppointment}
                   >
                     <span>
                       {isDailyDashboardOpen
-                        ? "Ocultar resumen del dia"
-                        : "Ver resumen del dia"}
+                        ? "Ocultar resumen del día"
+                        : "Ver resumen del día"}
                     </span>
                     <span style={styles.dashboardToggleMeta}>
                       {totalDashboardDay} reservas ·{" "}
@@ -4849,7 +5301,7 @@ updateAppointment={updateAppointment}
                     style={{ ...styles.button, ...styles.secondaryButton }}
                     onClick={goToPreviousWeek}
                   >
-                    ← Semana anterior
+                    {"← Semana anterior"}
                   </button>
                   <button
                     style={{ ...styles.button, ...styles.primaryButton }}
@@ -4861,7 +5313,7 @@ updateAppointment={updateAppointment}
                     style={{ ...styles.button, ...styles.secondaryButton }}
                     onClick={goToNextWeek}
                   >
-                    Semana siguiente →
+                    {"Semana siguiente →"}
                   </button>
                 </div>
               </div>
@@ -4916,6 +5368,16 @@ updateAppointment={updateAppointment}
         )}
 
         <AgendaSmartFooter isMobile={isMobile} theme={theme} />
+
+        {reservationVoucher && (
+          <ReservationVoucherModal
+            voucher={reservationVoucher}
+            business={mergedBusiness}
+            theme={theme}
+            isMobile={isMobile}
+            onClose={() => setReservationVoucher(null)}
+          />
+        )}
 
         {isAdminMode && paymentsEnabled && paymentAppointment && (
           <div style={styles.paymentModalOverlay} onClick={closePaymentPanel}>
@@ -5510,7 +5972,7 @@ lineHeight: 1.2,
                                   lineHeight: 1.3,
                                 }}
                               >
-                                📝 {payment.notes}
+                                ðŸ“ {payment.notes}
                               </div>
                             ) : null}
 
