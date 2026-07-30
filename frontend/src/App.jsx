@@ -2172,7 +2172,7 @@ setEditingId(null);
 
   const getResolvedClientResource = () => {
     if (mergedBusiness?.hideResourceSelector) {
-      return getResourceFromService(service);
+      return getResourceFromService(service) || barber;
     }
 
     return barber;

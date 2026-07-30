@@ -44,6 +44,13 @@ function ClientBookingWizard({
   const resourceFirstFlow = Boolean(
     showResourceStep && business?.resourceFirstBookingFlow
   );
+  const getResourceFromServiceName = (serviceName) => {
+    if (!serviceName) return "";
+
+    const match = String(serviceName).match(/Cancha\s+\d+/i);
+    return match ? match[0] : "";
+  };
+
   const isMobile = window.innerWidth < 768;
 
   const wizardRef = useRef(null);
@@ -456,6 +463,9 @@ function ClientBookingWizard({
                         if (showResourceStep && !resourceFirstFlow) {
                           setBarber("");
                         }
+                        if (!showResourceStep && business?.hideResourceSelector) {
+                          setBarber("");
+                        }
                         setTimeout(() => {
                           scrollToStep(serviceStepRef);
                         }, 120);
@@ -463,6 +473,9 @@ function ClientBookingWizard({
                       }
 
                       setService(item);
+                      if (!showResourceStep && business?.hideResourceSelector) {
+                        setBarber(getResourceFromServiceName(item));
+                      }
 
                       if (showResourceStep) {
                         setDate("");

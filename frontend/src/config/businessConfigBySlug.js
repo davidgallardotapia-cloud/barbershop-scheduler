@@ -1,4 +1,4 @@
-﻿export const businessConfigBySlug = {
+export const businessConfigBySlug = {
   "urban-district-barber": {
     id: "barberia-james",
     tabTitle: "Urban District Barber | AgendaSmart",
@@ -205,8 +205,8 @@
     mapEmbedUrl:
       "https://www.google.com/maps?q=Hortensia+Bustamante+52+La+Serena&output=embed",
     socialLinks: {
-  instagram: "",
-  facebook: "https://www.facebook.com/clublagiocata",
+  instagram: "https://www.instagram.com/giocatacomplejo",
+  facebook: "",
   },
 
     bookingTitle: "Reserva tu cancha",
