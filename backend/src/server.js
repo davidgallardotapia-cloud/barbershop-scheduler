@@ -1764,6 +1764,30 @@ const toPublicScheduleBlock = (block, options = {}) => {
   };
 };
 
+const toPublicWaitlistEntry = (entry) => {
+  return {
+    id: entry.id,
+    business_id: entry.business_id,
+    name: entry.name || "",
+    phone: entry.phone || "",
+    date: normalizeDateOnlyValue(entry.date),
+    time: entry.time ? String(entry.time).slice(0, 5) : "",
+    service: entry.service || "",
+    barber: entry.barber || "",
+    status: entry.status || "pendiente",
+    notes: entry.notes || "",
+    created_at: entry.created_at,
+    updated_at: entry.updated_at,
+  };
+};
+
+const validWaitlistStatuses = new Set([
+  "pendiente",
+  "contactado",
+  "convertido",
+  "descartado",
+]);
+
 
 const recalculateAppointmentPaymentStatus = async (appointmentId) => {
   const appointmentResult = await pool.query(
@@ -2086,6 +2110,34 @@ const createTables = async () => {
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_schedule_blocks_business_barber_dates
       ON schedule_blocks (business_id, barber, start_date, end_date);
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS waitlist_entries (
+        id SERIAL PRIMARY KEY,
+        business_id VARCHAR(100) NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        phone VARCHAR(30) NOT NULL,
+        date DATE NOT NULL,
+        time TIME NOT NULL,
+        service VARCHAR(160) NOT NULL,
+        barber VARCHAR(100) NOT NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'pendiente'
+          CHECK (status IN ('pendiente', 'contactado', 'convertido', 'descartado')),
+        notes TEXT,
+        created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+      );
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_waitlist_entries_business_date
+      ON waitlist_entries (business_id, date, time);
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_waitlist_entries_business_status
+      ON waitlist_entries (business_id, status);
     `);
 
     await pool.query(`
@@ -2871,6 +2923,174 @@ app.get("/admin/appointments", requireAuth, async (req, res) => {
   }
 });
 
+app.get("/admin/waitlist", requireAuth, async (req, res) => {
+  const businessId = req.user?.business_id;
+
+  if (!businessId) {
+    return res.status(403).json({ message: "Usuario sin negocio asociado" });
+  }
+
+  const date = String(req.query.date || "").trim();
+  const startDate = String(req.query.startDate || "").trim();
+  const endDate = String(req.query.endDate || "").trim();
+  const status = String(req.query.status || "").trim();
+  const conditions = ["business_id = $1"];
+  const values = [businessId];
+
+  if (date) {
+    values.push(date);
+    conditions.push(`date = $${values.length}`);
+  } else {
+    if (startDate) {
+      values.push(startDate);
+      conditions.push(`date >= $${values.length}`);
+    }
+
+    if (endDate) {
+      values.push(endDate);
+      conditions.push(`date <= $${values.length}`);
+    }
+  }
+
+  if (status) {
+    if (!validWaitlistStatuses.has(status)) {
+      return res.status(400).json({ message: "Estado de lista de espera invalido" });
+    }
+
+    values.push(status);
+    conditions.push(`status = $${values.length}`);
+  }
+
+  const userResourceName = getUserResourceName(req.user, businessId);
+
+  if (userResourceName) {
+    values.push(userResourceName);
+    conditions.push(`barber = $${values.length}`);
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT *
+       FROM waitlist_entries
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY date ASC, time ASC, created_at ASC`,
+      values
+    );
+
+    return res.json(result.rows.map(toPublicWaitlistEntry));
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al obtener lista de espera" });
+  }
+});
+
+app.post("/waitlist", requireAuth, async (req, res) => {
+  const { name, phone, date, time, service, barber, businessId, notes } = req.body;
+  const authenticatedBusinessId = req.user?.business_id;
+
+  if (!authenticatedBusinessId) {
+    return res.status(403).json({ message: "Usuario sin negocio asociado" });
+  }
+
+  if (!name || !phone || !date || !time || !service || !barber || !businessId) {
+    return res.status(400).json({ message: "Faltan campos obligatorios" });
+  }
+
+  if (businessId !== authenticatedBusinessId) {
+    return res.status(403).json({ message: "No autorizado para este negocio" });
+  }
+
+  const isAdminRequest = Boolean(req.user?.business_id);
+
+  if (isAdminRequest && req.user.business_id !== businessId) {
+    return res.status(403).json({ message: "No tienes permiso para modificar este negocio" });
+  }
+
+  if (isAdminRequest && !requireUserResourceAccess(req, res, barber, businessId)) {
+    return;
+  }
+
+  if (!isValidChileMobilePhone(phone)) {
+    return res.status(400).json({ message: "Ingresa un celular chileno valido" });
+  }
+
+  const normalizedPhone = normalizeChilePhone(phone);
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO waitlist_entries (
+        business_id, name, phone, date, time, service, barber, notes
+      )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [
+        businessId,
+        String(name).trim(),
+        normalizedPhone,
+        date,
+        time,
+        String(service).trim(),
+        String(barber).trim(),
+        notes ? String(notes).trim() : null,
+      ]
+    );
+
+    return res.json({
+      message: "Te agregamos a la lista de espera",
+      data: toPublicWaitlistEntry(result.rows[0]),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al crear lista de espera" });
+  }
+});
+
+app.put("/waitlist/:id", requireAuth, async (req, res) => {
+  const businessId = req.user?.business_id;
+  const { id } = req.params;
+  const { status, notes } = req.body;
+
+  if (!businessId) {
+    return res.status(403).json({ message: "Usuario sin negocio asociado" });
+  }
+
+  if (!validWaitlistStatuses.has(String(status || ""))) {
+    return res.status(400).json({ message: "Estado de lista de espera invalido" });
+  }
+
+  try {
+    const existing = await pool.query(
+      "SELECT * FROM waitlist_entries WHERE id = $1 AND business_id = $2 LIMIT 1",
+      [id, businessId]
+    );
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ message: "Solicitud no encontrada" });
+    }
+
+    if (!requireUserResourceAccess(req, res, existing.rows[0].barber, businessId)) {
+      return;
+    }
+
+    const result = await pool.query(
+      `UPDATE waitlist_entries
+       SET status = $1,
+           notes = COALESCE($2, notes),
+           updated_at = NOW()
+       WHERE id = $3 AND business_id = $4
+       RETURNING *`,
+      [status, notes === undefined ? null : String(notes || "").trim(), id, businessId]
+    );
+
+    return res.json({
+      message: "Lista de espera actualizada",
+      data: toPublicWaitlistEntry(result.rows[0]),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Error al actualizar lista de espera" });
+  }
+});
 app.get("/appointments", async (req, res) => {
   const { businessId } = req.query;
 
@@ -5304,3 +5524,7 @@ createTables().then(() => {
     console.log(`Servidor corriendo en puerto ${PORT}`);
   });
 });
+
+
+
+

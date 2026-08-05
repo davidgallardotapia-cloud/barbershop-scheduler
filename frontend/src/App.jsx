@@ -30,11 +30,14 @@ import {
   getAppointments as fetchAppointments,
   getAdminAppointments,
   getAdminClientSuggestions,
+  getAdminWaitlistEntries,
   getScheduleBlocks,
   getAdminScheduleBlocks,
   createScheduleBlock as createScheduleBlockService,
   deleteScheduleBlock as deleteScheduleBlockService,
   createAppointment as createAppointmentService,
+  createWaitlistEntry as createWaitlistEntryService,
+  updateWaitlistEntry as updateWaitlistEntryService,
   createMonthlyAppointment as createMonthlyAppointmentService,
   joinOpponentAppointment,
   updateAppointment as updateAppointmentService,
@@ -50,6 +53,12 @@ import {
   syncGoogleSheets as syncGoogleSheetsService,
 } from "./services/appointmentsService";
 import { businessConfigBySlug } from "./config/businessConfigBySlug";
+
+const slugAliases = {
+  "eu-curaciones-avanzadas": "regencura",
+};
+
+const resolveSlugAlias = (slug) => slugAliases[slug] || slug;
 
 function ReservationVoucherModal({ voucher, business, theme, isMobile, onClose }) {
   if (!voucher) return null;
@@ -789,14 +798,14 @@ function App() {
 
     if (segments[0] === "l" && segments[1]) {
       return {
-        slug: segments[1],
-        isBusinessLinkPage: true,
+        slug: resolveSlugAlias(segments[1]),
+          isBusinessLinkPage: true,
       };
     }
 
     return {
-      slug: segments[0] || "",
-      isBusinessLinkPage: segments[1] === "link",
+      slug: resolveSlugAlias(segments[0] || ""),
+        isBusinessLinkPage: segments[1] === "link",
     };
   };
 
@@ -837,6 +846,12 @@ const [barber, setBarber] = useState("");
   const [whatsappButtonText, setWhatsappButtonText] = useState("Abrir WhatsApp");
   const [reserveWithoutPayment, setReserveWithoutPayment] = useState(false);
   const [reservationVoucher, setReservationVoucher] = useState(null);
+  const [waitlistEntries, setWaitlistEntries] = useState([]);
+  const [waitlistSlot, setWaitlistSlot] = useState(null);
+  const [waitlistName, setWaitlistName] = useState("");
+  const [waitlistPhone, setWaitlistPhone] = useState("");
+  const [waitlistMessage, setWaitlistMessage] = useState("");
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
 
   const [selectedWeekStart, setSelectedWeekStart] = useState(
     getMonday(new Date())
@@ -941,6 +956,7 @@ const [barber, setBarber] = useState("");
   const slotIntervalMinutes = Number(mergedBusiness?.slotIntervalMinutes || 30);
   const blockedWeekdays = mergedBusiness?.blockedWeekdays || [];
   const paymentsEnabled = mergedBusiness?.paymentsEnabled || false;
+  const waitlistEnabled = Boolean(mergedBusiness?.waitlistEnabled);
   const depositFeatureEnabled = mergedBusiness?.depositFeatureEnabled || false;
   const depositOptional = mergedBusiness?.depositOptional || false;
   const defaultDepositRate = mergedBusiness?.defaultDepositRate || 0.5;
@@ -2633,13 +2649,17 @@ ${
   const updateAppointment = async () => {
     if (submitting || !editingId || !businessId) return;
 
+    const resolvedBarber = mergedBusiness?.hideResourceSelector
+      ? barber || getResourceFromService(service)
+      : barber;
+
     if (
       !name.trim() ||
       !phone.trim() ||
       !date ||
       !time ||
       !service.trim() ||
-      !barber
+      !resolvedBarber
     ) {
       setMessage("Completa todos los campos para actualizar.");
       return;
@@ -2676,7 +2696,7 @@ await updateAppointmentService(editingId, {
   date,
   time,
   service: finalService,
-  barber,
+  barber: resolvedBarber,
   businessId,
   status: currentAppointment?.status || "reservada",
 
@@ -2701,7 +2721,7 @@ await updateAppointmentService(editingId, {
         time,
         name: name.trim(),
         phone: normalizedPhone,
-        barber,
+        barber: resolvedBarber,
         service: finalService,
         status:
           appointments.find((a) => a.id === editingId)?.status || "reservada",
@@ -3396,81 +3416,66 @@ setEditingId(appointment.id);
     (appointment) => !appointment.status || appointment.status === "reservada"
   ).length;
 
-  const revenueDashboardDay = dashboardAppointments
-    .filter((appointment) => appointment.status === "atendida")
-    .reduce((total, appointment) => {
-      return total + getAppointmentTotalAmount(appointment);
-    }, 0);
+  const revenueDashboardDay = dashboardAppointments.reduce(
+    (sum, appointment) => sum + Number(appointment.total_paid || 0),
+    0
+  );
 
   const paymentDistributionDashboardDay = dashboardAppointments.reduce(
     (summary, appointment) => {
       const totalAmount = getAppointmentTotalAmount(appointment);
-      const paidAmount = Math.min(
-        getAppointmentPaidAmount(appointment),
-        totalAmount
-      );
-      const paymentStatus = String(
-        appointment.payment_status || "unpaid"
-      ).toLowerCase();
-      const isPaid =
-        paymentStatus === "paid" || (totalAmount > 0 && paidAmount >= totalAmount);
-      const isPartial = !isPaid && paidAmount > 0;
+      const totalPaid = Number(appointment.total_paid || 0);
+      const transferenciaPaid = Number(appointment.transferencia_paid || 0);
+      const debitoPaid = Number(appointment.debito_paid || 0);
+      const efectivoPaid = Number(appointment.efectivo_paid || 0);
+      const paymentStatus = getEffectivePaymentStatus(appointment);
+      const isPaid = paymentStatus === "paid";
+      const isPartial = ["deposit_paid", "partially_paid"].includes(paymentStatus);
+      const isUnpaid = ["unpaid", "deposit_pending"].includes(paymentStatus);
 
       summary.totalAmount += totalAmount;
-      summary.totalPaidAmount += paidAmount;
-      summary.pendingAmount += Math.max(totalAmount - paidAmount, 0);
-      summary.transferenciaAmount += Number(appointment.transferencia_paid || 0);
-      summary.debitoAmount += Number(appointment.debito_paid || 0);
-      summary.efectivoAmount += Number(appointment.efectivo_paid || 0);
+      summary.totalPaid += totalPaid;
+      summary.transferenciaAmount += transferenciaPaid;
+      summary.debitoAmount += debitoPaid;
+      summary.efectivoAmount += efectivoPaid;
 
       if (isPaid) {
         summary.paidCount += 1;
-        summary.fullPaidAmount += totalAmount;
+        summary.fullPaidAmount += totalPaid;
       } else if (isPartial) {
         summary.partialCount += 1;
-        summary.partialPaidAmount += paidAmount;
-      } else {
+        summary.partialPaidAmount += totalPaid;
+        summary.pendingAmount += Math.max(totalAmount - totalPaid, 0);
+      } else if (isUnpaid) {
         summary.unpaidCount += 1;
-        summary.unpaidAmount += totalAmount;
+        summary.pendingAmount += totalAmount;
       }
 
       return summary;
     },
     {
       totalAmount: 0,
-      totalPaidAmount: 0,
-      pendingAmount: 0,
-      paidCount: 0,
-      partialCount: 0,
-      unpaidCount: 0,
+      totalPaid: 0,
       fullPaidAmount: 0,
       partialPaidAmount: 0,
-      unpaidAmount: 0,
+      pendingAmount: 0,
       transferenciaAmount: 0,
       debitoAmount: 0,
       efectivoAmount: 0,
+      paidCount: 0,
+      partialCount: 0,
+      unpaidCount: 0,
     }
   );
 
   const paidReservationsPendingAttention = dashboardAppointments
     .filter((appointment) => {
-      const reservationStatus = String(
-        appointment.status || "reservada"
-      ).toLowerCase();
-      const appointmentDate = String(appointment.date || "").slice(0, 10);
-      const appointmentTime = String(appointment.time || "").slice(0, 5);
-      const appointmentDay = new Date(`${appointmentDate}T00:00:00`);
+      const paymentStatus = getEffectivePaymentStatus(appointment);
+      const reservationStatus = appointment.status || "reservada";
 
-      if (reservationStatus !== "reservada") return false;
-      if (!appointmentDate || !appointmentTime) return false;
-      if (Number.isNaN(appointmentDay.getTime())) return false;
-      if (!isAppointmentFullyPaid(appointment)) return false;
-
-      return isPastSlot(appointmentDay, appointmentTime);
+      return paymentStatus === "paid" && reservationStatus === "reservada";
     })
-    .sort((left, right) => {
-      return String(left.time || "").localeCompare(String(right.time || ""));
-    });
+    .sort((left, right) => String(left.time || "").localeCompare(String(right.time || "")));
 
   const filteredAppointments = useMemo(() => {
     const activeBarberFilter = isClientMode
@@ -3482,7 +3487,6 @@ setEditingId(appointment.id);
       const matchesBarber = activeBarberFilter
         ? appointment.barber === activeBarberFilter
         : true;
-
       const matchesClient = appointmentMatchesClientSearch(
         appointment,
         normalizedClientSearch
@@ -3538,36 +3542,217 @@ setEditingId(appointment.id);
     weekDays,
   ]);
 
-  const appointmentsBySlot = useMemo(() => {
-    const map = new Map();
+  const openWaitlistForSlot = (slot) => {
+    if (!waitlistEnabled || !date || !service) return;
 
-    filteredAppointments.forEach((appointment) => {
-      const dayKey = formatDateToInput(
-        new Date(String(appointment.date).slice(0, 10) + "T00:00:00")
-      );
-      const rawTime = String(appointment.time || "").slice(0, 5);
+    const selectedResource = barber || getResourceFromService(service);
 
-      const hourKey =
-        typeof hours[0] === "string" ? rawTime : Number(rawTime.slice(0, 2));
+    if (!selectedResource) {
+      setMessage("Selecciona una cancha antes de anotarte en lista de espera.");
+      return;
+    }
 
-      const key = `${dayKey}-${hourKey}`;
-
-      if (!map.has(key)) {
-        map.set(key, []);
-      }
-
-      map.get(key).push(appointment);
+    setWaitlistSlot({
+      date,
+      time: slot?.value || time,
+      service,
+      barber: selectedResource,
     });
-
-    return map;
-  }, [filteredAppointments, hours]);
-
-  const getAppointmentsForSlot = (day, hour) => {
-    const key = `${formatDateToInput(day)}-${hour}`;
-    return appointmentsBySlot.get(key) || [];
+    setWaitlistName(name || "");
+    setWaitlistPhone(phone || "");
+    setWaitlistMessage("");
   };
 
+  const openAdminWaitlistPanel = () => {
+    if (!waitlistEnabled) return;
+
+    const selectedResource =
+      effectiveWeeklyBarberFilter || barber || BARBERS[0] || "";
+    const availableServices =
+      selectedResource && servicesByResource[selectedResource]
+        ? servicesByResource[selectedResource]
+        : SERVICES;
+    const daySlots = getScheduleSlotsForDate(dashboardDate);
+
+    setWaitlistSlot({
+      date: dashboardDate,
+      time: time || daySlots[0] || "",
+      service: service || availableServices[0] || "",
+      barber: selectedResource,
+      isAdminManual: true,
+    });
+    setWaitlistName("");
+    setWaitlistPhone("");
+    setWaitlistMessage("");
+  };
+
+  const updateWaitlistSlot = (field, value) => {
+    setWaitlistSlot((currentSlot) => {
+      if (!currentSlot) return currentSlot;
+
+      const nextSlot = { ...currentSlot, [field]: value };
+
+      if (field === "barber") {
+        const resourceServices =
+          value && servicesByResource[value] ? servicesByResource[value] : SERVICES;
+        nextSlot.service = resourceServices.includes(nextSlot.service)
+          ? nextSlot.service
+          : resourceServices[0] || "";
+      }
+
+      if (field === "date") {
+        const daySlots = getScheduleSlotsForDate(value);
+        nextSlot.time = daySlots.includes(nextSlot.time)
+          ? nextSlot.time
+          : daySlots[0] || "";
+      }
+
+      return nextSlot;
+    });
+  };
+
+  const closeWaitlistPanel = () => {
+    setWaitlistSlot(null);
+    setWaitlistMessage("");
+    setWaitlistSubmitting(false);
+  };
+
+  const handleCreateWaitlistEntry = async () => {
+    if (!waitlistSlot || !businessId || waitlistSubmitting) return;
+
+    if (!waitlistSlot.date || !waitlistSlot.time || !waitlistSlot.service || !waitlistSlot.barber) {
+      setWaitlistMessage("Completa fecha, hora, servicio y recurso.");
+      return;
+    }
+
+    if (!waitlistName.trim() || !waitlistPhone.trim()) {
+      setWaitlistMessage("Ingresa nombre y celular para quedar en lista de espera.");
+      return;
+    }
+
+    if (!isValidChileMobilePhone(waitlistPhone)) {
+      setWaitlistMessage("Ingresa un celular chileno valido. Ejemplo: 912345678");
+      return;
+    }
+
+    setWaitlistSubmitting(true);
+    setWaitlistMessage("");
+
+    try {
+      await createWaitlistEntryService({
+        businessId,
+        name: waitlistName.trim(),
+        phone: normalizeChilePhone(waitlistPhone),
+        date: waitlistSlot.date,
+        time: waitlistSlot.time,
+        service: waitlistSlot.service,
+        barber: waitlistSlot.barber,
+      });
+
+      setName(waitlistName.trim());
+      setPhone(normalizeChilePhone(waitlistPhone));
+      setMessage(
+        isAdminMode
+          ? "Cliente agregado a la lista de espera."
+          : "Te agregamos a la lista de espera. Te contactaran si se libera ese horario."
+      );
+      if (isAdminMode) {
+        await getAppointments("admin");
+      }
+      closeWaitlistPanel();
+    } catch (err) {
+      console.error(err);
+      setWaitlistMessage(
+        err.response?.data?.message || "No se pudo agregar a la lista de espera."
+      );
+    } finally {
+      setWaitlistSubmitting(false);
+    }
+  };
+
+  const handleUpdateWaitlistEntryStatus = async (entryId, nextStatus) => {
+    if (!entryId || !waitlistEnabled || submitting) return;
+
+    setSubmitting(true);
+
+    try {
+      const response = await updateWaitlistEntryService(entryId, {
+        status: nextStatus,
+      });
+      const updatedEntry = response?.data?.data;
+
+      setWaitlistEntries((currentEntries) =>
+        currentEntries.map((entry) =>
+          entry.id === entryId
+            ? { ...entry, ...(updatedEntry || {}), status: nextStatus }
+            : entry
+        )
+      );
+    } catch (err) {
+      console.error(err);
+      setMessage(err.response?.data?.message || "No se pudo actualizar la lista de espera.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const waitlistEntriesForDashboardDay = useMemo(() => {
+    return waitlistEntries
+      .filter((entry) => {
+        const entryDate = normalizeDateOnlyValue(entry.date);
+        const matchesDate = entryDate === dashboardDate;
+        const matchesBarber = effectiveWeeklyBarberFilter
+          ? entry.barber === effectiveWeeklyBarberFilter
+          : true;
+        const isOpen = ["pendiente", "contactado"].includes(entry.status || "pendiente");
+
+        return matchesDate && matchesBarber && isOpen;
+      })
+      .sort((firstEntry, secondEntry) => {
+        const firstValue = `${String(firstEntry.time || "").slice(0, 5)} ${firstEntry.created_at || ""}`;
+        const secondValue = `${String(secondEntry.time || "").slice(0, 5)} ${secondEntry.created_at || ""}`;
+
+        return firstValue.localeCompare(secondValue);
+      });
+  }, [waitlistEntries, dashboardDate, effectiveWeeklyBarberFilter]);
+
+  const getWaitlistStatusLabel = (status) => {
+    switch (status) {
+      case "contactado":
+        return "Contactado";
+      case "convertido":
+        return "Reservo";
+      case "descartado":
+        return "Descartado";
+      default:
+        return "Pendiente";
+    }
+  };
+
+  const waitlistModalServices =
+    waitlistSlot?.barber && servicesByResource[waitlistSlot.barber]
+      ? servicesByResource[waitlistSlot.barber]
+      : currentBusinessConfig?.services || SERVICES;
+  const waitlistModalTimes = waitlistSlot?.date
+    ? getScheduleSlotsForDate(waitlistSlot.date)
+    : hours;
+
   const resolvedClientResource = getResolvedClientResource();
+
+  const getAppointmentsForSlot = (day, hour) => {
+    const dateValue =
+      day instanceof Date
+        ? formatDateToInput(day)
+        : String(day || "").slice(0, 10);
+    const normalizedHour = normalizeScheduleTime(hour);
+
+    return appointments.filter((appointment) => {
+      const appointmentDate = String(appointment.date || "").slice(0, 10);
+      const appointmentTime = String(appointment.time || "").slice(0, 5);
+
+      return appointmentDate === dateValue && appointmentTime === normalizedHour;
+    });
+  };
 
   const mobileSlots = useMemo(() => {
     if (!selectedMobileDay) return [];
@@ -3607,7 +3792,6 @@ setEditingId(appointment.id);
   }, [
     selectedMobileDay,
     hours,
-    appointmentsBySlot,
     scheduleBlocks,
     resolvedClientResource,
     effectiveWeeklyBarberFilter,
@@ -3798,7 +3982,6 @@ setEditingId(appointment.id);
   date,
   hours,
   resolvedClientResource,
-  appointmentsBySlot,
   appointments,
   scheduleBlocks,
   blockedWeekdays,
@@ -4515,6 +4698,7 @@ paymentHistoryItem: {
                 allowReservationWithoutPayment={allowReservationWithoutPayment}
                 reserveWithoutPayment={reserveWithoutPayment}
                 setReserveWithoutPayment={setReserveWithoutPayment}
+                onJoinWaitlist={null}
               />
               {false && (
                 <>
@@ -5233,6 +5417,103 @@ updateAppointment={updateAppointment}
                   </div>
                 </div>
               )}
+
+              {waitlistEnabled && (
+                <div style={styles.dashboardPaymentSummary}>
+                  <div style={styles.dashboardPaymentHeader}>
+                    <div>
+                      <div style={{ fontWeight: "900", fontSize: "15px" }}>
+                        Lista de espera
+                      </div>
+                      <div style={{ fontSize: "12px", color: "#64748b", marginTop: "3px" }}>
+                        {waitlistEntriesForDashboardDay.length} por contactar
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      style={{
+                        ...styles.dashboardReviewButton,
+                        backgroundColor: theme.primary || "#16a34a",
+                        color: "#ffffff",
+                        width: isMobile ? "100%" : "auto",
+                      }}
+                      onClick={openAdminWaitlistPanel}
+                    >
+                      Agregar cliente
+                    </button>
+                  </div>
+
+                  {waitlistEntriesForDashboardDay.length === 0 ? (
+                    <div
+                      style={{
+                        backgroundColor: "#ffffff",
+                        border: "1px dashed #cbd5e1",
+                        borderRadius: "12px",
+                        color: "#64748b",
+                        fontSize: "13px",
+                        fontWeight: "700",
+                        padding: "12px",
+                      }}
+                    >
+                      Sin clientes en lista de espera para este dia.
+                    </div>
+                  ) : (
+                    <div style={styles.dashboardReviewList}>
+                      {waitlistEntriesForDashboardDay.map((entry) => {
+                        const entryPhone = String(entry.phone || "").replace(/\D/g, "");
+                        const whatsappLink = entryPhone ? `https://wa.me/${entryPhone}` : "";
+
+                        return (
+                          <div key={entry.id} style={styles.dashboardReviewItem}>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontWeight: "900", fontSize: "14px", color: "#111827" }}>
+                                {entry.name || "Cliente sin nombre"}
+                              </div>
+                              <div style={{ color: "#475569", fontSize: "12px", fontWeight: "800", marginTop: "3px" }}>
+                                {String(entry.time || "").slice(0, 5)} · {entry.barber || "-"}
+                              </div>
+                              <div style={{ color: "#64748b", fontSize: "12px", marginTop: "3px" }}>
+                                {entry.service || "-"} · {getWaitlistStatusLabel(entry.status)}
+                              </div>
+                              <div style={{ color: theme.primaryDark || "#14532d", fontSize: "12px", fontWeight: "800", marginTop: "3px" }}>
+                                {entry.phone || "Sin celular"}
+                              </div>
+                            </div>
+
+                            <div style={styles.dashboardReviewActions}>
+                              {whatsappLink && (
+                                <a
+                                  href={whatsappLink}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{
+                                    ...styles.dashboardReviewButton,
+                                    textAlign: "center",
+                                    textDecoration: "none",
+                                    backgroundColor: theme.primary || "#16a34a",
+                                    color: "#ffffff",
+                                  }}
+                                >
+                                  WhatsApp
+                                </a>
+                              )}
+                              <button type="button" style={{ ...styles.dashboardReviewButton, backgroundColor: "#e5e7eb", color: "#111827" }} onClick={() => handleUpdateWaitlistEntryStatus(entry.id, "contactado")} disabled={submitting}>
+                                Contactado
+                              </button>
+                              <button type="button" style={{ ...styles.dashboardReviewButton, backgroundColor: "#dcfce7", color: "#166534" }} onClick={() => handleUpdateWaitlistEntryStatus(entry.id, "convertido")} disabled={submitting}>
+                                Reservo
+                              </button>
+                              <button type="button" style={{ ...styles.dashboardReviewButton, backgroundColor: "#fee2e2", color: "#991b1b" }} onClick={() => handleUpdateWaitlistEntryStatus(entry.id, "descartado")} disabled={submitting}>
+                                Descartar
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
                     </>
                   )}
                   </>
@@ -5369,6 +5650,178 @@ updateAppointment={updateAppointment}
 
         <AgendaSmartFooter isMobile={isMobile} theme={theme} />
 
+        {waitlistSlot && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 60,
+              backgroundColor: "rgba(15, 23, 42, 0.45)",
+              display: "flex",
+              alignItems: isMobile ? "flex-end" : "center",
+              justifyContent: "center",
+              padding: isMobile ? "0" : "20px",
+            }}
+            onClick={closeWaitlistPanel}
+          >
+            <div
+              style={{
+                width: "100%",
+                maxWidth: "520px",
+                backgroundColor: "#ffffff",
+                borderRadius: isMobile ? "20px 20px 0 0" : "20px",
+                padding: isMobile ? "20px" : "24px",
+                border: `1px solid ${theme.border || "#bbf7d0"}`,
+                boxShadow: "0 24px 80px rgba(15, 23, 42, 0.22)",
+              }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  gap: "12px",
+                  marginBottom: "16px",
+                }}
+              >
+                <div>
+                  <h2 style={{ margin: "0 0 6px", fontSize: "24px" }}>
+                    Lista de espera
+                  </h2>
+                  <p style={{ margin: 0, color: "#475569", lineHeight: 1.45 }}>
+                    Registra un cliente que quiere reserva si se libera un horario.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeWaitlistPanel}
+                  style={{
+                    ...styles.button,
+                    ...styles.secondaryButton,
+                    padding: "10px 12px",
+                  }}
+                >
+                  Cerrar
+                </button>
+              </div>
+
+              <div style={{ display: "grid", gap: "12px" }}>
+                <input
+                  style={styles.input}
+                  placeholder="Nombre cliente / equipo"
+                  value={waitlistName}
+                  onChange={(event) => setWaitlistName(event.target.value)}
+                />
+                <input
+                  style={styles.input}
+                  placeholder="Celular cliente (ej: 912345678)"
+                  value={waitlistPhone}
+                  onChange={(event) => setWaitlistPhone(event.target.value)}
+                />
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                    gap: "12px",
+                  }}
+                >
+                  <input
+                    style={styles.input}
+                    type="date"
+                    value={waitlistSlot.date || ""}
+                    onChange={(event) => updateWaitlistSlot("date", event.target.value)}
+                  />
+                  <select
+                    style={styles.select}
+                    value={waitlistSlot.time || ""}
+                    onChange={(event) => updateWaitlistSlot("time", event.target.value)}
+                  >
+                    <option value="">Selecciona hora</option>
+                    {waitlistModalTimes.map((slotValue) => (
+                      <option key={slotValue} value={slotValue}>
+                        {slotValue}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <select
+                  style={styles.select}
+                  value={waitlistSlot.barber || ""}
+                  onChange={(event) => updateWaitlistSlot("barber", event.target.value)}
+                >
+                  <option value="">Selecciona {mergedBusiness?.resourceLabelSingular || "recurso"}</option>
+                  {BARBERS.map((barberName) => (
+                    <option key={barberName} value={barberName}>
+                      {barberName}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  style={styles.select}
+                  value={waitlistSlot.service || ""}
+                  onChange={(event) => updateWaitlistSlot("service", event.target.value)}
+                >
+                  <option value="">Selecciona servicio</option>
+                  {waitlistModalServices.map((serviceName) => (
+                    <option key={serviceName} value={serviceName}>
+                      {serviceName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div
+                style={{
+                  border: `1px solid ${theme.border || "#bbf7d0"}`,
+                  borderRadius: "14px",
+                  backgroundColor: theme.primarySoft || "#dcfce7",
+                  padding: "14px",
+                  marginTop: "14px",
+                  color: "#0f172a",
+                }}
+              >
+                <div style={{ fontWeight: "900", marginBottom: "4px" }}>
+                  {waitlistSlot.service || "Servicio por definir"}
+                </div>
+                <div style={{ color: "#475569", fontWeight: "700" }}>
+                  {waitlistSlot.barber || "Recurso"} · {waitlistSlot.date || "Fecha"} · {waitlistSlot.time || "Hora"}
+                </div>
+              </div>
+
+              {waitlistMessage && (
+                <div
+                  style={{
+                    marginTop: "12px",
+                    color: "#991b1b",
+                    fontWeight: "800",
+                  }}
+                >
+                  {waitlistMessage}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleCreateWaitlistEntry}
+                disabled={waitlistSubmitting}
+                style={{
+                  ...styles.button,
+                  ...styles.primaryButton,
+                  width: "100%",
+                  marginTop: "16px",
+                  opacity: waitlistSubmitting ? 0.7 : 1,
+                }}
+              >
+                {waitlistSubmitting ? "Guardando..." : "Agregar a lista de espera"}
+              </button>
+            </div>
+          </div>
+        )}
         {reservationVoucher && (
           <ReservationVoucherModal
             voucher={reservationVoucher}
@@ -6109,3 +6562,21 @@ lineHeight: 1.2,
 }
 
 export default App;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

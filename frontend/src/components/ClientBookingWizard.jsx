@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   addDays,
   formatDateToInput,
@@ -39,6 +39,7 @@ function ClientBookingWizard({
   allowReservationWithoutPayment = false,
   reserveWithoutPayment = false,
   setReserveWithoutPayment = () => {},
+  onJoinWaitlist = null,
 }) {
   const showResourceStep = !business?.hideResourceSelector;
   const resourceFirstFlow = Boolean(
@@ -856,7 +857,11 @@ function ClientBookingWizard({
 ) : (
   availableTimes.map((slot) => {
     const isSelected = time === slot.value;
-const isDisabled = slot.disabled;
+const isWaitlistSlot =
+      Boolean(slot.isTaken) &&
+      slot.status === "taken" &&
+      typeof onJoinWaitlist === "function";
+const isDisabled = slot.disabled && !isWaitlistSlot;
 const isLookingForOpponent = slot.status === "looking_opponent";
 const isBlocked = slot.status === "blocked";
 
@@ -867,6 +872,11 @@ const isBlocked = slot.status === "blocked";
         disabled={isDisabled}
         onClick={() => {
           if (isDisabled) return;
+
+          if (isWaitlistSlot) {
+            onJoinWaitlist(slot);
+            return;
+          }
 
           const isSame = time === slot.value;
 
@@ -951,7 +961,9 @@ const isBlocked = slot.status === "blocked";
   : isBlocked
   ? "Bloqueado"
   : slot.status === "taken"
-  ? business?.takenSlotLabel || "Reservado"
+  ? isWaitlistSlot
+    ? "Lista de espera"
+    : business?.takenSlotLabel || "Reservado"
   : slot.status === "past"
   ? business?.pastSlotLabel || "Pasó"
   : business?.availableSlotLabel || "Disponible"}
@@ -1268,3 +1280,9 @@ const isBlocked = slot.status === "blocked";
 }
 
 export default ClientBookingWizard;
+
+
+
+
+
+

@@ -1,4 +1,4 @@
-import api from "./api";
+﻿import api from "./api";
 
 export const getAppointments = (businessId, filters = {}) => {
   return api.get("/appointments", {
@@ -42,6 +42,20 @@ export const deleteScheduleBlock = (id, businessId) => {
 
 export const createAppointment = (data) => {
   return api.post("/appointments", data);
+};
+
+export const getAdminWaitlistEntries = (filters = {}) => {
+  return api.get("/admin/waitlist", {
+    params: filters,
+  });
+};
+
+export const createWaitlistEntry = (data) => {
+  return api.post("/waitlist", data);
+};
+
+export const updateWaitlistEntry = (id, data) => {
+  return api.put(`/waitlist/${id}`, data);
 };
 
 export const joinOpponentAppointment = (appointmentId, data) => {
