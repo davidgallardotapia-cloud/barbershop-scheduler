@@ -3428,7 +3428,7 @@ setEditingId(appointment.id);
       const transferenciaPaid = Number(appointment.transferencia_paid || 0);
       const debitoPaid = Number(appointment.debito_paid || 0);
       const efectivoPaid = Number(appointment.efectivo_paid || 0);
-      const paymentStatus = getEffectivePaymentStatus(appointment);
+      const paymentStatus = getEffectiveAppointmentPaymentStatus(appointment);
       const isPaid = paymentStatus === "paid";
       const isPartial = ["deposit_paid", "partially_paid"].includes(paymentStatus);
       const isUnpaid = ["unpaid", "deposit_pending"].includes(paymentStatus);
@@ -3470,7 +3470,7 @@ setEditingId(appointment.id);
 
   const paidReservationsPendingAttention = dashboardAppointments
     .filter((appointment) => {
-      const paymentStatus = getEffectivePaymentStatus(appointment);
+      const paymentStatus = getEffectiveAppointmentPaymentStatus(appointment);
       const reservationStatus = appointment.status || "reservada";
 
       return paymentStatus === "paid" && reservationStatus === "reservada";
@@ -6562,21 +6562,4 @@ lineHeight: 1.2,
 }
 
 export default App;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
