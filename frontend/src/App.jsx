@@ -1411,7 +1411,7 @@ const [barber, setBarber] = useState("");
     if (normalized === "atendida") {
       return {
         label: "Atendida",
-        icon: "ðŸŸ¢",
+        icon: "🟢",
         background: "#dcfce7",
         border: "#86efac",
         color: "#166534",
@@ -1421,7 +1421,7 @@ const [barber, setBarber] = useState("");
     if (normalized === "no_asistio" || normalized === "no asistio") {
       return {
         label: "No asistió",
-        icon: "ðŸ”´",
+        icon: "🔴",
         background: "#fee2e2",
         border: "#fca5a5",
         color: "#991b1b",
@@ -1440,7 +1440,7 @@ const [barber, setBarber] = useState("");
 
     return {
       label: "Reservada",
-      icon: "ðŸŸ¡",
+      icon: "🟡",
       background: "#fef3c7",
       border: "#fcd34d",
       color: "#92400e",
@@ -1463,7 +1463,7 @@ const [barber, setBarber] = useState("");
     if (normalized === "partially_paid") {
       return {
         label: "Pago parcial",
-        icon: "ðŸŸ¡",
+        icon: "🟡",
         background: "#fef3c7",
         border: "#fcd34d",
         color: "#92400e",
@@ -1473,7 +1473,7 @@ const [barber, setBarber] = useState("");
     if (normalized === "deposit_paid") {
       return {
         label: "Abono registrado",
-        icon: "ðŸŸ ",
+        icon: "🟠",
         background: "#ffedd5",
         border: "#fdba74",
         color: "#9a3412",
@@ -1502,7 +1502,7 @@ const [barber, setBarber] = useState("");
 
     return {
       label: "Sin pago",
-      icon: "ðŸ”´",
+      icon: "🔴",
       background: "#fee2e2",
       border: "#fca5a5",
       color: "#991b1b",
@@ -2332,7 +2332,7 @@ if (generatedOpponentWhatsappUrl) {
 
     setMessage(`✅ Te sumaste como rival correctamente
 
-ðŸ“… ${date} a las ${time}
+📅 ${date} a las ${time}
 ${mergedBusiness?.resourceLabelSingle || "Cancha"}: ${resolvedBarber}
 
 ⚽ Partido completado`);
@@ -6425,7 +6425,7 @@ lineHeight: 1.2,
                                   lineHeight: 1.3,
                                 }}
                               >
-                                ðŸ“ {payment.notes}
+                                📝 {payment.notes}
                               </div>
                             ) : null}
 

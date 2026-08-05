@@ -7,9 +7,9 @@
     subtitle: "Cortes de cabello y barba profesionales",
 
     phone: "+569 3216 7325",
-    hours: "Lunes a sÃ¡bado: 10:30 a 15:00 y 16:00 a 21:00",
+    hours: "Lunes a sábado: 10:30 a 15:00 y 16:00 a 21:00",
     location: "Coquimbo",
-    address: "AnÃ­bal Pinto 1601, Coquimbo",
+    address: "Aníbal Pinto 1601, Coquimbo",
 
     image: "/urban-district-barber/james-hero.jpeg",
     logo: "/urban-district-barber/logo-james.jpg",
@@ -17,13 +17,13 @@
     description:
       "Reserva tu cita online y redefine tu imagen con cortes de cabello y barba profesionales.",
 
-    whatsappLabel: "ContÃ¡ctanos por WhatsApp",
+    whatsappLabel: "Contáctanos por WhatsApp",
     mapLink: "https://maps.google.com/?q=An%C3%ADbal+Pinto+1601,+Coquimbo",
     mapEmbedUrl:
       "https://www.google.com/maps?q=Anibal+Pinto+1601+Coquimbo&output=embed",
 
-    bookingTitle: "Reserva tu hora ðŸ’ˆ",
-    adminTitle: "Agenda BarberÃ­a ðŸ’ˆ",
+    bookingTitle: "Reserva tu hora 💈",
+    adminTitle: "Agenda Barbería 💈",
     linkTheme: {
       pageBackground: "#f4f4f5",
       cardBackground: "#ffffff",
@@ -59,7 +59,7 @@
     submittingLabel: "Reservando...",
     updateButtonLabel: "Actualizar cita",
     updatingLabel: "Actualizando...",
-    cancelEditLabel: "Cancelar ediciÃ³n",
+    cancelEditLabel: "Cancelar edición",
     createButtonLabel: "Crear cita",
     creatingLabel: "Creando...",
     newItemTitle: "Nueva cita",
@@ -71,7 +71,7 @@
     serviceSelectOption: "Selecciona un servicio",
     blockedWeekdays: [0],
     takenSlotLabel: "Ocupado",
-    pastSlotLabel: "PasÃ³",
+    pastSlotLabel: "Pasó",
     availableSlotLabel: "Disponible",
     paymentsEnabled: false,
     depositFeatureEnabled: false,
@@ -121,23 +121,23 @@
     id: "barberia-junior",
     tabTitle: "Barberia Junior | AgendaSmart",
     favicon: "/urban-district-barber/logo-james.jpg",
-    name: "BarberÃ­a Junior",
-    subtitle: "Cortes clÃ¡sicos y modernos",
+    name: "Barbería Junior",
+    subtitle: "Cortes clásicos y modernos",
     phone: "+56 9 1234 5678",
-    hours: "PrÃ³ximamente",
+    hours: "Próximamente",
     location: "La Serena",
-    address: "DirecciÃ³n por definir",
+    address: "Dirección por definir",
     image: "/urban-district-barber/james-hero.jpeg",
     logo: "/urban-district-barber/logo-james.jpg",
     description:
-      "Agenda tu hora en BarberÃ­a Junior y disfruta de un servicio profesional.",
-    whatsappLabel: "ContÃ¡ctanos por WhatsApp",
+      "Agenda tu hora en Barbería Junior y disfruta de un servicio profesional.",
+    whatsappLabel: "Contáctanos por WhatsApp",
     mapLink: "https://maps.google.com",
     mapEmbedUrl:
       "https://www.google.com/maps?q=La+Serena&output=embed",
 
-    bookingTitle: "Reserva tu hora ðŸ’ˆ",
-    adminTitle: "Agenda BarberÃ­a ðŸ’ˆ",
+    bookingTitle: "Reserva tu hora 💈",
+    adminTitle: "Agenda Barbería 💈",
     bookingPanelTitle: "Agenda tu hora",
     bookingPanelDescription:
       "Elige tu barbero, selecciona un bloque disponible y confirma tu reserva en segundos.",
@@ -152,7 +152,7 @@
     submittingLabel: "Reservando...",
     updateButtonLabel: "Actualizar cita",
     updatingLabel: "Actualizando...",
-    cancelEditLabel: "Cancelar ediciÃ³n",
+    cancelEditLabel: "Cancelar edición",
     createButtonLabel: "Crear cita",
     creatingLabel: "Creando...",
     newItemTitle: "Nueva cita",
@@ -172,7 +172,7 @@
     },
 
     services: [
-      "Corte bÃ¡sico ($6.000)",
+      "Corte básico ($6.000)",
       "Corte + barba ($10.000)",
     ],
 
@@ -188,7 +188,7 @@
     tabTitle: "Canchas Giocata | AgendaSmart",
     favicon: "/giocata/giocata-favicon.png",
     name: "Canchas Giocata",
-    subtitle: "Arriendo de canchas de fÃºtbol",
+    subtitle: "Arriendo de canchas de fútbol",
     logoWidth: "150px",
     logoHeight: "150px",
     phone: "+56 9 9323 9412",
@@ -198,7 +198,7 @@
     image: "/giocata/giocata-hero-optimized.jpg",
     logo: "/giocata/giocata-logo-optimized.jpg",
     description:
-      "Reserva tu cancha online en La Serena de forma rÃ¡pida y simple. Elige la cancha, selecciona el horario disponible y confirma tu reserva fÃ¡cilmente por WhatsApp.",
+      "Reserva tu cancha online en La Serena de forma rápida y simple. Elige la cancha, selecciona el horario disponible y confirma tu reserva fácilmente por WhatsApp.",
     whatsappUrl: "https://wa.me/56993239412",
     whatsappLabel: "Confirma tu reserva por WhatsApp",
     mapLink: "https://maps.google.com/?q=Hortensia+Bustamante+52,+La+Serena",
@@ -240,7 +240,7 @@
     submittingLabel: "Reservando...",
     updateButtonLabel: "Actualizar reserva",
     updatingLabel: "Actualizando...",
-    cancelEditLabel: "Cancelar ediciÃ³n",
+    cancelEditLabel: "Cancelar edición",
     createButtonLabel: "Crear reserva",
     creatingLabel: "Creando...",
     headerProfessionalsLimit: 3,
@@ -254,7 +254,7 @@
     serviceSelectOption: "Selecciona un tipo de cancha",
     blockedWeekdays: [],
     takenSlotLabel: "Reservado",
-    pastSlotLabel: "PasÃ³",
+    pastSlotLabel: "Pasó",
     availableSlotLabel: "Disponible",
     paymentsEnabled: true,
     waitlistEnabled: true,
@@ -300,30 +300,30 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     },
 
     professionals: [
-      { name: "FÃºtbol 6", image: "/giocata/giocata-logo.png" },
-      { name: "FÃºtbol 7", image: "/giocata/giocata-logo.png" },
-      { name: "FÃºtbol 8", image: "/giocata/giocata-logo.png" },
+      { name: "Fútbol 6", image: "/giocata/giocata-logo.png" },
+      { name: "Fútbol 7", image: "/giocata/giocata-logo.png" },
+      { name: "Fútbol 8", image: "/giocata/giocata-logo.png" },
     ],
   },
     "pinguino-club": {
     id: "pinguino-club",
-    tabTitle: "PingÃ¼ino Club | AgendaSmart",
+    tabTitle: "Pingüino Club | AgendaSmart",
     favicon: "/pinguino-club/pinguino-logo.jpg",
-    name: "PingÃ¼ino Club",
-    subtitle: "Reserva tu cancha de forma rÃ¡pida y simple",
+    name: "Pingüino Club",
+    subtitle: "Reserva tu cancha de forma rápida y simple",
     logoWidth: "150px",
     logoHeight: "150px",
 
     phone: "Por definir",
     hours: "Horario por definir",
     location: "Por definir",
-    address: "DirecciÃ³n por definir",
+    address: "Dirección por definir",
 
     image: "/pinguino-club/pinguino-hero.png",
     logo: "/pinguino-club/pinguino-logo.jpg",
 
     description:
-      "Reserva online en PingÃ¼ino Club. Elige la cancha, selecciona un horario disponible y confirma tu reserva fÃ¡cilmente.",
+      "Reserva online en Pingüino Club. Elige la cancha, selecciona un horario disponible y confirma tu reserva fácilmente.",
 
     whatsappLabel: "Confirma tu reserva por WhatsApp",
     mapLink: "https://maps.google.com",
@@ -365,7 +365,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     submittingLabel: "Reservando...",
     updateButtonLabel: "Actualizar reserva",
     updatingLabel: "Actualizando...",
-    cancelEditLabel: "Cancelar ediciÃ³n",
+    cancelEditLabel: "Cancelar edición",
     createButtonLabel: "Crear reserva",
     creatingLabel: "Creando...",
 
@@ -383,7 +383,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
 
     blockedWeekdays: [],
     takenSlotLabel: "Reservado",
-    pastSlotLabel: "PasÃ³",
+    pastSlotLabel: "Pasó",
     availableSlotLabel: "Disponible",
 
     paymentsEnabled: true,
@@ -626,9 +626,9 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     mapEmbedUrl:
       "https://www.google.com/maps?q=Videla+340+oficina+212,+Edificio+Arenas,+Coquimbo&output=embed",
 
-    bookingTitle: "Agenda tu atenciÃ³n",
+    bookingTitle: "Agenda tu atención",
     adminTitle: "Panel Regencura",
-    linkBookingLabel: "Agenda tu atenciÃ³n",
+    linkBookingLabel: "Agenda tu atención",
     linkTheme: {
       pageBackground: "#fffaf2",
       cardBackground: "#ffffff",
@@ -911,7 +911,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     favicon: "/agendasmart/agendasmart-favicon.png",
 
     name: "AgendaSmart Demo",
-    subtitle: "Explora la plataforma en acciÃ³n",
+    subtitle: "Explora la plataforma en acción",
     phone: "+56 9 8828 7547",
     hours: "Demo disponible 24/7",
     location: "Demo comercial",
@@ -923,7 +923,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     logoHeight: "120px",
 
     description:
-      "Explora cÃ³mo AgendaSmart ayuda a negocios a gestionar reservas, clientes, horarios, pagos y disponibilidad desde una sola plataforma.",
+      "Explora cómo AgendaSmart ayuda a negocios a gestionar reservas, clientes, horarios, pagos y disponibilidad desde una sola plataforma.",
 
     whatsappUrl: "https://wa.me/56988287547",
     whatsappLabel: "Solicitar demo por WhatsApp",
@@ -939,7 +939,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
 
     bookingPanelTitle: "Prueba una reserva online",
     bookingPanelDescription:
-      "Simula el flujo que verÃ­a un cliente: elige un servicio, selecciona un horario disponible y registra una reserva de prueba.",
+      "Simula el flujo que vería un cliente: elige un servicio, selecciona un horario disponible y registra una reserva de prueba.",
 
     calendarHelpText:
       "Selecciona un horario disponible para simular una reserva.",
@@ -957,7 +957,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     submittingLabel: "Creando reserva...",
     updateButtonLabel: "Actualizar reserva demo",
     updatingLabel: "Actualizando...",
-    cancelEditLabel: "Cancelar ediciÃ³n",
+    cancelEditLabel: "Cancelar edición",
 
     createButtonLabel: "Crear reserva",
     creatingLabel: "Creando...",
@@ -972,7 +972,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
 
     blockedWeekdays: [],
     takenSlotLabel: "Ocupado",
-    pastSlotLabel: "PasÃ³",
+    pastSlotLabel: "Pasó",
     availableSlotLabel: "Disponible",
 
     paymentsEnabled: true,
@@ -993,10 +993,10 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     services: [
       "Pago de prueba ($1.000)",
       "Consulta inicial ($15.000)",
-      "SesiÃ³n personalizada ($25.000)",
+      "Sesión personalizada ($25.000)",
       "Reserva de espacio ($30.000)",
       "Servicio premium ($40.000)",
-      "AtenciÃ³n completa ($50.000)",
+      "Atención completa ($50.000)",
     ],
 
     scheduleSlots: [
