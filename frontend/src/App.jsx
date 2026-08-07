@@ -2283,7 +2283,9 @@ setEditingId(null);
           appointmentDate === date &&
           appointmentTime === String(time || "").slice(0, 5) &&
           appointment.barber === resolvedBarber &&
-          Boolean(appointment.needs_opponent)
+          Boolean(appointment.needs_opponent) &&
+          !appointment.opponent_name &&
+          !appointment.opponent_phone
         );
       })
     : null;
@@ -3845,6 +3847,7 @@ setEditingId(appointment.id);
         const appointmentTime = String(appointment.time || "").slice(0, 5);
 
         if (!Boolean(appointment.needs_opponent)) return false;
+        if (appointment.opponent_name || appointment.opponent_phone) return false;
         if (!appointmentDate || !appointmentTime) return false;
         if (allowedDateValues.size > 0 && !allowedDateValues.has(appointmentDate)) {
           return false;
@@ -3946,7 +3949,10 @@ setEditingId(appointment.id);
       : slotAppointments;
 
     const opponentAppointment = relevantAppointments.find(
-      (appointment) => Boolean(appointment.needs_opponent)
+      (appointment) =>
+        Boolean(appointment.needs_opponent) &&
+        !appointment.opponent_name &&
+        !appointment.opponent_phone
     );
 
     const isTaken = relevantAppointments.length > 0;

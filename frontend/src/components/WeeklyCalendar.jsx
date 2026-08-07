@@ -351,7 +351,32 @@ function WeeklyCalendar({
   };
 
   const isLookingForOpponent = (appointment) => {
-    return Boolean(appointment?.needs_opponent);
+    return (
+      Boolean(appointment?.needs_opponent) &&
+      !appointment?.opponent_name &&
+      !appointment?.opponent_phone
+    );
+  };
+  const getBookingOriginInfo = (appointment) => {
+    const createdFromAdmin = Boolean(
+      appointment?.created_by || appointment?.created_by_admin
+    );
+
+    return createdFromAdmin
+      ? {
+          label: "Admin",
+          shortLabel: "A",
+          background: "#e0f2fe",
+          border: "#7dd3fc",
+          color: "#075985",
+        }
+      : {
+          label: "Cliente",
+          shortLabel: "C",
+          background: "#f0fdf4",
+          border: "#86efac",
+          color: "#166534",
+        };
   };
 
   const getSportsAppointmentForResource = (appointments, resourceName) => {
@@ -447,6 +472,7 @@ function WeeklyCalendar({
             {mobileClientSearchResults.map((appointment) => {
             const reservationInfo = getReservationStatusInfo(appointment.status);
             const paymentInfo = getPaymentStatusInfo(appointment.payment_status);
+            const originInfo = getBookingOriginInfo(appointment);
             const appointmentDate = String(appointment.date || "").slice(0, 10);
             const dateLabel = appointmentDate
               ? new Date(`${appointmentDate}T00:00:00`).toLocaleDateString(
@@ -513,6 +539,22 @@ function WeeklyCalendar({
                     </div>
                   </div>
 
+                  <span
+                    title={`Creada desde ${originInfo.label}`}
+                    style={{
+                      border: `1px solid ${originInfo.border}`,
+                      borderRadius: "999px",
+                      padding: "3px 7px",
+                      backgroundColor: originInfo.background,
+                      color: originInfo.color,
+                      fontSize: "10px",
+                      fontWeight: "900",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {originInfo.shortLabel}
+                  </span>
                   <span
                     title={`Reserva: ${reservationInfo.label}`}
                     style={{
@@ -648,6 +690,7 @@ function WeeklyCalendar({
     const reservationInfo = getReservationStatusInfo(appointment?.status);
     const occupied = Boolean(appointment);
     const lookingOpponent = isLookingForOpponent(appointment);
+    const originInfo = getBookingOriginInfo(appointment);
 
     return (
       <button
@@ -724,6 +767,25 @@ function WeeklyCalendar({
             />
           )}
 
+          {occupied && (
+            <span
+              title={`Creada desde ${originInfo.label}`}
+              style={{
+                border: `1px solid ${originInfo.border}`,
+                borderRadius: "999px",
+                padding: "2px 5px",
+                backgroundColor: originInfo.background,
+                color: originInfo.color,
+                fontSize: "9px",
+                fontWeight: "900",
+                lineHeight: 1,
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+            >
+              {originInfo.shortLabel}
+            </span>
+          )}
           <span
             style={{
               minWidth: 0,
@@ -737,7 +799,22 @@ function WeeklyCalendar({
           </span>
         </span>
 
-        {occupied ? (
+        {lookingOpponent ? (
+          <span
+            style={{
+              fontSize: "10px",
+              fontWeight: "900",
+              color: "#1d4ed8",
+              backgroundColor: "#dbeafe",
+              border: "1px solid #93c5fd",
+              borderRadius: "999px",
+              padding: "3px 6px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Rival
+          </span>
+        ) : occupied ? (
           <span
             title={`Pago: ${paymentInfo.label}`}
             style={{
@@ -752,21 +829,6 @@ function WeeklyCalendar({
             }}
           >
             {paymentInfo.shortLabel}
-          </span>
-        ) : lookingOpponent ? (
-          <span
-            style={{
-              fontSize: "10px",
-              fontWeight: "900",
-              color: "#1d4ed8",
-              backgroundColor: "#dbeafe",
-              border: "1px solid #93c5fd",
-              borderRadius: "999px",
-              padding: "3px 6px",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Rival
           </span>
         ) : (
           <span />
@@ -1331,9 +1393,10 @@ function WeeklyCalendar({
                                 fontSize: "18px",
                                 ...(submitting ? styles.disabledButton : {}),
                               }}
-                              onClick={() =>
-                                markAppointmentAsAttended(appointment)
-                              }
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                markAppointmentAsAttended(appointment);
+                              }}
                               disabled={submitting}
                             >
                               ✓
@@ -1355,9 +1418,10 @@ function WeeklyCalendar({
                                 fontSize: "18px",
                                 ...(submitting ? styles.disabledButton : {}),
                               }}
-                              onClick={() =>
-                                markAppointmentAsNoShow(appointment)
-                              }
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                markAppointmentAsNoShow(appointment);
+                              }}
                               disabled={submitting}
                             >
                               ✕
@@ -1372,7 +1436,10 @@ function WeeklyCalendar({
                                 minWidth: "90px",
                                 ...(submitting ? styles.disabledButton : {}),
                               }}
-                              onClick={() => editAppointment(appointment)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                editAppointment(appointment);
+                              }}
                               disabled={submitting}
                             >
                               Editar
@@ -1388,7 +1455,10 @@ function WeeklyCalendar({
                                   minWidth: "90px",
                                   ...(submitting ? styles.disabledButton : {}),
                                 }}
-                                onClick={() => openPaymentPanel?.(appointment)}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  openPaymentPanel?.(appointment);
+                                }}
                                 disabled={submitting}
                               >
                                 Pago
@@ -1404,7 +1474,10 @@ function WeeklyCalendar({
                                 minWidth: "90px",
                                 ...(submitting ? styles.disabledButton : {}),
                               }}
-                              onClick={() => deleteAppointment(appointment.id)}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                deleteAppointment(appointment.id);
+                              }}
                               disabled={submitting}
                             >
                               Eliminar
@@ -1641,9 +1714,10 @@ function WeeklyCalendar({
                                           ? styles.disabledButton
                                           : {}),
                                       }}
-                                      onClick={() =>
-                                        markAppointmentAsAttended(appointment)
-                                      }
+                                      onClick={(event) => {
+                                event.stopPropagation();
+                                markAppointmentAsAttended(appointment);
+                              }}
                                       disabled={submitting}
                                     >
                                       ✓
@@ -1667,9 +1741,10 @@ function WeeklyCalendar({
                                           ? styles.disabledButton
                                           : {}),
                                       }}
-                                      onClick={() =>
-                                        markAppointmentAsNoShow(appointment)
-                                      }
+                                      onClick={(event) => {
+                                event.stopPropagation();
+                                markAppointmentAsNoShow(appointment);
+                              }}
                                       disabled={submitting}
                                     >
                                       ✕
@@ -1684,7 +1759,10 @@ function WeeklyCalendar({
                                           ? styles.disabledButton
                                           : {}),
                                       }}
-                                      onClick={() => editAppointment(appointment)}
+                                      onClick={(event) => {
+                                event.stopPropagation();
+                                editAppointment(appointment);
+                              }}
                                       disabled={submitting}
                                     >
                                       Editar
@@ -1700,9 +1778,10 @@ function WeeklyCalendar({
                                             ? styles.disabledButton
                                             : {}),
                                         }}
-                                        onClick={() =>
-                                          openPaymentPanel?.(appointment)
-                                        }
+                                        onClick={(event) => {
+                                event.stopPropagation();
+                                openPaymentPanel?.(appointment);
+                              }}
                                         disabled={submitting}
                                       >
                                         Pago
@@ -1718,9 +1797,10 @@ function WeeklyCalendar({
                                           ? styles.disabledButton
                                           : {}),
                                       }}
-                                      onClick={() =>
-                                        deleteAppointment(appointment.id)
-                                      }
+                                      onClick={(event) => {
+                                event.stopPropagation();
+                                deleteAppointment(appointment.id);
+                              }}
                                       disabled={submitting}
                                     >
                                       Eliminar

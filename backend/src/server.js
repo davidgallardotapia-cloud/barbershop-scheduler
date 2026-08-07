@@ -1,4 +1,4 @@
-﻿require("dotenv").config();
+require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
@@ -1745,6 +1745,11 @@ const toPublicAppointment = (appointment) => {
     recurrence_group_id: appointment.recurrence_group_id,
     recurrence_type: appointment.recurrence_type,
     recurrence_index: appointment.recurrence_index,
+    created_by_admin: Boolean(
+      appointment.created_by_admin ||
+        appointment.created_by ||
+        appointment.created_via === "admin"
+    ),
   };
 };
 
@@ -1997,6 +2002,17 @@ const createTables = async () => {
     await pool.query(`
       ALTER TABLE appointments
       ADD COLUMN IF NOT EXISTS recurrence_index INTEGER;
+    `);
+
+    await pool.query(`
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS created_by INTEGER;
+    `);
+
+    await pool.query(`
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS created_via VARCHAR(20) NOT NULL DEFAULT 'client'
+        CHECK (created_via IN ('client', 'admin'));
     `);
 
     await pool.query(`
@@ -3119,7 +3135,8 @@ app.get("/appointments", async (req, res) => {
         needs_opponent,
         recurrence_group_id,
         recurrence_type,
-        recurrence_index
+        recurrence_index,
+        (created_by IS NOT NULL OR created_via = 'admin') AS created_by_admin
        FROM appointments
        WHERE ${appointmentFilter.whereClause}
        ORDER BY date ASC, time ASC`,
@@ -4155,8 +4172,14 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
     ? depositReceiptUrl || null
     : null;
   const finalNotes = isAdminRequest ? notes || null : null;
-  const finalNeedsOpponent = isAdminRequest ? needsOpponent ?? false : false;
   const finalOpponentName = isAdminRequest ? opponentName || null : null;
+  const finalCreatedBy = isAdminRequest ? req.user?.id || null : null;
+  const finalCreatedVia = isAdminRequest ? "admin" : "client";
+  const finalNeedsOpponent =
+    isAdminRequest &&
+    Boolean(needsOpponent) &&
+    !finalOpponentName &&
+    !normalizedOpponentPhone;
 
   try {
     const overlappingScheduleBlocks = await getOverlappingScheduleBlocks({
@@ -4248,9 +4271,11 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
         notes,
         needs_opponent,
         opponent_name,
-        opponent_phone
+        opponent_phone,
+        created_by,
+        created_via
       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
        RETURNING *`,
       [
         name,
@@ -4272,6 +4297,8 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
         finalNeedsOpponent,
         finalOpponentName,
         normalizedOpponentPhone,
+        finalCreatedBy,
+        finalCreatedVia,
       ]
     );
 
@@ -4381,6 +4408,11 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
   const normalizedOpponentPhone = opponentPhone
     ? normalizeChilePhone(opponentPhone)
     : null;
+  const finalOpponentName = opponentName || null;
+  const finalNeedsOpponent =
+    Boolean(needsOpponent) && !finalOpponentName && !normalizedOpponentPhone;
+  const finalCreatedBy = req.user?.id || null;
+  const finalCreatedVia = "admin";
 
   const recurringGroupId = `monthly-${businessId}-${Date.now()}-${Math.random()
     .toString(36)
@@ -4490,13 +4522,15 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
           needs_opponent,
           opponent_name,
           opponent_phone,
+          created_by,
+          created_via,
           recurrence_group_id,
           recurrence_type,
           recurrence_index
         )
          VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-          $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
+          $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
         )
          RETURNING *`,
         [
@@ -4514,9 +4548,11 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
           paymentStatus || (depositRequired ? "deposit_pending" : "unpaid"),
           depositReceiptUrl || null,
           finalNotes,
-          needsOpponent ?? false,
-          opponentName || null,
+          finalNeedsOpponent,
+          finalOpponentName,
           normalizedOpponentPhone,
+          finalCreatedBy,
+          finalCreatedVia,
           recurringGroupId,
           "monthly",
           index + 1,
@@ -4685,6 +4721,9 @@ app.put("/appointments/:id", requireAuth, async (req, res) => {
   const normalizedOpponentPhone = opponentPhone
     ? normalizeChilePhone(opponentPhone)
     : null;
+  const finalOpponentName = opponentName || null;
+  const finalNeedsOpponent =
+    Boolean(needsOpponent) && !finalOpponentName && !normalizedOpponentPhone;
 
   try {
     const scopedAppointmentResult = await getScopedAppointmentById({
@@ -4809,8 +4848,8 @@ app.put("/appointments/:id", requireAuth, async (req, res) => {
         paymentStatus || (depositRequired ? "deposit_pending" : "unpaid"),
         depositReceiptUrl || null,
         notes || null,
-        needsOpponent ?? false,
-        opponentName || null,
+        finalNeedsOpponent,
+        finalOpponentName,
         normalizedOpponentPhone,
         id,
       ]

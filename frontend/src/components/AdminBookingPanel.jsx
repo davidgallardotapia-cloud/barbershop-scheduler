@@ -435,14 +435,14 @@ function AdminBookingPanel({
               <div style={{ marginTop: "12px" }}>
                 <input
                   style={styles.input}
-                  placeholder="Nombre del rival (opcional)"
+                  placeholder="Nombre del rival si ya está confirmado (opcional)"
                   value={opponentName}
                   onChange={(e) => setOpponentName(e.target.value)}
                 />
 
                 <input
                   style={styles.input}
-                  placeholder="Celular del rival (opcional)"
+                  placeholder="Celular del rival si ya está confirmado (opcional)"
                   value={opponentPhone}
                   onChange={(e) => setOpponentPhone(e.target.value)}
                 />
