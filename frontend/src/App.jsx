@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import LoginScreen from "./components/LoginScreen";
 import AdminBookingPanel from "./components/AdminBookingPanel";
 import ClinicalRecordsPanel from "./components/ClinicalRecordsPanel";
@@ -890,6 +890,7 @@ const [barber, setBarber] = useState("");
   const [editingPaymentId, setEditingPaymentId] = useState(null);
   const [paymentPanelError, setPaymentPanelError] = useState("");
   const [isMonthlyReservation, setIsMonthlyReservation] = useState(false);
+  const [isQuarterlyReservation, setIsQuarterlyReservation] = useState(false);
   const [blockResource, setBlockResource] = useState("");
   const [blockStartDate, setBlockStartDate] = useState(() =>
     formatDateToInput(new Date())
@@ -2165,6 +2166,7 @@ setNeedsOpponent(false);
 setOpponentName("");
 setOpponentPhone("");
 setIsMonthlyReservation(false);
+setIsQuarterlyReservation(false);
 setReserveWithoutPayment(false);
 setWhatsappButtonText("Abrir WhatsApp");
 
@@ -2501,20 +2503,23 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
   };
 
 
-  const createMonthlyAppointment = async () => {
+  const createMonthlyAppointment = async (recurrenceType = "monthly") => {
     if (submitting || !businessId) return;
 
     const isSportsBusiness = ["giocata", "pinguino-club"].includes(
       mergedBusiness?.id
     );
+    const isQuarterly = recurrenceType === "quarterly";
+    const recurrenceLabel = isQuarterly ? "trimestral" : "mensual";
+    const recurrencePeriodLabel = isQuarterly ? "tres meses" : "un mes";
 
     if (!isSportsBusiness) {
-      setMessage("La reserva mensual solo está disponible para negocios deportivos.");
+      setMessage(`La reserva ${recurrenceLabel} solo está disponible para negocios deportivos.`);
       return;
     }
 
     if (editingId) {
-      setMessage("Termina o cancela la edición antes de crear una reserva mensual.");
+      setMessage(`Termina o cancela la edición antes de crear una reserva ${recurrenceLabel}.`);
       return;
     }
 
@@ -2530,7 +2535,7 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
       !service.trim() ||
       !resolvedBarber
     ) {
-      setMessage("Completa todos los campos para crear la reserva mensual.");
+      setMessage(`Completa todos los campos para crear la reserva ${recurrenceLabel}.`);
       return;
     }
 
@@ -2545,7 +2550,7 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
     }
 
     const confirmed = window.confirm(
-      `Se crearán reservas semanales durante un mes para ${resolvedBarber}, todos los mismos días a las ${time}.\n\nSi alguna fecha está ocupada, no se creará ninguna reserva mensual.\n\n¿Quieres continuar?`
+      `Se crearán reservas semanales durante ${recurrencePeriodLabel} para ${resolvedBarber}, todos los mismos días a las ${time}.\n\nSi alguna fecha está ocupada, no se creará ninguna reserva ${recurrenceLabel}.\n\n¿Quieres continuar?`
     );
 
     if (!confirmed) return;
@@ -2582,6 +2587,7 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
         opponentPhone: opponentPhone.trim()
           ? normalizeChilePhone(opponentPhone)
           : null,
+        recurrenceType,
       });
 
       const createdAppointments = Array.isArray(response?.data?.data)
@@ -2601,7 +2607,7 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
         });
       }
 
-      const monthlyDates = createdAppointments.length
+      const recurringDates = createdAppointments.length
         ? createdAppointments.map((appointment) =>
             String(appointment.date || "").slice(0, 10)
           )
@@ -2615,12 +2621,12 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
 
       await getAppointments("admin");
 
-      setMessage(`✅ Reserva mensual creada correctamente
+      setMessage(`Reserva ${recurrenceLabel} creada correctamente
 
 ${
         response?.data?.totalCreated || createdAppointments.length
       } reservas creadas para ${resolvedBarber}:
-• ${monthlyDates.join("\n• ")}`);
+- ${recurringDates.join("\n- ")}`);
 
       resetForm();
     } catch (err) {
@@ -2633,21 +2639,20 @@ ${
             const conflictTime = String(conflict.time || "").slice(0, 5);
             const conflictClient = conflict.name || "Reserva existente";
 
-            return `• ${conflictDate} ${conflictTime} - ${conflictClient}`;
+            return `- ${conflictDate} ${conflictTime} - ${conflictClient}`;
           })
           .join("\n");
 
-        setMessage(`⚠️ No se pudo crear la reserva mensual porque hay horarios ocupados:\n\n${conflictsText}`);
+        setMessage(`No se pudo crear la reserva ${recurrenceLabel} porque hay horarios ocupados:\n\n${conflictsText}`);
       } else if (err.response?.data?.message) {
         setMessage(err.response.data.message);
       } else {
-        setMessage("Error al crear reserva mensual");
+        setMessage(`Error al crear reserva ${recurrenceLabel}`);
       }
     } finally {
       setSubmitting(false);
     }
   };
-
   const updateAppointment = async () => {
     if (submitting || !editingId || !businessId) return;
 
@@ -2871,6 +2876,7 @@ setNeedsOpponent(Boolean(appointment.needs_opponent));
 setOpponentName(appointment.opponent_name || "");
 setOpponentPhone(appointment.opponent_phone || "");
 setIsMonthlyReservation(false);
+setIsQuarterlyReservation(false);
 
 setEditingId(appointment.id);
     setPaymentAppointment(null);
@@ -3348,6 +3354,7 @@ setEditingId(appointment.id);
     setOpponentName("");
     setOpponentPhone("");
     setIsMonthlyReservation(false);
+    setIsQuarterlyReservation(false);
     setEditingId(null);
     setPaymentAppointment(null);
     setSelectedAppointmentPayments([]);
@@ -3633,7 +3640,7 @@ setEditingId(appointment.id);
     }
 
     if (!isValidChileMobilePhone(waitlistPhone)) {
-      setWaitlistMessage("Ingresa un celular chileno valido. Ejemplo: 912345678");
+      setWaitlistMessage("Ingresa un celular chileno válido. Ejemplo: 912345678");
       return;
     }
 
@@ -4860,6 +4867,8 @@ isCustomPriceBusiness={["giocata", "pinguino-club"].includes(
 )}
 isMonthlyReservation={isMonthlyReservation}
 setIsMonthlyReservation={setIsMonthlyReservation}
+isQuarterlyReservation={isQuarterlyReservation}
+setIsQuarterlyReservation={setIsQuarterlyReservation}
 createMonthlyAppointment={createMonthlyAppointment}
 
 updateAppointment={updateAppointment}

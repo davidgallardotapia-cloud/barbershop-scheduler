@@ -46,6 +46,8 @@ function AdminBookingPanel({
 
   isMonthlyReservation,
   setIsMonthlyReservation,
+  isQuarterlyReservation,
+  setIsQuarterlyReservation,
   createMonthlyAppointment,
 
   updateAppointment,
@@ -81,7 +83,12 @@ function AdminBookingPanel({
 
   const handleCreateClick = () => {
     if (isMonthlyReservation && createMonthlyAppointment) {
-      createMonthlyAppointment();
+      createMonthlyAppointment("monthly");
+      return;
+    }
+
+    if (isQuarterlyReservation && createMonthlyAppointment) {
+      createMonthlyAppointment("quarterly");
       return;
     }
 
@@ -452,6 +459,7 @@ function AdminBookingPanel({
         )}
 
         {isSportsBusiness && !editingId && (
+          <>
           <div
             style={{
               border: "1px solid #fde68a",
@@ -473,7 +481,10 @@ function AdminBookingPanel({
               <input
                 type="checkbox"
                 checked={Boolean(isMonthlyReservation)}
-                onChange={(e) => setIsMonthlyReservation(e.target.checked)}
+                onChange={(e) => {
+                  setIsMonthlyReservation(e.target.checked);
+                  if (e.target.checked) setIsQuarterlyReservation(false);
+                }}
                 style={{
                   width: "18px",
                   height: "18px",
@@ -497,6 +508,56 @@ function AdminBookingPanel({
               mensual.
             </p>
           </div>
+
+          <div
+            style={{
+              border: "1px solid #bbf7d0",
+              borderRadius: "12px",
+              padding: "12px",
+              backgroundColor: "#f0fdf4",
+            }}
+          >
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                fontWeight: "bold",
+                color: "#166534",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={Boolean(isQuarterlyReservation)}
+                onChange={(e) => {
+                  setIsQuarterlyReservation(e.target.checked);
+                  if (e.target.checked) setIsMonthlyReservation(false);
+                }}
+                style={{
+                  width: "18px",
+                  height: "18px",
+                  cursor: "pointer",
+                }}
+              />
+
+              Reserva trimestral
+            </label>
+
+            <p
+              style={{
+                margin: "8px 0 0 0",
+                color: "#166534",
+                fontSize: "13px",
+                lineHeight: 1.4,
+              }}
+            >
+              Crea reservas semanales para el mismo día, hora y cancha durante
+              tres meses. Si alguna fecha está ocupada, no se creará la reserva
+              trimestral.
+            </p>
+          </div>
+          </>
         )}
 
         {editingId ? (
@@ -533,9 +594,13 @@ function AdminBookingPanel({
             disabled={submitting}
           >
             {submitting
-              ? isMonthlyReservation
+              ? isQuarterlyReservation
+                ? "Creando reserva trimestral..."
+                : isMonthlyReservation
                 ? "Creando reserva mensual..."
                 : business?.creatingLabel || "Creando..."
+              : isQuarterlyReservation
+              ? "Crear reserva trimestral"
               : isMonthlyReservation
               ? "Crear reserva mensual"
               : business?.createButtonLabel || "Crear reserva"}

@@ -1565,14 +1565,14 @@ const addMonthsClamped = (date, months) => {
   return new Date(targetYear, targetMonth, targetDay, 12, 0, 0, 0);
 };
 
-const buildMonthlyReservationDates = (startDateString) => {
+const buildRecurringReservationDates = (startDateString, monthsToAdd = 1) => {
   const startDate = parseDateOnly(startDateString);
 
   if (!startDate) {
     return [];
   }
 
-  const endDate = addMonthsClamped(startDate, 1);
+  const endDate = addMonthsClamped(startDate, monthsToAdd);
   const dates = [];
   let currentDate = new Date(startDate);
 
@@ -1583,6 +1583,12 @@ const buildMonthlyReservationDates = (startDateString) => {
 
   return dates;
 };
+
+const buildMonthlyReservationDates = (startDateString) =>
+  buildRecurringReservationDates(startDateString, 1);
+
+const buildQuarterlyReservationDates = (startDateString) =>
+  buildRecurringReservationDates(startDateString, 3);
 
 const durationAwareBusinessIds = new Set(["odontologia-demo"]);
 const durationAwareSlotIntervalMinutes = 15;
@@ -3027,7 +3033,7 @@ app.post("/waitlist", requireAuth, async (req, res) => {
   }
 
   if (!isValidChileMobilePhone(phone)) {
-    return res.status(400).json({ message: "Ingresa un celular chileno valido" });
+    return res.status(400).json({ message: "Ingresa un celular chileno válido" });
   }
 
   const normalizedPhone = normalizeChilePhone(phone);
@@ -4360,6 +4366,7 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
     needsOpponent,
     opponentName,
     opponentPhone,
+    recurrenceType,
   } = req.body;
 
   if (!name || !phone || !date || !time || !service || !barber || !businessId) {
@@ -4382,11 +4389,16 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
     });
   }
 
-  const monthlyDates = buildMonthlyReservationDates(date);
+  const finalRecurrenceType = recurrenceType === "quarterly" ? "quarterly" : "monthly";
+  const recurrenceLabel = finalRecurrenceType === "quarterly" ? "trimestral" : "mensual";
+  const recurringDates =
+    finalRecurrenceType === "quarterly"
+      ? buildQuarterlyReservationDates(date)
+      : buildMonthlyReservationDates(date);
 
-  if (monthlyDates.length === 0) {
+  if (recurringDates.length === 0) {
     return res.status(400).json({
-      message: "Fecha inválida para crear reserva mensual",
+      message: `Fecha inválida para crear reserva ${recurrenceLabel}`,
     });
   }
 
@@ -4414,13 +4426,13 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
   const finalCreatedBy = req.user?.id || null;
   const finalCreatedVia = "admin";
 
-  const recurringGroupId = `monthly-${businessId}-${Date.now()}-${Math.random()
+  const recurringGroupId = `${finalRecurrenceType}-${businessId}-${Date.now()}-${Math.random()
     .toString(36)
     .slice(2, 8)}`;
 
   const finalNotes = notes
-    ? `${notes} | Reserva mensual`
-    : "Reserva mensual";
+    ? `${notes} | Reserva ${recurrenceLabel}`
+    : `Reserva ${recurrenceLabel}`;
 
   const client = await pool.connect();
 
@@ -4442,14 +4454,14 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
          AND time = $3
          AND date = ANY($4::date[])
        ORDER BY date ASC, time ASC`,
-      [businessId, barber, time, monthlyDates]
+      [businessId, barber, time, recurringDates]
     );
 
     if (conflicts.rows.length > 0) {
       await client.query("ROLLBACK");
 
       return res.status(409).json({
-        message: "No se pudo crear la reserva mensual. Hay horarios ocupados.",
+        message: `No se pudo crear la reserva ${recurrenceLabel}. Hay horarios ocupados.`,
         conflicts: conflicts.rows,
       });
     }
@@ -4465,16 +4477,16 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
       [
         businessId,
         barber,
-        monthlyDates[monthlyDates.length - 1],
-        monthlyDates[0],
+        recurringDates[recurringDates.length - 1],
+        recurringDates[0],
       ]
     );
 
-    const blockedDates = monthlyDates.filter((monthlyDate) =>
+    const blockedDates = recurringDates.filter((recurringDate) =>
       scheduleBlocks.rows.some((block) =>
         appointmentOverlapsScheduleBlock({
           appointment: {
-            date: monthlyDate,
+            date: recurringDate,
             time,
             service,
           },
@@ -4488,7 +4500,7 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
       await client.query("ROLLBACK");
 
       return res.status(409).json({
-        message: "No se pudo crear la reserva mensual. Hay horarios bloqueados.",
+        message: `No se pudo crear la reserva ${recurrenceLabel}. Hay horarios bloqueados.`,
         conflicts: blockedDates.map((blockedDate) => ({
           date: blockedDate,
           time,
@@ -4500,8 +4512,8 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
 
     const createdAppointments = [];
 
-    for (let index = 0; index < monthlyDates.length; index += 1) {
-      const monthlyDate = monthlyDates[index];
+    for (let index = 0; index < recurringDates.length; index += 1) {
+      const recurringDate = recurringDates[index];
 
       const result = await client.query(
         `INSERT INTO appointments (
@@ -4536,7 +4548,7 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
         [
           name,
           normalizedPhone,
-          monthlyDate,
+          recurringDate,
           time,
           service,
           barber,
@@ -4554,7 +4566,7 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
           finalCreatedBy,
           finalCreatedVia,
           recurringGroupId,
-          "monthly",
+          finalRecurrenceType,
           index + 1,
         ]
       );
@@ -4565,10 +4577,11 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
     await client.query("COMMIT");
 
     return res.json({
-      message: "Reserva mensual creada correctamente",
+      message: `Reserva ${recurrenceLabel} creada correctamente`,
       recurrenceGroupId: recurringGroupId,
+      recurrenceType: finalRecurrenceType,
       totalCreated: createdAppointments.length,
-      dates: monthlyDates,
+      dates: recurringDates,
       data: createdAppointments,
     });
   } catch (error) {
@@ -4577,7 +4590,7 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
     console.error(error);
 
     return res.status(500).json({
-      message: "Error al crear reserva mensual",
+      message: `Error al crear reserva ${recurrenceLabel}`,
     });
   } finally {
     client.release();
