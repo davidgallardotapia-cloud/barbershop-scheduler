@@ -1175,6 +1175,14 @@ const sendReservationConfirmationEmail = async ({
 
   const customerName = recipientName || appointment?.name || "Cliente";
   const businessName = business?.name || "AgendaSmart";
+  const isRegencura =
+    business?.id === "eu-curaciones-avanzadas" ||
+    business?.slug === "regencura";
+  const brandLogoUrl = isRegencura
+    ? "https://agendasmart.cl/regencura/regencura-logo.png"
+    : "";
+  const brandHeaderColor = isRegencura ? "#111111" : "#0f172a";
+  const brandAccentColor = isRegencura ? "#b8872f" : "#2563eb";
   const reservationDate = formatReservationDate(appointment?.date);
   const reservationTime = String(appointment?.time || "").slice(0, 5);
   const bookingUrl = business?.slug
@@ -1200,7 +1208,7 @@ const sendReservationConfirmationEmail = async ({
     "",
     "Si necesitas hacer un cambio, responde este correo.",
     "",
-    "AgendaSmart",
+    businessName,
   ].join("\n");
   const detailRows = details
     .map((detail) => {
@@ -1220,8 +1228,19 @@ const sendReservationConfirmationEmail = async ({
   <body style="margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#0f172a">
     <div style="max-width:620px;margin:0 auto;padding:32px 16px">
       <div style="background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,.08)">
-        <div style="background:#0f172a;padding:24px 28px;color:#ffffff">
-          <div style="font-size:13px;letter-spacing:.08em;text-transform:uppercase;opacity:.75">AgendaSmart</div>
+        <div style="background:${brandHeaderColor};padding:24px 28px;color:#ffffff">
+          ${
+            brandLogoUrl
+              ? `<img src="${escapeEmailHtml(
+                  brandLogoUrl
+                )}" width="76" height="76" alt="${escapeEmailHtml(
+                  `${businessName} logo`
+                )}" style="display:block;width:76px;height:76px;object-fit:contain;background:#ffffff;border-radius:16px;margin:0 0 16px" />`
+              : ""
+          }
+          <div style="font-size:13px;letter-spacing:.08em;text-transform:uppercase;opacity:.8">${escapeEmailHtml(
+            businessName
+          )}</div>
           <h1 style="font-size:24px;margin:8px 0 0">Reserva confirmada</h1>
         </div>
         <div style="padding:28px">
@@ -1233,7 +1252,7 @@ const sendReservationConfirmationEmail = async ({
           <table role="presentation" style="width:100%;border-collapse:collapse;background:#f8fafc;border-radius:12px">${detailRows}</table>
           <p style="margin:24px 0 0"><a href="${escapeEmailHtml(
             bookingUrl
-          )}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:700">Ver sitio de reservas</a></p>
+          )}" style="display:inline-block;background:${brandAccentColor};color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:700">Ver sitio de reservas</a></p>
           <p style="font-size:13px;line-height:1.5;color:#64748b;margin:24px 0 0">Si necesitas hacer un cambio, responde este correo.</p>
         </div>
       </div>
