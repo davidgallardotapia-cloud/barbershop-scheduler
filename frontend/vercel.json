@@ -1,4 +1,21 @@
 {
+  "redirects": [
+    {
+      "source": "/eu-curaciones-avanzadas",
+      "destination": "/regencura",
+      "permanent": true
+    },
+    {
+      "source": "/eu-curaciones-avanzadas/:path*",
+      "destination": "/regencura/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/l/eu-curaciones-avanzadas",
+      "destination": "/l/regencura",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/agendasmart-demo",
