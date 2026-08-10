@@ -1110,6 +1110,187 @@ const normalizeEmail = (value) => {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "";
 };
 
+const escapeEmailHtml = (value) => {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+};
+
+const formatReservationDate = (value) => {
+  const normalizedDate = normalizeClinicalDate(value);
+
+  if (!normalizedDate) return String(value || "");
+
+  const [year, month, day] = normalizedDate.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day, 12));
+
+  return new Intl.DateTimeFormat("es-CL", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "America/Santiago",
+  }).format(date);
+};
+
+const getReservationBusiness = async (businessId) => {
+  const result = await pool.query(
+    "SELECT id, name, slug FROM businesses WHERE id = $1 LIMIT 1",
+    [businessId]
+  );
+
+  return (
+    result.rows[0] || {
+      id: businessId,
+      name: "AgendaSmart",
+      slug: "",
+    }
+  );
+};
+
+const sendReservationConfirmationEmail = async ({
+  appointment,
+  business,
+  recipientEmail,
+  recipientName,
+}) => {
+  if (process.env.RESERVATIONS_EMAIL_ENABLED !== "true") {
+    return { status: "disabled" };
+  }
+
+  const resendApiKey = process.env.RESERVATIONS_RESEND_API_KEY;
+  const from = process.env.RESERVATIONS_EMAIL_FROM;
+  const replyTo = normalizeEmail(process.env.RESERVATIONS_REPLY_TO);
+  const to = normalizeEmail(recipientEmail || appointment?.client_email);
+
+  if (!resendApiKey || !from || !to) {
+    console.error(
+      "Comprobante de reserva no enviado: configuracion o destinatario incompleto"
+    );
+    return { status: "not_configured" };
+  }
+
+  const customerName = recipientName || appointment?.name || "Cliente";
+  const businessName = business?.name || "AgendaSmart";
+  const reservationDate = formatReservationDate(appointment?.date);
+  const reservationTime = String(appointment?.time || "").slice(0, 5);
+  const bookingUrl = business?.slug
+    ? `https://agendasmart.cl/${encodeURIComponent(business.slug)}`
+    : "https://agendasmart.cl";
+  const subject = `Comprobante de reserva | ${businessName}`;
+  const details = [
+    `Reserva: #${appointment?.id || ""}`,
+    `Cliente: ${customerName}`,
+    `Fecha: ${reservationDate}`,
+    `Hora: ${reservationTime}`,
+    `Servicio: ${appointment?.service || "Reserva"}`,
+    `Profesional o recurso: ${appointment?.barber || "Por confirmar"}`,
+  ];
+  const text = [
+    `Hola ${customerName},`,
+    "",
+    `Tu reserva en ${businessName} fue registrada correctamente.`,
+    "",
+    ...details,
+    "",
+    `Puedes revisar el negocio en ${bookingUrl}`,
+    "",
+    "Si necesitas hacer un cambio, responde este correo.",
+    "",
+    "AgendaSmart",
+  ].join("\n");
+  const detailRows = details
+    .map((detail) => {
+      const separatorIndex = detail.indexOf(":");
+      const label = separatorIndex >= 0 ? detail.slice(0, separatorIndex) : detail;
+      const value = separatorIndex >= 0 ? detail.slice(separatorIndex + 1).trim() : "";
+
+      return `<tr><td style="padding:8px 12px;color:#64748b;font-size:14px;vertical-align:top">${escapeEmailHtml(
+        label
+      )}</td><td style="padding:8px 12px;color:#0f172a;font-size:14px;font-weight:600">${escapeEmailHtml(
+        value
+      )}</td></tr>`;
+    })
+    .join("");
+  const html = `<!doctype html>
+<html lang="es">
+  <body style="margin:0;background:#f1f5f9;font-family:Arial,sans-serif;color:#0f172a">
+    <div style="max-width:620px;margin:0 auto;padding:32px 16px">
+      <div style="background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,.08)">
+        <div style="background:#0f172a;padding:24px 28px;color:#ffffff">
+          <div style="font-size:13px;letter-spacing:.08em;text-transform:uppercase;opacity:.75">AgendaSmart</div>
+          <h1 style="font-size:24px;margin:8px 0 0">Reserva confirmada</h1>
+        </div>
+        <div style="padding:28px">
+          <p style="font-size:16px;line-height:1.6;margin:0 0 18px">Hola ${escapeEmailHtml(
+            customerName
+          )}, tu reserva en <strong>${escapeEmailHtml(
+            businessName
+          )}</strong> fue registrada correctamente.</p>
+          <table role="presentation" style="width:100%;border-collapse:collapse;background:#f8fafc;border-radius:12px">${detailRows}</table>
+          <p style="margin:24px 0 0"><a href="${escapeEmailHtml(
+            bookingUrl
+          )}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:700">Ver sitio de reservas</a></p>
+          <p style="font-size:13px;line-height:1.5;color:#64748b;margin:24px 0 0">Si necesitas hacer un cambio, responde este correo.</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>`;
+
+  try {
+    const payload = {
+      from,
+      to: [to],
+      subject,
+      text,
+      html,
+      tags: [
+        { name: "category", value: "reservation-confirmation" },
+        {
+          name: "business",
+          value: String(business?.id || appointment?.business_id || "unknown")
+            .toLowerCase()
+            .replace(/[^a-z0-9_-]/g, "-")
+            .slice(0, 256),
+        },
+      ],
+    };
+
+    if (replyTo) {
+      payload.reply_to = replyTo;
+    }
+
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const responseText = await response.text();
+      console.error(
+        `Error enviando comprobante de reserva (${response.status}): ${responseText.slice(
+          0,
+          300
+        )}`
+      );
+      return { status: "failed" };
+    }
+
+    return { status: "sent" };
+  } catch (error) {
+    console.error("Error enviando comprobante de reserva:", error.message);
+    return { status: "failed" };
+  }
+};
+
 const createClinicalAuditLog = async ({
   businessId,
   userId,
@@ -4332,8 +4513,30 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
       );
     }
 
+    let confirmationEmailStatus = "not_requested";
+
+    if (!isAdminRequest && normalizedClientEmail) {
+      try {
+        const business = await getReservationBusiness(businessId);
+        const emailResult = await sendReservationConfirmationEmail({
+          appointment: createdAppointment,
+          business,
+          recipientEmail: normalizedClientEmail,
+          recipientName: name,
+        });
+        confirmationEmailStatus = emailResult.status;
+      } catch (emailError) {
+        confirmationEmailStatus = "failed";
+        console.error(
+          "Error preparando comprobante de reserva:",
+          emailError.message
+        );
+      }
+    }
+
     return res.json({
       message: "Cita creada",
+      confirmationEmailStatus,
       data: isAdminRequest
         ? createdAppointment
         : toPublicAppointment(createdAppointment),

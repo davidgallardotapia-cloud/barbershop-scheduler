@@ -1084,9 +1084,12 @@ const isBlocked = slot.status === "blocked";
                   <input
                     style={styles.input}
                     type="email"
+                    name="email"
+                    autoComplete="email"
                     placeholder="Correo paciente"
                     value={clientEmail}
                     onChange={(e) => setClientEmail(e.target.value)}
+                    required
                   />
                 </>
               )}
