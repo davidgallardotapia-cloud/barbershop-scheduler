@@ -11,6 +11,11 @@ const pool = require("./config/database");
 
 const app = express();
 
+const PLATFORM_ADMIN_BUSINESS_ID = "__platform__";
+const platformAdminUsername =
+  String(process.env.PLATFORM_ADMIN_USERNAME || "platform_admin").trim() ||
+  "platform_admin";
+
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
 
@@ -980,6 +985,21 @@ const requireAuth = (req, res, next) => {
   }
 };
 
+const requirePlatformAdmin = (req, res, next) => {
+  return requireAuth(req, res, () => {
+    if (
+      req.user?.business_id !== PLATFORM_ADMIN_BUSINESS_ID ||
+      req.user?.username !== platformAdminUsername
+    ) {
+      return res.status(403).json({
+        message: "Acceso exclusivo para administracion de plataforma",
+      });
+    }
+
+    return next();
+  });
+};
+
 const optionalAuth = (req, res, next) => {
   const token = getAuthTokenFromRequest(req);
 
@@ -1108,6 +1128,316 @@ const normalizeEmail = (value) => {
   if (!email) return "";
 
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "";
+};
+
+const normalizeOnboardingText = (value, maxLength = 300) => {
+  const text = String(value || "").trim();
+
+  return text.length > maxLength ? text.slice(0, maxLength) : text;
+};
+
+const normalizeOnboardingSlug = (value) => {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "")
+    .slice(0, 80);
+};
+
+const normalizeOnboardingList = (value, { maxItems = 30, maxLength = 160 } = {}) => {
+  const items = Array.isArray(value)
+    ? value
+    : String(value || "")
+        .split(/\r?\n|,/)
+        .map((item) => item.trim());
+
+  return Array.from(
+    new Set(
+      items
+        .map((item) => normalizeOnboardingText(item, maxLength))
+        .filter(Boolean)
+    )
+  ).slice(0, maxItems);
+};
+
+const normalizeOnboardingAssetUrl = (value) => {
+  const url = normalizeOnboardingText(value, 600);
+
+  if (!url) return "";
+  if (url.startsWith("/") && !url.startsWith("//")) return url;
+
+  try {
+    const parsedUrl = new URL(url);
+
+    return ["https:", "http:"].includes(parsedUrl.protocol) ? url : "";
+  } catch {
+    return "";
+  }
+};
+
+const parseOnboardingTime = (value) => {
+  const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
+
+  if (!match) return null;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+};
+
+const buildOnboardingScheduleSlots = ({ startTime, endTime, intervalMinutes }) => {
+  const startMinutes = parseOnboardingTime(startTime);
+  const endMinutes = parseOnboardingTime(endTime);
+  const interval = Number(intervalMinutes);
+
+  if (
+    startMinutes === null ||
+    endMinutes === null ||
+    startMinutes >= endMinutes ||
+    ![15, 30, 45, 60].includes(interval)
+  ) {
+    return [];
+  }
+
+  const slots = [];
+
+  for (let minutes = startMinutes; minutes < endMinutes; minutes += interval) {
+    const hours = String(Math.floor(minutes / 60)).padStart(2, "0");
+    const minutePart = String(minutes % 60).padStart(2, "0");
+    slots.push(`${hours}:${minutePart}`);
+  }
+
+  return slots.slice(0, 96);
+};
+
+const platformBusinessTemplates = {
+  general: {
+    label: "Servicios generales",
+    resourceLabelSingle: "Profesional",
+    resourceLabelPlural: "Profesionales",
+    serviceLabel: "servicio",
+    primaryColor: "#2563eb",
+    primaryDark: "#1e3a8a",
+    primarySoft: "#dbeafe",
+    clinicalRecordsEnabled: false,
+    professionalSessionsEnabled: false,
+    usesServiceDurations: false,
+  },
+  barberia: {
+    label: "Barberia",
+    resourceLabelSingle: "Barbero",
+    resourceLabelPlural: "Barberos",
+    serviceLabel: "servicio",
+    primaryColor: "#27272a",
+    primaryDark: "#09090b",
+    primarySoft: "#e4e4e7",
+    clinicalRecordsEnabled: false,
+    professionalSessionsEnabled: false,
+    usesServiceDurations: false,
+  },
+  salud: {
+    label: "Salud",
+    resourceLabelSingle: "Profesional",
+    resourceLabelPlural: "Profesionales",
+    serviceLabel: "atencion",
+    primaryColor: "#0f766e",
+    primaryDark: "#134e4a",
+    primarySoft: "#ccfbf1",
+    clinicalRecordsEnabled: true,
+    professionalSessionsEnabled: true,
+    usesServiceDurations: true,
+  },
+  deporte: {
+    label: "Centro deportivo",
+    resourceLabelSingle: "Cancha",
+    resourceLabelPlural: "Canchas",
+    serviceLabel: "reserva",
+    primaryColor: "#15803d",
+    primaryDark: "#14532d",
+    primarySoft: "#dcfce7",
+    clinicalRecordsEnabled: false,
+    professionalSessionsEnabled: false,
+    usesServiceDurations: false,
+  },
+};
+
+const buildPlatformBusinessPayload = (input = {}) => {
+  const name = normalizeOnboardingText(input.name, 160);
+  const slug = normalizeOnboardingSlug(input.slug || name);
+  const templateKey = String(input.templateKey || "general").trim();
+  const template = platformBusinessTemplates[templateKey];
+  const contactEmail = normalizeEmail(input.contactEmail);
+  const adminUsername = normalizeOnboardingText(input.adminUsername, 80)
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]/g, "");
+  const adminPassword = String(input.adminPassword || "");
+  const resources = normalizeOnboardingList(input.resources, {
+    maxItems: 20,
+    maxLength: 100,
+  });
+  const services = normalizeOnboardingList(input.services, {
+    maxItems: 40,
+    maxLength: 160,
+  });
+  const scheduleSlots = buildOnboardingScheduleSlots({
+    startTime: input.startTime || "09:00",
+    endTime: input.endTime || "18:00",
+    intervalMinutes: input.intervalMinutes || 30,
+  });
+
+  if (!name || name.length < 2) {
+    return { error: "Ingresa un nombre de negocio valido" };
+  }
+
+  if (!slug || slug.length < 3) {
+    return { error: "El slug debe tener al menos 3 caracteres" };
+  }
+
+  if (!template) {
+    return { error: "Selecciona una plantilla valida" };
+  }
+
+  if (!contactEmail) {
+    return { error: "Ingresa un correo de contacto valido" };
+  }
+
+  if (!/^[a-z0-9][a-z0-9._-]{2,79}$/.test(adminUsername)) {
+    return { error: "El usuario administrador no es valido" };
+  }
+
+  if (adminPassword.length < 12) {
+    return { error: "La contrasena temporal debe tener al menos 12 caracteres" };
+  }
+
+  if (resources.length === 0 || services.length === 0) {
+    return { error: "Agrega al menos un recurso y un servicio" };
+  }
+
+  if (scheduleSlots.length === 0) {
+    return { error: "Configura un horario e intervalo validos" };
+  }
+
+  const phone = normalizeOnboardingText(input.phone, 40);
+  const phoneDigits = phone.replace(/\D/g, "");
+  const location = normalizeOnboardingText(input.location, 120);
+  const address = normalizeOnboardingText(input.address, 240);
+  const logo = normalizeOnboardingAssetUrl(input.logoUrl);
+  const image = normalizeOnboardingAssetUrl(input.heroUrl) || logo;
+  const primaryColor = /^#[0-9a-f]{6}$/i.test(String(input.primaryColor || ""))
+    ? String(input.primaryColor)
+    : template.primaryColor;
+  const blockedWeekdays = Array.isArray(input.blockedWeekdays)
+    ? input.blockedWeekdays
+        .map(Number)
+        .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+    : [0];
+  const phones = resources.reduce((acc, resource) => {
+    acc[resource] = phoneDigits;
+    return acc;
+  }, {});
+  const businessConfig = {
+    templateKey,
+    tabTitle: `${name} | AgendaSmart`,
+    favicon: logo,
+    subtitle: normalizeOnboardingText(input.subtitle, 180),
+    phone,
+    hours: normalizeOnboardingText(input.hours, 180),
+    location,
+    address,
+    image,
+    logo,
+    description: normalizeOnboardingText(input.description, 600),
+    whatsappUrl: phoneDigits ? `https://wa.me/${phoneDigits}` : "",
+    whatsappLabel: "Contactar por WhatsApp",
+    bookingTitle:
+      normalizeOnboardingText(input.bookingTitle, 140) || "Reserva tu hora",
+    adminTitle: `Panel ${name}`,
+    bookingPanelTitle:
+      normalizeOnboardingText(input.bookingTitle, 140) || "Reserva tu hora",
+    bookingPanelDescription:
+      normalizeOnboardingText(input.bookingDescription, 320) ||
+      "Selecciona un servicio, profesional y horario disponible.",
+    calendarHelpText: "Selecciona un horario disponible para continuar.",
+    resourceLabelSingle: template.resourceLabelSingle,
+    resourceLabelPlural: template.resourceLabelPlural,
+    serviceLabel: template.serviceLabel,
+    clientNamePlaceholder: "Nombre cliente",
+    clientPhonePlaceholder: "Celular cliente (ej: 912345678)",
+    submitButtonLabel: "Confirmar reserva",
+    submittingLabel: "Reservando...",
+    updateButtonLabel: "Actualizar reserva",
+    updatingLabel: "Actualizando...",
+    cancelEditLabel: "Cancelar edicion",
+    createButtonLabel: "Crear reserva",
+    creatingLabel: "Creando...",
+    newItemTitle: "Nueva reserva",
+    editItemTitle: "Editar reserva",
+    resourceSelectedLabel: `${template.resourceLabelSingle} seleccionado`,
+    resourceSelectPrompt: `Selecciona ${template.resourceLabelSingle.toLowerCase()}`,
+    resourceSelectOption: `Selecciona ${template.resourceLabelSingle.toLowerCase()}`,
+    serviceSelectOption: `Selecciona un ${template.serviceLabel}`,
+    blockedWeekdays: blockedWeekdays.length > 0 ? blockedWeekdays : [0],
+    takenSlotLabel: "Ocupado",
+    pastSlotLabel: "Paso",
+    availableSlotLabel: "Disponible",
+    usesServiceDurations: template.usesServiceDurations,
+    slotIntervalMinutes: Number(input.intervalMinutes || 30),
+    paymentsEnabled: false,
+    depositFeatureEnabled: false,
+    onlinePaymentsEnabled: false,
+    professionalSessionsEnabled: template.professionalSessionsEnabled,
+    clinicalRecordsEnabled: template.clinicalRecordsEnabled,
+    resourceFirstBookingFlow: templateKey === "deporte",
+    barbers: resources,
+    phones,
+    services,
+    scheduleSlots,
+    professionals: resources.map((resource) => ({
+      name: resource,
+      image: logo,
+    })),
+    theme: {
+      primary: primaryColor,
+      primaryDark: template.primaryDark,
+      primarySoft: template.primarySoft,
+      pageBackground: "#f8fafc",
+      cardBackground: "#ffffff",
+      border: "#e2e8f0",
+      text: "#0f172a",
+      mutedText: "#64748b",
+    },
+    linkTheme: {
+      primary: primaryColor,
+      primaryDark: template.primaryDark,
+      primarySoft: template.primarySoft,
+      pageBackground: "#f8fafc",
+      cardBackground: "#ffffff",
+      border: "#e2e8f0",
+      text: "#0f172a",
+      mutedText: "#64748b",
+      whatsapp: "#16a34a",
+    },
+  };
+
+  return {
+    name,
+    slug,
+    templateKey,
+    contactEmail,
+    adminUsername,
+    adminPassword,
+    status: input.status === "active" ? "active" : "draft",
+    config: businessConfig,
+  };
 };
 
 const escapeEmailHtml = (value) => {
@@ -1793,6 +2123,22 @@ const buildQuarterlyReservationDates = (startDateString) =>
 const durationAwareBusinessIds = new Set(["odontologia-demo"]);
 const durationAwareSlotIntervalMinutes = 15;
 
+const applyDynamicBusinessCapabilities = (businessId, config = {}) => {
+  if (!businessId) return;
+
+  if (config.professionalSessionsEnabled) {
+    professionalSessionBusinessIds.add(businessId);
+  }
+
+  if (config.clinicalRecordsEnabled) {
+    clinicalRecordsBusinessIds.add(businessId);
+  }
+
+  if (config.usesServiceDurations) {
+    durationAwareBusinessIds.add(businessId);
+  }
+};
+
 const timeToMinutes = (timeValue) => {
   const text = String(timeValue || "").slice(0, 5);
   const [hoursPart, minutesPart = "0"] = text.split(":");
@@ -2109,6 +2455,61 @@ const seedUserIfConfigured = async ({
   await pool.query(
     "INSERT INTO users (username, password, business_id, resource_name) VALUES ($1, $2, $3, $4)",
     [username, hashedPassword, businessId, resourceName || null]
+  );
+};
+
+const seedPlatformAdminIfConfigured = async () => {
+  const platformPassword = process.env.PLATFORM_ADMIN_PASSWORD;
+
+  if (!platformPassword) {
+    console.warn(
+      "Panel de plataforma deshabilitado: PLATFORM_ADMIN_PASSWORD no configurada"
+    );
+    return;
+  }
+
+  if (platformPassword.length < 12) {
+    console.warn(
+      "Panel de plataforma deshabilitado: PLATFORM_ADMIN_PASSWORD debe tener al menos 12 caracteres"
+    );
+    return;
+  }
+
+  const existingUser = await pool.query(
+    "SELECT id, business_id FROM users WHERE username = $1 LIMIT 1",
+    [platformAdminUsername]
+  );
+
+  if (
+    existingUser.rows.length > 0 &&
+    existingUser.rows[0].business_id !== PLATFORM_ADMIN_BUSINESS_ID
+  ) {
+    console.error(
+      "No se configuro el administrador de plataforma: el nombre de usuario ya pertenece a otro negocio"
+    );
+    return;
+  }
+
+  const hashedPassword = await bcrypt.hash(platformPassword, 12);
+
+  if (existingUser.rows.length > 0) {
+    await pool.query(
+      `UPDATE users
+       SET password = $1, business_id = $2, resource_name = NULL
+       WHERE id = $3`,
+      [
+        hashedPassword,
+        PLATFORM_ADMIN_BUSINESS_ID,
+        existingUser.rows[0].id,
+      ]
+    );
+    return;
+  }
+
+  await pool.query(
+    `INSERT INTO users (username, password, business_id, resource_name)
+     VALUES ($1, $2, $3, NULL)`,
+    [platformAdminUsername, hashedPassword, PLATFORM_ADMIN_BUSINESS_ID]
   );
 };
 
@@ -2550,6 +2951,47 @@ const createTables = async () => {
     `);
 
     await pool.query(`
+      ALTER TABLE businesses
+      ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'active'
+        CHECK (status IN ('draft', 'active', 'suspended'));
+    `);
+
+    await pool.query(`
+      ALTER TABLE businesses
+      ADD COLUMN IF NOT EXISTS template_key VARCHAR(40);
+    `);
+
+    await pool.query(`
+      ALTER TABLE businesses
+      ADD COLUMN IF NOT EXISTS contact_email VARCHAR(160);
+    `);
+
+    await pool.query(`
+      ALTER TABLE businesses
+      ADD COLUMN IF NOT EXISTS config JSONB NOT NULL DEFAULT '{}'::jsonb;
+    `);
+
+    await pool.query(`
+      ALTER TABLE businesses
+      ADD COLUMN IF NOT EXISTS created_by INTEGER;
+    `);
+
+    await pool.query(`
+      ALTER TABLE businesses
+      ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW();
+    `);
+
+    await pool.query(`
+      ALTER TABLE businesses
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW();
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_businesses_status_created
+      ON businesses (status, created_at DESC);
+    `);
+
+    await pool.query(`
       INSERT INTO businesses (id, name, slug)
       VALUES ('barberia-james', 'Urban District Barber', 'urban-district-barber')
       ON CONFLICT (id) DO NOTHING;
@@ -2713,6 +3155,21 @@ const createTables = async () => {
       businessId: "centro-ama",
       passwordEnv: "SEED_PASSWORD_CENTRO_AMA_MARIAJOSE",
       resourceName: "Maria Jose Rojas",
+    });
+
+    await seedPlatformAdminIfConfigured();
+
+    const dynamicBusinessResult = await pool.query(
+      `SELECT id, config
+       FROM businesses
+       WHERE config IS NOT NULL AND config <> '{}'::jsonb`
+    );
+
+    dynamicBusinessResult.rows.forEach((businessRow) => {
+      applyDynamicBusinessCapabilities(
+        businessRow.id,
+        businessRow.config || {}
+      );
     });
 
     console.log("Tablas verificadas/creadas correctamente");
@@ -3356,12 +3813,214 @@ app.get("/appointments", async (req, res) => {
   }
 });
 
+app.get("/platform/businesses", requirePlatformAdmin, async (_req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+         businesses.id,
+         businesses.name,
+         businesses.slug,
+         businesses.status,
+         businesses.template_key,
+         businesses.contact_email,
+         businesses.config,
+         businesses.created_at,
+         businesses.updated_at,
+         COALESCE(
+           JSON_AGG(
+             JSON_BUILD_OBJECT(
+               'id', users.id,
+               'username', users.username,
+               'resource_name', users.resource_name
+             )
+           ) FILTER (WHERE users.id IS NOT NULL),
+           '[]'::json
+         ) AS admin_users
+       FROM businesses
+       LEFT JOIN users ON users.business_id = businesses.id
+       GROUP BY businesses.id
+       ORDER BY businesses.created_at DESC NULLS LAST, businesses.name ASC`
+    );
+
+    return res.json({ data: result.rows });
+  } catch (error) {
+    console.error("Error listando negocios de plataforma:", error);
+    return res.status(500).json({
+      message: "No se pudieron cargar los negocios",
+    });
+  }
+});
+
+app.post("/platform/businesses", requirePlatformAdmin, async (req, res) => {
+  const onboardingPayload = buildPlatformBusinessPayload(req.body || {});
+
+  if (onboardingPayload.error) {
+    return res.status(400).json({ message: onboardingPayload.error });
+  }
+
+  const reservedSlugs = new Set([
+    "admin",
+    "api",
+    "assets",
+    "l",
+    "login",
+    "plataforma",
+  ]);
+
+  if (reservedSlugs.has(onboardingPayload.slug)) {
+    return res.status(400).json({
+      message: "Ese slug esta reservado por AgendaSmart",
+    });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const existingBusiness = await client.query(
+      "SELECT id FROM businesses WHERE slug = $1 LIMIT 1",
+      [onboardingPayload.slug]
+    );
+
+    if (existingBusiness.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        message: "Ya existe un negocio con ese slug",
+      });
+    }
+
+    const existingUser = await client.query(
+      "SELECT id FROM users WHERE username = $1 LIMIT 1",
+      [onboardingPayload.adminUsername]
+    );
+
+    if (existingUser.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        message: "Ese usuario administrador ya existe",
+      });
+    }
+
+    const businessId = `business-${crypto.randomUUID()}`;
+    const passwordHash = await bcrypt.hash(
+      onboardingPayload.adminPassword,
+      12
+    );
+    const businessResult = await client.query(
+      `INSERT INTO businesses (
+         id,
+         name,
+         slug,
+         status,
+         template_key,
+         contact_email,
+         config,
+         created_by,
+         created_at,
+         updated_at
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, NOW(), NOW())
+       RETURNING *`,
+      [
+        businessId,
+        onboardingPayload.name,
+        onboardingPayload.slug,
+        onboardingPayload.status,
+        onboardingPayload.templateKey,
+        onboardingPayload.contactEmail,
+        JSON.stringify(onboardingPayload.config),
+        req.user?.id || null,
+      ]
+    );
+    const userResult = await client.query(
+      `INSERT INTO users (username, password, business_id, resource_name)
+       VALUES ($1, $2, $3, NULL)
+       RETURNING id, username, business_id`,
+      [onboardingPayload.adminUsername, passwordHash, businessId]
+    );
+
+    await client.query("COMMIT");
+    applyDynamicBusinessCapabilities(
+      businessId,
+      onboardingPayload.config
+    );
+
+    return res.status(201).json({
+      message:
+        onboardingPayload.status === "active"
+          ? "Negocio creado y activado"
+          : "Negocio creado como borrador",
+      data: {
+        ...businessResult.rows[0],
+        admin_users: [userResult.rows[0]],
+        public_url: `https://agendasmart.cl/${onboardingPayload.slug}`,
+      },
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Error creando negocio desde plataforma:", error);
+
+    if (error.code === "23505") {
+      return res.status(409).json({
+        message: "El slug o usuario ya esta en uso",
+      });
+    }
+
+    return res.status(500).json({
+      message: "No se pudo crear el negocio",
+    });
+  } finally {
+    client.release();
+  }
+});
+
+app.patch(
+  "/platform/businesses/:id/status",
+  requirePlatformAdmin,
+  async (req, res) => {
+    const { id } = req.params;
+    const status = String(req.body?.status || "").trim();
+
+    if (!["draft", "active", "suspended"].includes(status)) {
+      return res.status(400).json({ message: "Estado de negocio invalido" });
+    }
+
+    try {
+      const result = await pool.query(
+        `UPDATE businesses
+         SET status = $1, updated_at = NOW()
+         WHERE id = $2
+         RETURNING id, name, slug, status, template_key, contact_email, config, created_at, updated_at`,
+        [status, id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: "Negocio no encontrado" });
+      }
+
+      return res.json({
+        message: "Estado actualizado",
+        data: result.rows[0],
+      });
+    } catch (error) {
+      console.error("Error actualizando negocio de plataforma:", error);
+      return res.status(500).json({
+        message: "No se pudo actualizar el negocio",
+      });
+    }
+  }
+);
+
 app.get("/business/:slug", async (req, res) => {
   const { slug } = req.params;
 
   try {
     const result = await pool.query(
-      "SELECT * FROM businesses WHERE slug = $1 LIMIT 1",
+      `SELECT id, name, slug, status, template_key, config
+       FROM businesses
+       WHERE slug = $1 AND status = 'active'
+       LIMIT 1`,
       [slug]
     );
 
@@ -3369,7 +4028,18 @@ app.get("/business/:slug", async (req, res) => {
       return res.status(404).json({ message: "Negocio no encontrado" });
     }
 
-    return res.json(result.rows[0]);
+    const business = result.rows[0];
+    const config = business.config || {};
+
+    return res.json({
+      ...config,
+      id: business.id,
+      name: business.name,
+      slug: business.slug,
+      status: business.status,
+      template_key: business.template_key,
+      config,
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Error al obtener negocio" });

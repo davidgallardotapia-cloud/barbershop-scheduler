@@ -71,6 +71,9 @@ const api = {
   put(path, data, options = {}) {
     return request("PUT", path, { ...options, data });
   },
+  patch(path, data, options = {}) {
+    return request("PATCH", path, { ...options, data });
+  },
   delete(path, options) {
     return request("DELETE", path, options);
   },

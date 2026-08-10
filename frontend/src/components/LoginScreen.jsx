@@ -11,10 +11,11 @@ function LoginScreen({
   setPassword,
   handleLogin,
   setAppMode,
+  business = null,
 }) {
   const currentSlug = window.location.pathname.split("/").filter(Boolean)[0];
 
-  const currentBusiness = businessConfigBySlug[currentSlug];
+  const currentBusiness = business || businessConfigBySlug[currentSlug];
 
   const isSportsBusiness = ["giocata", "pinguino-club"].includes(currentSlug);
 

@@ -905,8 +905,16 @@ const [barber, setBarber] = useState("");
   const [scheduleBlockMessage, setScheduleBlockMessage] = useState("");
 
   const currentBusinessConfig = useMemo(() => {
-    return businessConfigBySlug[slug] || null;
-  }, [slug]);
+    const staticConfig = businessConfigBySlug[slug] || null;
+    const dynamicConfig = business?.config || null;
+
+    if (!staticConfig && !dynamicConfig) return null;
+
+    return {
+      ...(staticConfig || {}),
+      ...(dynamicConfig || {}),
+    };
+  }, [slug, business]);
 
   const BARBERS = currentBusinessConfig?.barbers || [];
   const servicesByResource = currentBusinessConfig?.servicesByResource || {};
@@ -4602,6 +4610,7 @@ paymentHistoryItem: {
         setPassword={setPassword}
         handleLogin={handleLogin}
         setAppMode={setAppMode}
+        business={mergedBusiness}
       />
     );
   }
@@ -6577,4 +6586,3 @@ lineHeight: 1.2,
 }
 
 export default App;
-
