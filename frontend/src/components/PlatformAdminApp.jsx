@@ -91,7 +91,27 @@ const statusLabels = {
   suspended: "Suspendido",
 };
 
+const useIsMobile = () => {
+  const getMatches = () =>
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 760px)").matches;
+  const [isMobile, setIsMobile] = useState(getMatches);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 760px)");
+    const handleChange = (event) => setIsMobile(event.matches);
+
+    setIsMobile(mediaQuery.matches);
+    mediaQuery.addEventListener("change", handleChange);
+
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
+  return isMobile;
+};
+
 function PlatformAdminApp() {
+  const isMobile = useIsMobile();
   const [authReady, setAuthReady] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [username, setUsername] = useState("");
@@ -106,6 +126,8 @@ function PlatformAdminApp() {
   const [formMessage, setFormMessage] = useState("");
   const [formError, setFormError] = useState("");
   const [updatingBusinessId, setUpdatingBusinessId] = useState("");
+  const responsiveStyle = (baseStyle, mobileStyle) =>
+    isMobile ? { ...baseStyle, ...mobileStyle } : baseStyle;
 
   const selectedTemplate = templateOptions[form.templateKey];
   const previewResources = useMemo(
@@ -138,6 +160,19 @@ function PlatformAdminApp() {
       setLoadingBusinesses(false);
     }
   };
+
+  useEffect(() => {
+    const previousMargin = document.body.style.margin;
+    const previousBackground = document.body.style.background;
+
+    document.body.style.margin = "0";
+    document.body.style.background = "#f1f5f9";
+
+    return () => {
+      document.body.style.margin = previousMargin;
+      document.body.style.background = previousBackground;
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -314,13 +349,24 @@ function PlatformAdminApp() {
   };
 
   if (!authReady) {
-    return <div style={styles.centeredPage}>Cargando panel interno...</div>;
+    return (
+      <div
+        style={responsiveStyle(styles.centeredPage, styles.mobileCenteredPage)}
+      >
+        Cargando panel interno...
+      </div>
+    );
   }
 
   if (!currentUser) {
     return (
-      <div style={styles.centeredPage}>
-        <form style={styles.loginCard} onSubmit={handleLogin}>
+      <div
+        style={responsiveStyle(styles.centeredPage, styles.mobileCenteredPage)}
+      >
+        <form
+          style={responsiveStyle(styles.loginCard, styles.mobileLoginCard)}
+          onSubmit={handleLogin}
+        >
           <div style={styles.brandBadge}>AS</div>
           <h1 style={styles.loginTitle}>Administracion de plataforma</h1>
           <p style={styles.mutedText}>
@@ -347,7 +393,13 @@ function PlatformAdminApp() {
               required
             />
           </label>
-          <button style={styles.primaryButton} disabled={loggingIn}>
+          <button
+            style={responsiveStyle(
+              styles.primaryButton,
+              styles.mobilePrimaryButton
+            )}
+            disabled={loggingIn}
+          >
             {loggingIn ? "Ingresando..." : "Entrar"}
           </button>
           {loginError && <div style={styles.errorBox}>{loginError}</div>}
@@ -360,8 +412,8 @@ function PlatformAdminApp() {
   }
 
   return (
-    <div style={styles.page}>
-      <header style={styles.header}>
+    <div style={responsiveStyle(styles.page, styles.mobilePage)}>
+      <header style={responsiveStyle(styles.header, styles.mobileHeader)}>
         <div>
           <div style={styles.eyebrow}>AgendaSmart interno</div>
           <h1 style={styles.pageTitle}>Creacion de clientes</h1>
@@ -369,17 +421,35 @@ function PlatformAdminApp() {
             Crea, revisa y activa negocios sin modificar el codigo.
           </p>
         </div>
-        <div style={styles.headerActions}>
-          <span style={styles.userChip}>{currentUser.username}</span>
-          <button style={styles.secondaryButton} onClick={handleLogout}>
+        <div
+          style={responsiveStyle(
+            styles.headerActions,
+            styles.mobileHeaderActions
+          )}
+        >
+          <span style={responsiveStyle(styles.userChip, styles.mobileUserChip)}>
+            {currentUser.username}
+          </span>
+          <button
+            style={responsiveStyle(
+              styles.secondaryButton,
+              styles.mobileHeaderButton
+            )}
+            onClick={handleLogout}
+          >
             Cerrar sesion
           </button>
         </div>
       </header>
 
-      <main style={styles.mainGrid}>
-        <section style={styles.card}>
-          <div style={styles.sectionHeader}>
+      <main style={responsiveStyle(styles.mainGrid, styles.mobileMainGrid)}>
+        <section style={responsiveStyle(styles.card, styles.mobileCard)}>
+          <div
+            style={responsiveStyle(
+              styles.sectionHeader,
+              styles.mobileSectionHeader
+            )}
+          >
             <div>
               <div style={styles.stepLabel}>Nuevo negocio</div>
               <h2 style={styles.sectionTitle}>Configuracion inicial</h2>
@@ -388,7 +458,9 @@ function PlatformAdminApp() {
           </div>
 
           <form onSubmit={handleCreateBusiness} style={styles.form}>
-            <div style={styles.fieldGrid}>
+            <div
+              style={responsiveStyle(styles.fieldGrid, styles.mobileFieldGrid)}
+            >
               <label style={styles.label}>
                 Plantilla
                 <select
@@ -429,7 +501,9 @@ function PlatformAdminApp() {
 
               <label style={styles.label}>
                 Slug publico
-                <div style={styles.slugRow}>
+                <div
+                  style={responsiveStyle(styles.slugRow, styles.mobileSlugRow)}
+                >
                   <span style={styles.slugPrefix}>agendasmart.cl/</span>
                   <input
                     style={{ ...styles.input, flex: 1 }}
@@ -489,7 +563,9 @@ function PlatformAdminApp() {
             <div style={styles.divider} />
             <h3 style={styles.groupTitle}>Identidad y presentacion</h3>
 
-            <div style={styles.fieldGrid}>
+            <div
+              style={responsiveStyle(styles.fieldGrid, styles.mobileFieldGrid)}
+            >
               <label style={styles.label}>
                 Subtitulo
                 <input
@@ -557,7 +633,9 @@ function PlatformAdminApp() {
             <div style={styles.divider} />
             <h3 style={styles.groupTitle}>Agenda</h3>
 
-            <div style={styles.fieldGrid}>
+            <div
+              style={responsiveStyle(styles.fieldGrid, styles.mobileFieldGrid)}
+            >
               <label style={styles.label}>
                 {selectedTemplate.resourceLabel}
                 <textarea
@@ -628,7 +706,9 @@ function PlatformAdminApp() {
             <div style={styles.divider} />
             <h3 style={styles.groupTitle}>Pagina y acceso del cliente</h3>
 
-            <div style={styles.fieldGrid}>
+            <div
+              style={responsiveStyle(styles.fieldGrid, styles.mobileFieldGrid)}
+            >
               <label style={styles.label}>
                 Titulo de reserva
                 <input
@@ -688,14 +768,22 @@ function PlatformAdminApp() {
             {formError && <div style={styles.errorBox}>{formError}</div>}
             {formMessage && <div style={styles.successBox}>{formMessage}</div>}
 
-            <button style={styles.primaryButton} disabled={submitting}>
+            <button
+              style={responsiveStyle(
+                styles.primaryButton,
+                styles.mobilePrimaryButton
+              )}
+              disabled={submitting}
+            >
               {submitting ? "Creando negocio..." : "Crear negocio"}
             </button>
           </form>
         </section>
 
-        <aside style={styles.previewColumn}>
-          <section style={styles.card}>
+        <aside
+          style={responsiveStyle(styles.previewColumn, styles.mobilePreviewColumn)}
+        >
+          <section style={responsiveStyle(styles.card, styles.mobileCard)}>
             <div style={styles.stepLabel}>Vista previa</div>
             <div
               style={{
@@ -742,13 +830,30 @@ function PlatformAdminApp() {
         </aside>
       </main>
 
-      <section style={{ ...styles.card, marginTop: "24px" }}>
-        <div style={styles.sectionHeader}>
+      <section
+        style={{
+          ...styles.card,
+          ...(isMobile ? styles.mobileCard : {}),
+          marginTop: isMobile ? "16px" : "24px",
+        }}
+      >
+        <div
+          style={responsiveStyle(
+            styles.sectionHeader,
+            styles.mobileSectionHeader
+          )}
+        >
           <div>
             <div style={styles.stepLabel}>Clientes</div>
             <h2 style={styles.sectionTitle}>Negocios registrados</h2>
           </div>
-          <button style={styles.secondaryButton} onClick={loadBusinesses}>
+          <button
+            style={responsiveStyle(
+              styles.secondaryButton,
+              styles.mobileSectionButton
+            )}
+            onClick={loadBusinesses}
+          >
             Actualizar
           </button>
         </div>
@@ -758,7 +863,9 @@ function PlatformAdminApp() {
         {loadingBusinesses ? (
           <p style={styles.mutedText}>Cargando negocios...</p>
         ) : (
-          <div style={styles.businessGrid}>
+          <div
+            style={responsiveStyle(styles.businessGrid, styles.mobileBusinessGrid)}
+          >
             {businesses.map((business) => (
               <article key={business.id} style={styles.businessCard}>
                 <div style={styles.businessCardHeader}>
@@ -786,15 +893,26 @@ function PlatformAdminApp() {
                     Usuario: {business.admin_users?.[0]?.username || "Sin usuario"}
                   </span>
                 </div>
-                <div style={styles.businessActions}>
+                <div
+                  style={responsiveStyle(
+                    styles.businessActions,
+                    styles.mobileBusinessActions
+                  )}
+                >
                   <button
-                    style={styles.smallButton}
+                    style={responsiveStyle(
+                      styles.smallButton,
+                      styles.mobileSmallControl
+                    )}
                     onClick={() => copyPublicUrl(business.slug)}
                   >
                     Copiar enlace
                   </button>
                   <select
-                    style={styles.smallSelect}
+                    style={responsiveStyle(
+                      styles.smallSelect,
+                      styles.mobileSmallControl
+                    )}
                     value={business.status}
                     disabled={updatingBusinessId === business.id}
                     onChange={(event) =>
@@ -822,7 +940,10 @@ const styles = {
     color: "#0f172a",
     fontFamily: "Inter, Arial, sans-serif",
     padding: "28px clamp(16px, 4vw, 56px) 56px",
+    boxSizing: "border-box",
+    overflowX: "hidden",
   },
+  mobilePage: { padding: "18px 12px 36px" },
   centeredPage: {
     minHeight: "100vh",
     display: "grid",
@@ -831,7 +952,9 @@ const styles = {
     color: "#0f172a",
     padding: "20px",
     fontFamily: "Inter, Arial, sans-serif",
+    boxSizing: "border-box",
   },
+  mobileCenteredPage: { padding: "14px" },
   loginCard: {
     width: "min(420px, 100%)",
     background: "#ffffff",
@@ -840,7 +963,9 @@ const styles = {
     boxShadow: "0 24px 60px rgba(0,0,0,.28)",
     display: "grid",
     gap: "16px",
+    boxSizing: "border-box",
   },
+  mobileLoginCard: { padding: "22px 18px", borderRadius: "18px" },
   brandBadge: {
     width: "54px",
     height: "54px",
@@ -861,7 +986,13 @@ const styles = {
     maxWidth: "1500px",
     margin: "0 auto 24px",
   },
+  mobileHeader: {
+    alignItems: "stretch",
+    gap: "16px",
+    marginBottom: "16px",
+  },
   headerActions: { display: "flex", alignItems: "center", gap: "10px" },
+  mobileHeaderActions: { width: "100%", alignItems: "stretch" },
   eyebrow: {
     color: "#2563eb",
     fontSize: "12px",
@@ -869,13 +1000,26 @@ const styles = {
     letterSpacing: ".12em",
     textTransform: "uppercase",
   },
-  pageTitle: { margin: "6px 0", fontSize: "clamp(28px, 4vw, 42px)" },
+  pageTitle: {
+    margin: "6px 0",
+    fontSize: "clamp(28px, 4vw, 42px)",
+    lineHeight: 1.08,
+  },
   userChip: {
     background: "#e2e8f0",
     borderRadius: "999px",
     padding: "10px 14px",
     fontWeight: 800,
   },
+  mobileUserChip: {
+    minWidth: 0,
+    flex: 1,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    textAlign: "center",
+  },
+  mobileHeaderButton: { flexShrink: 0 },
   mainGrid: {
     maxWidth: "1500px",
     margin: "0 auto",
@@ -884,6 +1028,7 @@ const styles = {
     gap: "24px",
     alignItems: "start",
   },
+  mobileMainGrid: { gridTemplateColumns: "minmax(0, 1fr)", gap: "16px" },
   card: {
     background: "#ffffff",
     borderRadius: "20px",
@@ -893,7 +1038,11 @@ const styles = {
     maxWidth: "1500px",
     marginLeft: "auto",
     marginRight: "auto",
+    width: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
   },
+  mobileCard: { padding: "18px 16px", borderRadius: "16px" },
   sectionHeader: {
     display: "flex",
     justifyContent: "space-between",
@@ -901,7 +1050,16 @@ const styles = {
     gap: "16px",
     marginBottom: "22px",
   },
-  sectionTitle: { margin: "4px 0 0", fontSize: "24px" },
+  mobileSectionHeader: {
+    alignItems: "flex-start",
+    flexWrap: "wrap",
+    marginBottom: "18px",
+  },
+  sectionTitle: {
+    margin: "4px 0 0",
+    fontSize: "clamp(21px, 6vw, 24px)",
+    lineHeight: 1.15,
+  },
   stepLabel: {
     color: "#2563eb",
     fontSize: "12px",
@@ -932,6 +1090,7 @@ const styles = {
     gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
     gap: "16px",
   },
+  mobileFieldGrid: { gridTemplateColumns: "minmax(0, 1fr)", gap: "14px" },
   label: {
     display: "grid",
     gap: "7px",
@@ -947,8 +1106,9 @@ const styles = {
     padding: "11px 12px",
     background: "#ffffff",
     color: "#0f172a",
-    fontSize: "14px",
+    fontSize: "16px",
     outlineColor: "#2563eb",
+    minHeight: "46px",
   },
   textarea: {
     width: "100%",
@@ -958,11 +1118,16 @@ const styles = {
     padding: "11px 12px",
     resize: "vertical",
     fontFamily: "inherit",
-    fontSize: "14px",
+    fontSize: "16px",
     outlineColor: "#2563eb",
   },
   helpText: { color: "#64748b", fontSize: "12px", fontWeight: 500 },
   slugRow: { display: "flex", alignItems: "center", gap: "8px" },
+  mobileSlugRow: {
+    alignItems: "stretch",
+    flexDirection: "column",
+    gap: "6px",
+  },
   slugPrefix: { color: "#64748b", fontSize: "13px", whiteSpace: "nowrap" },
   divider: { height: "1px", background: "#e2e8f0", margin: "4px 0" },
   groupTitle: { margin: "0", fontSize: "17px" },
@@ -975,7 +1140,9 @@ const styles = {
     fontWeight: 900,
     fontSize: "14px",
     cursor: "pointer",
+    minHeight: "46px",
   },
+  mobilePrimaryButton: { width: "100%", minHeight: "48px" },
   secondaryButton: {
     border: "1px solid #cbd5e1",
     borderRadius: "10px",
@@ -984,7 +1151,9 @@ const styles = {
     color: "#0f172a",
     fontWeight: 800,
     cursor: "pointer",
+    minHeight: "44px",
   },
+  mobileSectionButton: { width: "100%" },
   errorBox: {
     padding: "11px 13px",
     borderRadius: "10px",
@@ -992,6 +1161,7 @@ const styles = {
     border: "1px solid #fecaca",
     color: "#991b1b",
     fontWeight: 700,
+    overflowWrap: "anywhere",
   },
   successBox: {
     padding: "11px 13px",
@@ -1000,6 +1170,7 @@ const styles = {
     border: "1px solid #bbf7d0",
     color: "#166534",
     fontWeight: 700,
+    overflowWrap: "anywhere",
   },
   infoBox: {
     padding: "10px 12px",
@@ -1007,10 +1178,12 @@ const styles = {
     borderRadius: "10px",
     background: "#eff6ff",
     color: "#1e40af",
+    overflowWrap: "anywhere",
   },
   backLink: { textAlign: "center", color: "#2563eb", fontWeight: 700 },
   mutedText: { color: "#64748b", lineHeight: 1.5, margin: 0 },
   previewColumn: { position: "sticky", top: "20px" },
+  mobilePreviewColumn: { position: "static", top: "auto" },
   previewHero: {
     minHeight: "220px",
     borderRadius: "16px 16px 0 0",
@@ -1051,6 +1224,8 @@ const styles = {
     color: "#475569",
     fontSize: "12px",
     marginBottom: "12px",
+    maxWidth: "100%",
+    overflowWrap: "anywhere",
   },
   previewStats: {
     display: "flex",
@@ -1073,12 +1248,16 @@ const styles = {
     gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))",
     gap: "14px",
   },
+  mobileBusinessGrid: { gridTemplateColumns: "minmax(0, 1fr)" },
   businessCard: {
     border: "1px solid #e2e8f0",
     borderRadius: "14px",
     padding: "16px",
     display: "grid",
     gap: "14px",
+    minWidth: 0,
+    boxSizing: "border-box",
+    overflowWrap: "anywhere",
   },
   businessCardHeader: {
     display: "flex",
@@ -1086,9 +1265,21 @@ const styles = {
     justifyContent: "space-between",
     gap: "10px",
   },
-  businessSlug: { color: "#64748b", fontSize: "12px", marginTop: "4px" },
-  businessMeta: { display: "grid", gap: "5px", color: "#475569", fontSize: "12px" },
+  businessSlug: {
+    color: "#64748b",
+    fontSize: "12px",
+    marginTop: "4px",
+    overflowWrap: "anywhere",
+  },
+  businessMeta: {
+    display: "grid",
+    gap: "5px",
+    color: "#475569",
+    fontSize: "12px",
+    overflowWrap: "anywhere",
+  },
   businessActions: { display: "flex", gap: "8px", alignItems: "center" },
+  mobileBusinessActions: { alignItems: "stretch", width: "100%" },
   smallButton: {
     border: "1px solid #cbd5e1",
     borderRadius: "8px",
@@ -1096,13 +1287,16 @@ const styles = {
     background: "#ffffff",
     fontWeight: 800,
     cursor: "pointer",
+    minHeight: "42px",
   },
   smallSelect: {
     border: "1px solid #cbd5e1",
     borderRadius: "8px",
     padding: "8px",
     background: "#ffffff",
+    minHeight: "42px",
   },
+  mobileSmallControl: { flex: 1, minWidth: 0, fontSize: "14px" },
 };
 
 export default PlatformAdminApp;
