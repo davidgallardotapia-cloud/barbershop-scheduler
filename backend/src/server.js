@@ -671,6 +671,12 @@ const getServicePrice = (serviceName) => {
   return prices.length > 0 ? prices[prices.length - 1] : 0;
 };
 
+const duplicateClientSlotGuardBusinessIds = new Set(["giocata"]);
+
+const shouldBlockDuplicateClientSlot = (businessId) => {
+  return duplicateClientSlotGuardBusinessIds.has(String(businessId || ""));
+};
+
 const getAppointmentTotalAmount = (appointment) => {
   const servicePrices = getServicePrices(appointment?.service);
   const customServicePrice =
@@ -5142,6 +5148,25 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
       }
     }
 
+    if (!isAdminRequest && shouldBlockDuplicateClientSlot(businessId)) {
+      const normalizedPhoneLast9 = normalizedPhone.slice(-9);
+      const duplicateClientSlot = await pool.query(
+        `SELECT id, barber, service, time FROM appointments
+         WHERE business_id = $1
+           AND date = $2
+           AND RIGHT(regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g'), 9) = $3
+           AND COALESCE(status, 'reservada') NOT IN ('cancelada', 'eliminada', 'deleted')
+         LIMIT 1`,
+        [businessId, date, normalizedPhoneLast9]
+      );
+
+      if (duplicateClientSlot.rows.length > 0) {
+        return res.status(409).json({
+          message:
+            "Ya tienes una reserva para este día. Si necesitas cambiar la cancha u hora, comunícate con el negocio por WhatsApp.",
+        });
+      }
+    }
     const exists = await pool.query(
       `SELECT * FROM appointments
        WHERE date = $1 AND time = $2 AND barber = $3 AND business_id = $4`,

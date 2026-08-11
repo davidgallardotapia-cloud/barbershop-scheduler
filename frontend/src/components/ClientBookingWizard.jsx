@@ -65,9 +65,15 @@ function ClientBookingWizard({
   const timeStepRef = useRef(null);
   const reservationWithoutPaymentStepRef = useRef(null);
   const dataStepRef = useRef(null);
+  const messageRef = useRef(null);
 
   const [showProgress, setShowProgress] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
+
+  const normalizedMessage = String(message || "").trim();
+  const isWarningMessage = /ya tienes|error|completa|ingresa|no se pudo/i.test(
+    normalizedMessage
+  );
 
   const resolvedBarber =
     showResourceStep && BARBERS.length === 1 ? BARBERS[0] : barber;
@@ -246,6 +252,15 @@ function ClientBookingWizard({
       setWeekOffset(diffWeeks);
     }
   }, [date, weekOffset]);
+
+  useEffect(() => {
+    if (!normalizedMessage || !messageRef.current) return;
+
+    messageRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [normalizedMessage]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -1268,7 +1283,27 @@ const isBlocked = slot.status === "blocked";
             </button>
           </section>
 
-          {message && <p style={styles.message}>{message}</p>}
+          {message && (
+            <p
+              ref={messageRef}
+              role="alert"
+              style={{
+                ...styles.message,
+                marginTop: "12px",
+                padding: "14px 16px",
+                borderRadius: "12px",
+                border: isWarningMessage
+                  ? "1px solid #facc15"
+                  : "1px solid #86efac",
+                backgroundColor: isWarningMessage ? "#fef9c3" : "#dcfce7",
+                color: isWarningMessage ? "#713f12" : "#14532d",
+                fontWeight: "800",
+                whiteSpace: "pre-line",
+              }}
+            >
+              {message}
+            </p>
+          )}
 
           {whatsappUrl && (
             <a
