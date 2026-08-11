@@ -60,6 +60,42 @@ const slugAliases = {
 
 const resolveSlugAlias = (slug) => slugAliases[slug] || slug;
 
+const splitClientFullName = (value) => {
+  const parts = String(value || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length <= 1) {
+    return {
+      firstName: parts[0] || "",
+      lastName: "",
+    };
+  }
+
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(" "),
+  };
+};
+
+const buildClientFullName = (firstName, lastName) => {
+  return [firstName, lastName]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .join(" ");
+};
+
+const addClientNamePartsToPayload = (payload) => {
+  const parts = splitClientFullName(payload?.name);
+
+  return {
+    ...payload,
+    nombre: payload?.nombre ?? parts.firstName,
+    apellido: payload?.apellido ?? parts.lastName,
+  };
+};
+
 function ReservationVoucherModal({ voucher, business, theme, isMobile, onClose }) {
   if (!voucher) return null;
 
@@ -825,6 +861,8 @@ function App() {
   const [loggingIn, setLoggingIn] = useState(false);
 
   const [name, setName] = useState("");
+  const [clientFirstName, setClientFirstName] = useState("");
+  const [clientLastName, setClientLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [clientRut, setClientRut] = useState("");
   const [clientEmail, setClientEmail] = useState("");
@@ -1541,7 +1579,7 @@ const [barber, setBarber] = useState("");
   async function syncToGoogleSheets(payload) {
     try {
       await syncGoogleSheetsService({
-        ...payload,
+        ...addClientNamePartsToPayload(payload),
         businessId,
       });
     } catch (error) {
@@ -2145,17 +2183,35 @@ const handleDeleteReservationFromPaymentPanel = async () => {
     };
   }, [appMode, businessId, editingId, isLoggedIn, name, phone]);
 
+  const setClientFullName = (nextName) => {
+    const parts = splitClientFullName(nextName);
+
+    setClientFirstName(parts.firstName);
+    setClientLastName(parts.lastName);
+    setName(String(nextName || "").trim());
+  };
+
+  const updateClientFirstName = (nextFirstName) => {
+    setClientFirstName(nextFirstName);
+    setName(buildClientFullName(nextFirstName, clientLastName));
+  };
+
+  const updateClientLastName = (nextLastName) => {
+    setClientLastName(nextLastName);
+    setName(buildClientFullName(clientFirstName, nextLastName));
+  };
+
   const handleClientSuggestionSelect = (client) => {
     if (!client) return;
 
-    setName(client.name || "");
+    setClientFullName(client.name || "");
     setPhone(client.phone || "");
     setClientRut(client.clientRut || "");
     setClientEmail(client.clientEmail || "");
     setClientSuggestions([]);
   };
   const resetForm = () => {
-    setName("");
+    setClientFullName("");
     setPhone("");
     setClientRut("");
     setClientEmail("");
@@ -2871,7 +2927,7 @@ await updateAppointmentService(editingId, {
   };
 
   const editAppointment = (appointment) => {
-    setName(appointment.name || "");
+    setClientFullName(appointment.name || "");
     setPhone(appointment.phone || "");
     setClientRut(appointment.client_rut || "");
     setClientEmail(appointment.client_email || "");
@@ -3350,7 +3406,7 @@ setEditingId(appointment.id);
 
     if (!nextDate || !nextTime || !nextService || !nextResource) return;
 
-    setName("");
+    setClientFullName("");
     setPhone("");
     setService(nextService);
     setBarber(nextResource);
@@ -3666,7 +3722,7 @@ setEditingId(appointment.id);
         barber: waitlistSlot.barber,
       });
 
-      setName(waitlistName.trim());
+      setClientFullName(waitlistName.trim());
       setPhone(normalizeChilePhone(waitlistPhone));
       setMessage(
         isAdminMode
@@ -4696,7 +4752,11 @@ paymentHistoryItem: {
                 time={time}
                 setTime={setTime}
                 name={name}
-                setName={setName}
+                setName={setClientFullName}
+                clientFirstName={clientFirstName}
+                setClientFirstName={updateClientFirstName}
+                clientLastName={clientLastName}
+                setClientLastName={updateClientLastName}
                 phone={phone}
                 setPhone={setPhone}
                 clientSuggestions={clientSuggestions}
@@ -4833,7 +4893,11 @@ paymentHistoryItem: {
                 isCompactAdmin={isCompactAdmin}
                 editingId={editingId}
                 name={name}
-                setName={setName}
+                setName={setClientFullName}
+                clientFirstName={clientFirstName}
+                setClientFirstName={updateClientFirstName}
+                clientLastName={clientLastName}
+                setClientLastName={updateClientLastName}
                 phone={phone}
                 setPhone={setPhone}
                 clientSuggestions={clientSuggestions}

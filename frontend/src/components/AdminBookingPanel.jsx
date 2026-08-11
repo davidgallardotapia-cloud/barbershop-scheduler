@@ -7,6 +7,10 @@ function AdminBookingPanel({
   editingId,
   name,
   setName,
+  clientFirstName = "",
+  setClientFirstName = () => {},
+  clientLastName = "",
+  setClientLastName = () => {},
   phone,
   setPhone,
   clientSuggestions = [],
@@ -106,9 +110,18 @@ function AdminBookingPanel({
       <div style={styles.formGroup}>
         <input
           style={styles.input}
-          placeholder={business?.clientNamePlaceholder || "Nombre cliente"}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          placeholder="Nombre"
+          value={clientFirstName}
+          onChange={(e) => setClientFirstName(e.target.value)}
+          autoComplete="given-name"
+        />
+
+        <input
+          style={styles.input}
+          placeholder="Apellido"
+          value={clientLastName}
+          onChange={(e) => setClientLastName(e.target.value)}
+          autoComplete="family-name"
         />
 
         <input

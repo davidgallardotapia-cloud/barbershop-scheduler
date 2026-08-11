@@ -913,12 +913,35 @@ const formatTimeForSheets = (value) => {
   return String(value || "").slice(0, 5);
 };
 
+const splitClientNameForSheets = (value) => {
+  const parts = String(value || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length <= 1) {
+    return {
+      nombre: parts[0] || "",
+      apellido: "",
+    };
+  }
+
+  return {
+    nombre: parts[0],
+    apellido: parts.slice(1).join(" "),
+  };
+};
+
 const buildAppointmentSheetsPayload = (appointment) => {
+  const clientNameParts = splitClientNameForSheets(appointment.name);
+
   return {
     id: appointment.id,
     date: formatDateForSheets(appointment.date),
     time: formatTimeForSheets(appointment.time),
     name: appointment.name,
+    nombre: clientNameParts.nombre,
+    apellido: clientNameParts.apellido,
     phone: appointment.phone,
     barber: appointment.barber,
     service: appointment.service,
@@ -933,6 +956,8 @@ const buildPaymentSheetsPayload = ({
   payment,
   syncStatus,
 }) => {
+  const clientNameParts = splitClientNameForSheets(appointment.name);
+
   return {
     type,
     payment_id: payment.id || "",
@@ -941,6 +966,8 @@ const buildPaymentSheetsPayload = ({
     fecha_reserva: formatDateForSheets(appointment.date),
     hora_reserva: formatTimeForSheets(appointment.time),
     cliente: appointment.name || "",
+    nombre: clientNameParts.nombre,
+    apellido: clientNameParts.apellido,
     recurso: appointment.barber || "",
     servicio: appointment.service || "",
     monto_pago: Number(payment.amount || 0),
