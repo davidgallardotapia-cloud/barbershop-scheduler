@@ -3875,11 +3875,12 @@ setEditingId(appointment.id);
   const availableDays = useMemo(() => {
     const days = [];
     const today = new Date();
-    const clientReservationDays = ["giocata", "pinguino-club"].includes(
-      mergedBusiness?.id
-    )
-      ? 7
-      : 14;
+    const clientReservationDays =
+      mergedBusiness?.id === "giocata"
+        ? 15
+        : mergedBusiness?.id === "pinguino-club"
+        ? 7
+        : 14;
 
     for (let i = 0; i < clientReservationDays; i += 1) {
       const day = addDays(today, i);
