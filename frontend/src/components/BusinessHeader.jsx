@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   FaWhatsapp,
   FaPhoneAlt,
@@ -12,6 +12,7 @@ function BusinessHeader({
   business,
   onHeaderResourceSelect,
   openOpponentAppointments = [],
+  availabilitySummary = [],
   onOpponentAppointmentSelect,
   selectedBarber,
   selectedService,
@@ -63,6 +64,108 @@ function BusinessHeader({
   const visibleOpponentAppointments = isSportsBusiness
     ? openOpponentAppointments.slice(0, 4)
     : [];
+
+  const [showAvailabilitySummary, setShowAvailabilitySummary] = useState(false);
+
+  const availabilityDayOptions = availabilitySummary || [];
+  const [availabilitySelectedDate, setAvailabilitySelectedDate] = useState("");
+
+  const availabilityDateValues = useMemo(() => {
+    return availabilityDayOptions
+      .map((day) => String(day?.value || ""))
+      .filter(Boolean)
+      .sort();
+  }, [availabilityDayOptions]);
+
+  const availabilityMinDate = availabilityDateValues[0] || "";
+  const availabilityMaxDate =
+    availabilityDateValues[availabilityDateValues.length - 1] || "";
+
+  useEffect(() => {
+    if (!availabilityDateValues.length) {
+      setAvailabilitySelectedDate("");
+      return;
+    }
+
+    setAvailabilitySelectedDate((currentDate) => {
+      const selectedDateIsAvailable =
+        selectedDate && availabilityDateValues.includes(selectedDate);
+
+      if (selectedDateIsAvailable && currentDate !== selectedDate) {
+        return selectedDate;
+      }
+
+      const currentDateIsInRange =
+        currentDate &&
+        (!availabilityMinDate || currentDate >= availabilityMinDate) &&
+        (!availabilityMaxDate || currentDate <= availabilityMaxDate);
+
+      if (currentDateIsInRange) return currentDate;
+
+      return availabilityDateValues[0] || "";
+    });
+  }, [
+    availabilityDateValues,
+    availabilityMinDate,
+    availabilityMaxDate,
+    selectedDate,
+  ]);
+
+  const selectedAvailabilityDay = useMemo(() => {
+    if (!availabilityDayOptions.length) return null;
+
+    const matchedDay = availabilityDayOptions.find(
+      (day) => day.value === availabilitySelectedDate
+    );
+
+    if (matchedDay) return matchedDay;
+
+    if (availabilitySelectedDate) {
+      return {
+        value: availabilitySelectedDate,
+        label: availabilitySelectedDate,
+        slots: [],
+        totalAvailable: 0,
+      };
+    }
+
+    return availabilityDayOptions[0] || null;
+  }, [availabilityDayOptions, availabilitySelectedDate]);
+
+  const hasSelectedAvailabilitySlots = Boolean(
+    selectedAvailabilityDay?.slots?.length
+  );
+  const availabilityTypes = useMemo(() => {
+    const types = new Set();
+
+    (business?.services || []).forEach((serviceName) => {
+      const match = String(serviceName || "").match(/\(([^)-]+?)\s*-/);
+      if (match?.[1]) types.add(match[1].trim());
+    });
+
+    availabilityDayOptions.forEach((day) => {
+      (day.slots || []).forEach((slot) => {
+        Object.keys(slot.availableByType || {}).forEach((typeLabel) =>
+          types.add(typeLabel)
+        );
+      });
+    });
+
+    return Array.from(types).sort((a, b) => a.localeCompare(b, "es"));
+  }, [availabilityDayOptions, business?.services]);
+
+  const formatAvailabilityCell = (slot, typeLabel) => {
+    const count = Number(slot?.availableByType?.[typeLabel] || 0);
+
+    if (count <= 0) return "No";
+    if (isMobile) return String(count);
+
+    return count === 1 ? "1 disponible" : `${count} disponibles`;
+  };
+
+  const shouldShowSportsAvailabilitySummary = Boolean(
+    business?.hideResourceSelector && availabilityDayOptions.length > 0
+  );
 
   const capitalize = (value) => {
     const text = String(value || "");
@@ -131,6 +234,7 @@ function BusinessHeader({
           }));
 
   return (
+    <>
     <div
       style={{
         display: "grid",
@@ -368,6 +472,32 @@ function BusinessHeader({
             </p>
           </div>
 
+          {shouldShowSportsAvailabilitySummary && (
+            <button
+              type="button"
+              onClick={() => setShowAvailabilitySummary(true)}
+              style={{
+                width: "100%",
+                margin: "0 0 18px",
+                border: `1px solid ${business?.theme?.border || "#bbf7d0"}`,
+                borderRadius: "999px",
+                backgroundColor: business?.theme?.primarySoft || "#dcfce7",
+                color: business?.theme?.primaryDark || "#14532d",
+                padding: isMobile ? "13px 16px" : "14px 18px",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: "10px",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                fontWeight: "900",
+                fontSize: "16px",
+                boxShadow: "0 8px 18px rgba(15, 23, 42, 0.08)",
+              }}
+            >
+              Ver disponibilidad
+            </button>
+          )}
           {visibleOpponentAppointments.length > 0 && (
             <div
               style={{
@@ -540,7 +670,7 @@ function BusinessHeader({
                   fontSize: "17px",
                 }}
               >
-                Síguenos en redes
+                {"S\u00edguenos en redes"}
               </div>
 
               <div
@@ -799,7 +929,249 @@ function BusinessHeader({
         </div>
       </div>
     </div>
+
+    {showAvailabilitySummary && selectedAvailabilityDay && (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Disponibilidad de canchas"
+        onClick={() => setShowAvailabilitySummary(false)}
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 9999,
+          backgroundColor: "rgba(15, 23, 42, 0.52)",
+          padding: isMobile ? "18px" : "32px",
+          display: "flex",
+          alignItems: isMobile ? "flex-start" : "center",
+          justifyContent: "center",
+          overflowY: "auto",
+        }}
+      >
+        <div
+          onClick={(event) => event.stopPropagation()}
+          style={{
+            width: "100%",
+            maxWidth: "620px",
+            borderRadius: "22px",
+            backgroundColor: "#ffffff",
+            border: `1px solid ${business?.theme?.border || "#bbf7d0"}`,
+            boxShadow: "0 24px 70px rgba(15, 23, 42, 0.28)",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              padding: isMobile ? "16px" : "20px",
+              backgroundColor: business?.theme?.primarySoft || "#dcfce7",
+              borderBottom: `1px solid ${business?.theme?.border || "#bbf7d0"}`,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              gap: "14px",
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  color: business?.theme?.primaryDark || "#14532d",
+                  fontSize: isMobile ? "20px" : "24px",
+                  fontWeight: "900",
+                  lineHeight: 1.1,
+                }}
+              >
+                Disponibilidad de canchas
+              </div>
+              <div
+                style={{
+                  marginTop: "5px",
+                  color: "#475569",
+                  fontSize: "13px",
+                  fontWeight: "800",
+                }}
+              >
+                {business.name}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowAvailabilitySummary(false)}
+              style={{
+                border: 0,
+                borderRadius: "999px",
+                backgroundColor: "#ffffff",
+                color: "#111827",
+                padding: "9px 12px",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                fontWeight: "900",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Cerrar
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gap: "12px",
+              padding: isMobile ? "14px" : "18px",
+            }}
+          >
+            <label
+              style={{
+                display: "grid",
+                gap: "6px",
+                width: "100%",
+                maxWidth: isMobile ? "100%" : "300px",
+              }}
+            >
+              <div
+                style={{
+                  color: "#64748b",
+                  fontSize: "12px",
+                  fontWeight: "900",
+                }}
+              >
+                Día de disponibilidad
+              </div>
+              <input
+                type="date"
+                value={availabilitySelectedDate}
+                min={availabilityMinDate}
+                max={availabilityMaxDate}
+                onChange={(event) =>
+                  setAvailabilitySelectedDate(event.target.value)
+                }
+                style={{
+                  width: "100%",
+                  minHeight: "46px",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: "10px",
+                  backgroundColor: "#ffffff",
+                  color: "#111827",
+                  padding: "0 12px",
+                  fontFamily: "inherit",
+                  fontSize: "15px",
+                  fontWeight: "800",
+                }}
+              />
+            </label>
+
+            <div
+              style={{
+                overflowX: "auto",
+                border: "1px solid #e5e7eb",
+                borderRadius: "16px",
+              }}
+            >
+              <table
+                style={{
+                  width: "100%",
+                  minWidth: isMobile
+                    ? "100%"
+                    : availabilityTypes.length > 1
+                    ? "420px"
+                    : "300px",
+                  borderCollapse: "collapse",
+                  tableLayout: isMobile ? "fixed" : "auto",
+                  fontSize: isMobile ? "13px" : "14px",
+                }}
+              >
+                <thead>
+                  <tr>
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: isMobile ? "10px 8px" : "11px 12px",
+                        width: isMobile ? "66px" : "auto",
+                        backgroundColor: business?.theme?.primary || "#166534",
+                        color: "#ffffff",
+                        fontWeight: "900",
+                      }}
+                    >
+                      Hora
+                    </th>
+                    {availabilityTypes.map((typeLabel) => (
+                      <th
+                        key={typeLabel}
+                        style={{
+                          textAlign: "center",
+                          padding: isMobile ? "10px 6px" : "11px 12px",
+                          backgroundColor: business?.theme?.primary || "#166534",
+                          color: "#ffffff",
+                          fontWeight: "900",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {isMobile ? typeLabel : `Cancha ${typeLabel}`}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {!hasSelectedAvailabilitySlots ? (
+                    <tr>
+                      <td
+                        colSpan={Math.max(1, availabilityTypes.length + 1)}
+                        style={{
+                          padding: isMobile ? "18px 12px" : "20px 16px",
+                          borderTop: "1px solid #e5e7eb",
+                          color: "#64748b",
+                          fontWeight: "900",
+                          textAlign: "center",
+                        }}
+                      >
+                        No hay disponibilidad configurada para este día.
+                      </td>
+                    </tr>
+                  ) : (
+                    selectedAvailabilityDay.slots.map((slot) => (
+                      <tr key={slot.time}>
+                        <td
+                          style={{
+                            padding: isMobile ? "10px 8px" : "10px 12px",
+                            borderTop: "1px solid #e5e7eb",
+                            fontWeight: "900",
+                            color: "#111827",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {slot.time}
+                        </td>
+                        {availabilityTypes.map((typeLabel) => {
+                          const hasAvailability =
+                            Number(slot?.availableByType?.[typeLabel] || 0) > 0;
+
+                          return (
+                            <td
+                              key={`${slot.time}-${typeLabel}`}
+                              style={{
+                                padding: isMobile ? "10px 6px" : "10px 12px",
+                                borderTop: "1px solid #e5e7eb",
+                                color: hasAvailability ? "#166534" : "#991b1b",
+                                fontWeight: "900",
+                                textAlign: "center",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {formatAvailabilityCell(slot, typeLabel)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
-
 export default BusinessHeader;

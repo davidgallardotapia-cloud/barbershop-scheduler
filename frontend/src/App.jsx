@@ -1759,11 +1759,12 @@ const [barber, setBarber] = useState("");
     }
 
     const today = new Date();
-    const publicReservationDays = ["giocata", "pinguino-club"].includes(
-      mergedBusiness?.id
-    )
-      ? 7
-      : 14;
+    const publicReservationDays =
+      mergedBusiness?.id === "giocata"
+        ? 15
+        : mergedBusiness?.id === "pinguino-club"
+        ? 7
+        : 14;
 
     return {
       startDate: formatDateToInput(today),
@@ -3944,6 +3945,81 @@ setEditingId(appointment.id);
       .slice(0, 6);
   }, [appointments, availableDays, mergedBusiness?.id]);
 
+  const sportsAvailabilitySummary = useMemo(() => {
+    const isSportsBusiness = ["giocata", "pinguino-club"].includes(
+      mergedBusiness?.id
+    );
+
+    if (!isSportsBusiness || !mergedBusiness?.hideResourceSelector) return [];
+
+    const resourceTypeByName = new Map();
+
+    (SERVICES || []).forEach((serviceName) => {
+      const resourceName = getResourceFromService(serviceName);
+      if (!resourceName) return;
+
+      const typeMatch = String(serviceName || "").match(/\(([^)-]+?)\s*-/);
+      const typeLabel = typeMatch ? typeMatch[1].trim() : "cancha";
+      resourceTypeByName.set(resourceName, typeLabel);
+    });
+
+    return (availableDays || []).map((day) => {
+      const dateValue = day.value;
+      const dayDate = new Date(`${dateValue}T00:00:00`);
+      const daySlots = getScheduleSlotsForDate(dateValue);
+
+      const slots = daySlots.map((slotValue) => {
+        const normalizedHour = normalizeScheduleTime(slotValue);
+        const slotAppointments = getAppointmentsForSlot(
+          dateValue,
+          normalizedHour
+        );
+        const occupiedResources = new Set(
+          slotAppointments.map((appointment) => appointment.barber)
+        );
+
+        const availableByType = {};
+        const availableResources = [];
+
+        (BARBERS || []).forEach((resourceName) => {
+          const isOccupied = occupiedResources.has(resourceName);
+          const isBlocked =
+            getBlocksForSlot(dateValue, normalizedHour, resourceName).length > 0;
+          const isPast = isPastSlot(dayDate, normalizedHour);
+
+          if (isOccupied || isBlocked || isPast) return;
+
+          const typeLabel = resourceTypeByName.get(resourceName) || "cancha";
+          availableByType[typeLabel] = (availableByType[typeLabel] || 0) + 1;
+          availableResources.push(resourceName);
+        });
+
+        return {
+          time: normalizedHour,
+          availableByType,
+          availableResources,
+          totalAvailable: availableResources.length,
+        };
+      });
+
+      return {
+        ...day,
+        slots,
+        totalAvailable: slots.reduce(
+          (sum, slot) => sum + slot.totalAvailable,
+          0
+        ),
+      };
+    });
+  }, [
+    BARBERS,
+    SERVICES,
+    appointments,
+    availableDays,
+    mergedBusiness?.id,
+    mergedBusiness?.hideResourceSelector,
+    scheduleBlocks,
+  ]);
   const availableTimes = useMemo(() => {
   if (!date) return [];
 
@@ -4731,6 +4807,7 @@ paymentHistoryItem: {
   business={mergedBusiness}
   onHeaderResourceSelect={handleHeaderResourceSelect}
   openOpponentAppointments={openOpponentAppointments}
+  availabilitySummary={sportsAvailabilitySummary}
   onOpponentAppointmentSelect={handleOpponentAppointmentSelect}
   selectedBarber={barber}
   selectedService={service}
