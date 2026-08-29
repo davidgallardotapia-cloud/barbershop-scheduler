@@ -1101,26 +1101,28 @@ const isBlocked = slot.status === "blocked";
               />
 
               {business?.clinicalRecordsEnabled && (
-                <>
-                  <input
-                    style={styles.input}
-                    placeholder="RUT paciente"
-                    value={clientRut}
-                    onChange={(e) => setClientRut(e.target.value)}
-                  />
-
-                  <input
-                    style={styles.input}
-                    type="email"
-                    name="email"
-                    autoComplete="email"
-                    placeholder="Correo paciente"
-                    value={clientEmail}
-                    onChange={(e) => setClientEmail(e.target.value)}
-                    required
-                  />
-                </>
+                <input
+                  style={styles.input}
+                  placeholder="RUT paciente"
+                  value={clientRut}
+                  onChange={(e) => setClientRut(e.target.value)}
+                />
               )}
+
+              <input
+                style={styles.input}
+                type="email"
+                name="email"
+                autoComplete="email"
+                placeholder={
+                  business?.clinicalRecordsEnabled
+                    ? "Correo paciente"
+                    : "Correo para confirmacion (opcional)"
+                }
+                value={clientEmail}
+                onChange={(e) => setClientEmail(e.target.value)}
+                required={business?.clinicalRecordsEnabled}
+              />
             </div>
 
             {business?.clinicalRecordsEnabled && (

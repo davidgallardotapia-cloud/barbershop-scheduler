@@ -5053,9 +5053,13 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
   const normalizedClientRut = clinicalBusiness
     ? normalizeClinicalText(clientRut, 30)
     : null;
-  const normalizedClientEmail = clinicalBusiness
-    ? normalizeEmail(clientEmail)
-    : null;
+  const normalizedClientEmail = clientEmail ? normalizeEmail(clientEmail) : null;
+
+  if (clientEmail && !normalizedClientEmail) {
+    return res.status(400).json({
+      message: "Ingresa un correo valido",
+    });
+  }
 
   if (clinicalBusiness && (!normalizedClientRut || !normalizedClientEmail)) {
     return res.status(400).json({

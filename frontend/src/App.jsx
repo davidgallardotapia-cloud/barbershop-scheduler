@@ -2325,7 +2325,12 @@ setEditingId(null);
       return;
     }
 
-    if (clinicalRecordsEnabled && !isValidEmail(clientEmail)) {
+    if (clientEmail.trim() && !isValidEmail(clientEmail)) {
+      setMessage("Ingresa un correo valido.");
+      return;
+    }
+
+    if (clinicalRecordsEnabled && !clientEmail.trim()) {
       setMessage("Ingresa un correo valido del paciente.");
       return;
     }
@@ -2417,7 +2422,7 @@ const createdAppointment = await createAppointmentService({
   name: name.trim(),
   phone: normalizedPhone,
   clientRut: clinicalRecordsEnabled ? clientRut.trim() : null,
-  clientEmail: clinicalRecordsEnabled
+  clientEmail: clientEmail.trim()
     ? clientEmail.trim().toLowerCase()
     : null,
   date,
