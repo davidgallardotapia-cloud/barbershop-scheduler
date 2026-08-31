@@ -2320,8 +2320,8 @@ const appointmentOverlapsScheduleBlock = ({ appointment, block, businessId }) =>
 const toPublicAppointment = (appointment) => {
   return {
     id: appointment.id,
-    date: appointment.date,
-    time: appointment.time,
+    date: normalizeDateOnlyValue(appointment.date),
+    time: appointment.time ? String(appointment.time).slice(0, 5) : "",
     service: appointment.service,
     barber: appointment.barber,
     status: appointment.status,
@@ -2337,6 +2337,12 @@ const toPublicAppointment = (appointment) => {
     ),
   };
 };
+
+const normalizeAppointmentDateFields = (appointment) => ({
+  ...appointment,
+  date: normalizeDateOnlyValue(appointment.date),
+  time: appointment.time ? String(appointment.time).slice(0, 5) : "",
+});
 
 const toPublicScheduleBlock = (block, options = {}) => {
   const includeReason = Boolean(options.includeReason);
@@ -3626,7 +3632,7 @@ app.get("/admin/appointments", requireAuth, async (req, res) => {
       appointmentFilter.values
     );
 
-    return res.json(result.rows);
+    return res.json(result.rows.map(normalizeAppointmentDateFields));
   } catch (error) {
     console.error(error);
     return res.status(500).json({
