@@ -989,7 +989,7 @@ function ClinicalRecordsPanel({
           style={{ ...styles.input, marginBottom: 0 }}
           value={patientAddress}
           onChange={(event) => setPatientAddress(event.target.value)}
-          placeholder="Direccion opcional"
+          placeholder="Dirección opcional"
         />
 
         <div style={fieldGridStyle}>

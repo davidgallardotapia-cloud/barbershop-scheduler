@@ -3902,7 +3902,7 @@ app.post("/platform/businesses", requirePlatformAdmin, async (req, res) => {
 
   if (reservedSlugs.has(onboardingPayload.slug)) {
     return res.status(400).json({
-      message: "Ese slug esta reservado por AgendaSmart",
+      message: "Ese slug está reservado por AgendaSmart",
     });
   }
 
@@ -4174,7 +4174,7 @@ app.post("/login", loginLimiter, async (req, res) => {
 
 app.post("/logout", (_req, res) => {
   clearAuthCookie(res);
-  return res.json({ message: "Sesion cerrada" });
+  return res.json({ message: "Sesión cerrada" });
 });
 
 app.get("/clinical-records", requireAuth, async (req, res) => {
@@ -5057,7 +5057,7 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
 
   if (clientEmail && !normalizedClientEmail) {
     return res.status(400).json({
-      message: "Ingresa un correo valido",
+      message: "Ingresa un correo válido",
     });
   }
 
@@ -5147,7 +5147,7 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
 
       if (hasOverlap) {
         return res.status(400).json({
-          message: "Ese tramo ya esta reservado para ese recurso",
+          message: "Ese tramo ya está reservado para ese recurso",
         });
       }
     }
@@ -5361,7 +5361,7 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
 
   if (clinicalBusiness && clientEmail && !normalizedClientEmail) {
     return res.status(400).json({
-      message: "Ingresa un correo valido para el paciente",
+      message: "Ingresa un correo válido para el paciente",
     });
   }
 
@@ -5412,6 +5412,40 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
         message: `No se pudo crear la reserva ${recurrenceLabel}. Hay horarios ocupados.`,
         conflicts: conflicts.rows,
       });
+    }
+
+    if (shouldBlockDuplicateClientSlot(businessId)) {
+      const normalizedPhoneLast9 = normalizedPhone.slice(-9);
+      const duplicateClientDates = await client.query(
+        `SELECT
+           id,
+           name,
+           date::text AS date,
+           time::text AS time,
+           service,
+           barber,
+           status
+         FROM appointments
+         WHERE business_id = $1
+           AND date = ANY($2::date[])
+           AND RIGHT(regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g'), 9) = $3
+           AND COALESCE(status, 'reservada') NOT IN ('cancelada', 'eliminada', 'deleted')
+         ORDER BY date ASC, time ASC
+         LIMIT 10`,
+        [businessId, recurringDates, normalizedPhoneLast9]
+      );
+
+      if (duplicateClientDates.rows.length > 0) {
+        await client.query("ROLLBACK");
+
+        return res.status(409).json({
+          message: `No se pudo crear la reserva ${recurrenceLabel}. El cliente ya tiene reservas en uno o más días de la serie.`,
+          conflicts: duplicateClientDates.rows.map((appointment) => ({
+            ...appointment,
+            reason: "duplicate_client_day",
+          })),
+        });
+      }
     }
 
     const scheduleBlocks = await client.query(
@@ -5523,6 +5557,13 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
     }
 
     await client.query("COMMIT");
+
+    createdAppointments.forEach((appointment) => {
+      syncGoogleSheetsInBackground(
+        buildAppointmentSheetsPayload(appointment),
+        `reserva_${finalRecurrenceType}`
+      );
+    });
 
     return res.json({
       message: `Reserva ${recurrenceLabel} creada correctamente`,
@@ -5675,7 +5716,7 @@ app.put("/appointments/:id", requireAuth, async (req, res) => {
 
   if (clinicalBusiness && clientEmail && !normalizedClientEmail) {
     return res.status(400).json({
-      message: "Ingresa un correo valido para el paciente",
+      message: "Ingresa un correo válido para el paciente",
     });
   }
 
@@ -5751,7 +5792,7 @@ app.put("/appointments/:id", requireAuth, async (req, res) => {
 
       if (hasOverlap) {
         return res.status(400).json({
-          message: "Ese tramo ya esta reservado para ese recurso",
+          message: "Ese tramo ya está reservado para ese recurso",
         });
       }
     }

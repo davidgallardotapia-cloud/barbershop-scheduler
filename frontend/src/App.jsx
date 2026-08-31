@@ -1703,31 +1703,31 @@ const [barber, setBarber] = useState("");
       if (shouldShowWhatsappButton) {
         const whatsappOpened = openWhatsappOrShowButton(
           pendingWhatsappUrl,
-          "Enviar confirmacion por WhatsApp"
+          "Enviar confirmación por WhatsApp"
         );
 
         setMessage(
           whatsappOpened
-            ? "Pago aprobado. Abrimos WhatsApp para enviar la confirmacion."
-            : "Pago aprobado. Reserva registrada. Si WhatsApp no se abrio, usa el boton para enviar la confirmacion."
+            ? "Pago aprobado. Abrimos WhatsApp para enviar la confirmación."
+            : "Pago aprobado. Reserva registrada. Si WhatsApp no se abrió, usa el botón para enviar la confirmación."
         );
       } else {
-        setMessage("Pago aprobado. La reserva quedo registrada correctamente.");
+        setMessage("Pago aprobado. La reserva quedó registrada correctamente.");
       }
     } else if (paymentResult === "pending") {
       if (shouldShowWhatsappButton) {
         const whatsappOpened = openWhatsappOrShowButton(
           pendingWhatsappUrl,
-          "Enviar confirmacion por WhatsApp"
+          "Enviar confirmación por WhatsApp"
         );
 
         setMessage(
           whatsappOpened
-            ? "El pago quedo pendiente. Abrimos WhatsApp para enviar la confirmacion."
-            : "El pago quedo pendiente. Si WhatsApp no se abrio, usa el boton para enviar la confirmacion."
+            ? "El pago quedó pendiente. Abrimos WhatsApp para enviar la confirmación."
+            : "El pago quedó pendiente. Si WhatsApp no se abrió, usa el botón para enviar la confirmación."
         );
       } else {
-        setMessage("El pago quedo pendiente. Revisaremos la confirmacion.");
+        setMessage("El pago quedó pendiente. Revisaremos la confirmación.");
       }
     } else {
       setMessage("El pago no fue completado. Puedes intentar nuevamente.");
@@ -2337,12 +2337,12 @@ setEditingId(null);
     }
 
     if (clientEmail.trim() && !isValidEmail(clientEmail)) {
-      setMessage("Ingresa un correo valido.");
+      setMessage("Ingresa un correo válido.");
       return;
     }
 
     if (clinicalRecordsEnabled && !clientEmail.trim()) {
-      setMessage("Ingresa un correo valido del paciente.");
+      setMessage("Ingresa un correo válido del paciente.");
       return;
     }
 
@@ -2675,19 +2675,6 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
         ? response.data.data
         : [];
 
-      for (const appointment of createdAppointments) {
-        await syncToGoogleSheets({
-          id: appointment.id,
-          date: String(appointment.date || "").slice(0, 10),
-          time: String(appointment.time || "").slice(0, 5),
-          name: appointment.name || name.trim(),
-          phone: appointment.phone || normalizedPhone,
-          barber: appointment.barber || resolvedBarber,
-          service: appointment.service || finalService,
-          status: appointment.status || "reservada",
-        });
-      }
-
       const recurringDates = createdAppointments.length
         ? createdAppointments.map((appointment) =>
             String(appointment.date || "").slice(0, 10)
@@ -2759,7 +2746,7 @@ ${
     }
 
     if (clinicalRecordsEnabled && clientEmail.trim() && !isValidEmail(clientEmail)) {
-      setMessage("Ingresa un correo valido del paciente.");
+      setMessage("Ingresa un correo válido del paciente.");
       return;
     }
 

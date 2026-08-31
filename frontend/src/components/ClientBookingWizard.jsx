@@ -1053,9 +1053,9 @@ const isBlocked = slot.status === "blocked";
                       fontSize: "14px",
                     }}
                   >
-                    Activa esta opcion para probar la demo sin pasar por Mercado
-                    Pago. La reserva se creara normalmente y podras enviar la
-                    confirmacion por WhatsApp.
+                    Activa esta opción para probar la demo sin pasar por Mercado
+                    Pago. La reserva se creará normalmente y podrás enviar la
+                    confirmación por WhatsApp.
                   </div>
                 </div>
               </label>
@@ -1117,7 +1117,7 @@ const isBlocked = slot.status === "blocked";
                 placeholder={
                   business?.clinicalRecordsEnabled
                     ? "Correo paciente"
-                    : "Correo para confirmacion (opcional)"
+                    : "Correo para confirmación (opcional)"
                 }
                 value={clientEmail}
                 onChange={(e) => setClientEmail(e.target.value)}
