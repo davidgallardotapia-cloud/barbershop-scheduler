@@ -1392,6 +1392,17 @@ const [barber, setBarber] = useState("");
     return `$${Number(value || 0).toLocaleString("es-CL")}`;
   };
 
+  const formatDateOnlyForDisplay = (value, fallback = "") => {
+    const dateOnly = String(value || "").slice(0, 10);
+    const [year, month, day] = dateOnly.split("-");
+
+    if (!year || !month || !day) {
+      return fallback;
+    }
+
+    return `${day}-${month}-${year}`;
+  };
+
   const formatVoucherDate = (value) => {
     if (!value) return "Sin fecha";
 
@@ -6058,9 +6069,7 @@ updateAppointment={updateAppointment}
                       </strong>{" "}
                       ·{" "}
                       {paymentAppointment?.date
-                        ? new Date(paymentAppointment.date).toLocaleDateString(
-                            "es-CL"
-                          )
+                        ? formatDateOnlyForDisplay(paymentAppointment.date)
                         : ""}{" "}
                       · {String(paymentAppointment?.time || "").slice(0, 5)}
                     </p>
@@ -6083,9 +6092,7 @@ updateAppointment={updateAppointment}
                     </strong>{" "}
                     · {paymentAppointment?.service} ·{" "}
                     {paymentAppointment?.date
-                      ? new Date(paymentAppointment.date).toLocaleDateString(
-                          "es-CL"
-                        )
+                      ? formatDateOnlyForDisplay(paymentAppointment.date)
                       : ""}{" "}
                     · {String(paymentAppointment?.time || "").slice(0, 5)}
                   </p>
@@ -6335,7 +6342,7 @@ lineHeight: 1.2,
 
     <div style={{ fontWeight: "900", color: "#111827" }}>
       {paymentAppointment?.date
-        ? new Date(paymentAppointment.date).toLocaleDateString("es-CL")
+        ? formatDateOnlyForDisplay(paymentAppointment.date)
         : "—"}{" "}
       · {String(paymentAppointment?.time || "").slice(0, 5) || "—"}
     </div>
@@ -6350,7 +6357,7 @@ lineHeight: 1.2,
 
     <div style={{ fontWeight: "900", color: "#111827" }}>
       {paymentAppointment?.date
-        ? new Date(paymentAppointment.date).toLocaleDateString("es-CL")
+        ? formatDateOnlyForDisplay(paymentAppointment.date)
         : "—"}
     </div>
   </div>
