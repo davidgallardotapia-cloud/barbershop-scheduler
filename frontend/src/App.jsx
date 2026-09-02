@@ -2264,6 +2264,11 @@ setEditingId(null);
     return match ? match[0] : "";
   };
 
+  const getResourceNumber = (resourceName) => {
+    const match = String(resourceName || "").match(/\d+/);
+    return match ? Number(match[0]) : Number.MAX_SAFE_INTEGER;
+  };
+
   const getResolvedClientResource = () => {
     if (mergedBusiness?.hideResourceSelector) {
       return getResourceFromService(service) || barber;
@@ -3354,50 +3359,83 @@ setEditingId(appointment.id);
   }, [isProfessionalSession, mergedBusiness, professionalResourceName]);
 
   const handleHeaderResourceSelect = (item) => {
-  if (!item) return;
+    if (!item) return;
 
-  if (mergedBusiness?.headerSelectionMode === "service") {
-    const selectedService = item.service || item.name || "";
-    const selectedResource =
-      item.resource || getResourceFromService(selectedService);
+    if (mergedBusiness?.headerSelectionMode === "service") {
+      const selectedService = item.service || item.name || "";
+      const selectedResource =
+        item.resource || getResourceFromService(selectedService);
 
-    setService(selectedService);
+      setService(selectedService);
 
-    if (selectedResource) {
-      setBarber(selectedResource);
+      if (selectedResource) {
+        setBarber(selectedResource);
+      }
+
+      setMessage(`Seleccionaste: ${selectedService}`);
+    } else {
+      const selectedProfessional = item.name || "";
+
+      setBarber(selectedProfessional);
+      setMessage(`Seleccionaste: ${selectedProfessional}`);
     }
 
-    setMessage(`Seleccionaste: ${selectedService}`);
-  } else {
-    const selectedProfessional = item.name || "";
+    setWhatsappUrl("");
 
-    setBarber(selectedProfessional);
-    setMessage(`Seleccionaste: ${selectedProfessional}`);
-  }
+    setTimeout(() => {
+      const headerSelectionMode =
+        mergedBusiness?.headerSelectionMode || "professional";
+      const scrollTargetId =
+        mergedBusiness?.id === "giocata" &&
+        mergedBusiness?.headerSelectionMode === "service"
+          ? "client-booking-day-step"
+          : mergedBusiness?.resourceFirstBookingFlow &&
+            headerSelectionMode !== "service"
+          ? "client-booking-service-step"
+          : "booking-form-section";
+      const bookingSection = document.getElementById(scrollTargetId);
 
-  setWhatsappUrl("");
+      if (bookingSection) {
+        bookingSection.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+    }, 120);
+  };
 
-  setTimeout(() => {
-  const headerSelectionMode =
-    mergedBusiness?.headerSelectionMode || "professional";
-  const scrollTargetId =
-    mergedBusiness?.id === "giocata" &&
-    mergedBusiness?.headerSelectionMode === "service"
-      ? "client-booking-day-step"
-      : mergedBusiness?.resourceFirstBookingFlow &&
-        headerSelectionMode !== "service"
-      ? "client-booking-service-step"
-      : "booking-form-section";
-  const bookingSection = document.getElementById(scrollTargetId);
+  const handleAvailabilitySlotSelect = ({ date: nextDate, time: nextTime, resourceName }) => {
+    if (!nextDate || !nextTime || !resourceName) return;
 
-  if (bookingSection) {
-    bookingSection.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  }
-}, 120);
-};
+    const nextService =
+      (SERVICES || []).find(
+        (serviceName) => getResourceFromService(serviceName) === resourceName
+      ) || "";
+    const selectedDay = new Date(`${nextDate}T00:00:00`);
+
+    if (nextService) {
+      setService(nextService);
+    }
+
+    setBarber(resourceName);
+    setDate(nextDate);
+    setTime(nextTime);
+    setWhatsappUrl("");
+    setMessage("");
+    setSelectedWeekStart(getMonday(selectedDay));
+    setSelectedMobileDay(selectedDay);
+
+    setTimeout(() => {
+      const dataSection = document.getElementById("client-booking-data-step");
+
+      if (dataSection) {
+        dataSection.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+    }, 150);
+  };
 
   const handleOpponentAppointmentSelect = (appointment) => {
     if (!appointment) return;
@@ -3982,6 +4020,7 @@ setEditingId(appointment.id);
         );
 
         const availableByType = {};
+        const availableResourcesByType = {};
         const availableResources = [];
 
         (BARBERS || []).forEach((resourceName) => {
@@ -3994,12 +4033,17 @@ setEditingId(appointment.id);
 
           const typeLabel = resourceTypeByName.get(resourceName) || "cancha";
           availableByType[typeLabel] = (availableByType[typeLabel] || 0) + 1;
+          availableResourcesByType[typeLabel] = [
+            ...(availableResourcesByType[typeLabel] || []),
+            resourceName,
+          ].sort((left, right) => getResourceNumber(left) - getResourceNumber(right));
           availableResources.push(resourceName);
         });
 
         return {
           time: normalizedHour,
           availableByType,
+          availableResourcesByType,
           availableResources,
           totalAvailable: availableResources.length,
         };
@@ -4811,6 +4855,7 @@ paymentHistoryItem: {
   onHeaderResourceSelect={handleHeaderResourceSelect}
   openOpponentAppointments={openOpponentAppointments}
   availabilitySummary={sportsAvailabilitySummary}
+  onAvailabilitySlotSelect={handleAvailabilitySlotSelect}
   onOpponentAppointmentSelect={handleOpponentAppointmentSelect}
   selectedBarber={barber}
   selectedService={service}

@@ -1062,7 +1062,11 @@ const isBlocked = slot.status === "blocked";
             </section>
           )}
 
-          <section ref={dataStepRef} style={{ order: dataStepNumber }}>
+          <section
+            id="client-booking-data-step"
+            ref={dataStepRef}
+            style={{ order: dataStepNumber }}
+          >
             <h3 style={{ marginTop: 0, marginBottom: "12px" }}>
               {dataStepNumber}. Completa tus datos
             </h3>

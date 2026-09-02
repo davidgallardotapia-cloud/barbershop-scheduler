@@ -13,6 +13,7 @@ function BusinessHeader({
   onHeaderResourceSelect,
   openOpponentAppointments = [],
   availabilitySummary = [],
+  onAvailabilitySlotSelect,
   onOpponentAppointmentSelect,
   selectedBarber,
   selectedService,
@@ -161,6 +162,26 @@ function BusinessHeader({
     if (isMobile) return String(count);
 
     return count === 1 ? "1 disponible" : `${count} disponibles`;
+  };
+
+  const getAvailabilityResourceForType = (slot, typeLabel) => {
+    const resources = slot?.availableResourcesByType?.[typeLabel] || [];
+
+    return resources[0] || "";
+  };
+
+  const handleAvailabilityCellClick = (slot, typeLabel) => {
+    const resourceName = getAvailabilityResourceForType(slot, typeLabel);
+
+    if (!resourceName || !selectedAvailabilityDay?.value) return;
+
+    setShowAvailabilitySummary(false);
+    onAvailabilitySlotSelect?.({
+      date: selectedAvailabilityDay.value,
+      time: slot.time,
+      typeLabel,
+      resourceName,
+    });
   };
 
   const shouldShowSportsAvailabilitySummary = Boolean(
@@ -1144,12 +1165,13 @@ function BusinessHeader({
                         {availabilityTypes.map((typeLabel) => {
                           const hasAvailability =
                             Number(slot?.availableByType?.[typeLabel] || 0) > 0;
+                          const cellLabel = formatAvailabilityCell(slot, typeLabel);
 
                           return (
                             <td
                               key={`${slot.time}-${typeLabel}`}
                               style={{
-                                padding: isMobile ? "10px 6px" : "10px 12px",
+                                padding: isMobile ? "6px" : "8px",
                                 borderTop: "1px solid #e5e7eb",
                                 color: hasAvailability ? "#166534" : "#991b1b",
                                 fontWeight: "900",
@@ -1157,7 +1179,36 @@ function BusinessHeader({
                                 whiteSpace: "nowrap",
                               }}
                             >
-                              {formatAvailabilityCell(slot, typeLabel)}
+                              {hasAvailability ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleAvailabilityCellClick(slot, typeLabel)
+                                  }
+                                  style={{
+                                    width: "100%",
+                                    minHeight: isMobile ? "38px" : "40px",
+                                    border: `1px solid ${
+                                      business?.theme?.border || "#bbf7d0"
+                                    }`,
+                                    borderRadius: "10px",
+                                    backgroundColor:
+                                      business?.theme?.primarySoft || "#dcfce7",
+                                    color:
+                                      business?.theme?.primaryDark || "#14532d",
+                                    cursor: "pointer",
+                                    fontFamily: "inherit",
+                                    fontSize: isMobile ? "13px" : "14px",
+                                    fontWeight: "900",
+                                    boxShadow:
+                                      "0 6px 14px rgba(22, 101, 52, 0.08)",
+                                  }}
+                                >
+                                  {cellLabel}
+                                </button>
+                              ) : (
+                                cellLabel
+                              )}
                             </td>
                           );
                         })}
