@@ -720,7 +720,7 @@ function BusinessLinkPage({ business, isMobile, slug }) {
                   >
                     <SocialIcon />
                   </span>
-                  <span>Siguenos en redes</span>
+                  <span>Síguenos en redes</span>
                 </a>
               )}
             </div>
@@ -753,6 +753,17 @@ function AppAnimationStyles() {
       @keyframes loadingFloat {
         0%, 100% { transform: translateY(0); }
         50% { transform: translateY(-6px); }
+      }
+
+      @keyframes toastSlideIn {
+        0% {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
       @media (prefers-reduced-motion: reduce) {
@@ -818,6 +829,146 @@ function getWeekdayFromDateValue(dateValue) {
   if (Number.isNaN(date.getTime())) return null;
 
   return date.getDay();
+}
+
+function getFeedbackTone(message) {
+  const normalized = String(message || "").toLowerCase();
+
+  if (
+    normalized.includes("error") ||
+    normalized.includes("no se pudo") ||
+    normalized.includes("no fue") ||
+    normalized.includes("no hay") ||
+    normalized.includes("inválido") ||
+    normalized.includes("invalido")
+  ) {
+    return "error";
+  }
+
+  if (
+    normalized.includes("completa") ||
+    normalized.includes("ingresa") ||
+    normalized.includes("pendiente") ||
+    normalized.includes("revisaremos") ||
+    normalized.includes("ocupado")
+  ) {
+    return "warning";
+  }
+
+  return "success";
+}
+
+function shouldShowGlobalFeedback(message) {
+  const normalized = String(message || "").trim().toLowerCase();
+
+  if (!normalized) return false;
+
+  return ![
+    "seleccionaste:",
+    "bloque seleccionado",
+    "bloque horario seleccionado",
+    "editando reserva",
+  ].some((prefix) => normalized.startsWith(prefix));
+}
+
+function GlobalFeedbackToast({ message, theme, isMobile, onClose }) {
+  if (!shouldShowGlobalFeedback(message)) return null;
+
+  const tone = getFeedbackTone(message);
+  const toneStyles = {
+    success: {
+      title: "Listo",
+      background: theme?.primarySoft || "#dcfce7",
+      border: theme?.border || "#86efac",
+      color: theme?.primaryDark || "#166534",
+      accent: theme?.primary || "#16a34a",
+    },
+    warning: {
+      title: "Atención",
+      background: "#fef9c3",
+      border: "#fde68a",
+      color: "#854d0e",
+      accent: "#ca8a04",
+    },
+    error: {
+      title: "Revisar",
+      background: "#fee2e2",
+      border: "#fecaca",
+      color: "#991b1b",
+      accent: "#dc2626",
+    },
+  }[tone];
+
+  return (
+    <div
+      role="alert"
+      aria-live="polite"
+      style={{
+        position: "fixed",
+        top: isMobile ? "12px" : "18px",
+        right: isMobile ? "12px" : "18px",
+        left: isMobile ? "12px" : "auto",
+        zIndex: 12000,
+        maxWidth: isMobile ? "none" : "440px",
+        border: `1px solid ${toneStyles.border}`,
+        borderLeft: `6px solid ${toneStyles.accent}`,
+        borderRadius: "16px",
+        padding: "14px 16px",
+        backgroundColor: toneStyles.background,
+        color: toneStyles.color,
+        boxShadow: "0 18px 45px rgba(15, 23, 42, 0.18)",
+        display: "grid",
+        gridTemplateColumns: "1fr auto",
+        gap: "12px",
+        alignItems: "start",
+        animation: "toastSlideIn 180ms ease-out",
+      }}
+    >
+      <div>
+        <div
+          style={{
+            fontSize: "13px",
+            fontWeight: "900",
+            marginBottom: "4px",
+            textTransform: "uppercase",
+            letterSpacing: "0.02em",
+          }}
+        >
+          {toneStyles.title}
+        </div>
+
+        <div
+          style={{
+            fontSize: "15px",
+            fontWeight: "800",
+            lineHeight: 1.35,
+            whiteSpace: "pre-line",
+          }}
+        >
+          {message}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Cerrar alerta"
+        style={{
+          width: "32px",
+          height: "32px",
+          borderRadius: "999px",
+          border: `1px solid ${toneStyles.border}`,
+          backgroundColor: "rgba(255,255,255,0.72)",
+          color: toneStyles.color,
+          cursor: "pointer",
+          fontWeight: "900",
+          lineHeight: 1,
+        }}
+      >
+        ×
+      </button>
+    </div>
+  );
 }
 
 function App() {
@@ -1850,7 +2001,7 @@ const [barber, setBarber] = useState("");
         setIsLoggedIn(false);
         setAppMode("client");
         setScheduleBlocks([]);
-        setMessage("Tu sesion expiro. Inicia sesion nuevamente.");
+        setMessage("Tu sesión expiró. Inicia sesión nuevamente.");
 
         try {
           const publicDateRange = getAppointmentsDateRange(false);
@@ -3375,7 +3526,7 @@ setEditingId(appointment.id);
     const dateText = startDate === endDate ? startDate : `${startDate} a ${endDate}`;
 
     if (block.all_day) {
-      return `${dateText} - Todo el dia`;
+      return `${dateText} - Todo el día`;
     }
 
     return `${dateText} - ${String(block.start_time || "").slice(
@@ -4916,6 +5067,12 @@ paymentHistoryItem: {
   return (
     <>
       <AppAnimationStyles />
+      <GlobalFeedbackToast
+        message={message}
+        theme={theme}
+        isMobile={isMobile}
+        onClose={() => setMessage("")}
+      />
 
       <div style={styles.page}>
         <div
@@ -5264,7 +5421,7 @@ updateAppointment={updateAppointment}
                       onChange={(event) => setBlockAllDay(event.target.checked)}
                       style={{ width: "18px", height: "18px" }}
                     />
-                    Todo el dia
+                    Todo el día
                   </label>
 
                   {!blockAllDay && (
@@ -5641,7 +5798,7 @@ updateAppointment={updateAppointment}
                   <div style={styles.dashboardReviewPanel}>
                     <div style={styles.dashboardPaymentHeader}>
                       <div style={{ fontWeight: "900", fontSize: "13px" }}>
-                        Pagadas pendientes de atencion
+                        Pagadas pendientes de atención
                       </div>
                       <div style={{ fontSize: "12px", color: "#64748b" }}>
                         {paidReservationsPendingAttention.length} por revisar
@@ -5660,7 +5817,7 @@ updateAppointment={updateAppointment}
                           padding: "12px",
                         }}
                       >
-                        Sin reservas pagadas pendientes de atencion para este dia.
+                        Sin reservas pagadas pendientes de atención para este día.
                       </div>
                     ) : (
                       <div style={styles.dashboardReviewList}>
