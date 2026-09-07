@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import LoginScreen from "./components/LoginScreen";
 import AdminBookingPanel from "./components/AdminBookingPanel";
 import ClinicalRecordsPanel from "./components/ClinicalRecordsPanel";
@@ -57,6 +57,8 @@ import { businessConfigBySlug } from "./config/businessConfigBySlug";
 const slugAliases = {
   "eu-curaciones-avanzadas": "regencura",
 };
+
+const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
 const resolveSlugAlias = (slug) => slugAliases[slug] || slug;
 
@@ -819,6 +821,10 @@ function getWeekdayFromDateValue(dateValue) {
 }
 
 function App() {
+  const hiddenAtRef = useRef(null);
+  const autoRefreshInFlightRef = useRef(false);
+  const getAppointmentsRef = useRef(null);
+
   const getRouteInfoFromUrl = () => {
     if (typeof window === "undefined") {
       return {
@@ -1802,10 +1808,14 @@ const [barber, setBarber] = useState("");
     }
   }, [weekDays, selectedMobileDay]);
 
-  const getAppointments = async (mode = "auto") => {
+  const getAppointments = async (mode = "auto", options = {}) => {
     if (!businessId) return;
 
-    setLoading(true);
+    const silent = Boolean(options.silent);
+
+    if (!silent) {
+      setLoading(true);
+    }
 
     const shouldUseAdminRoute =
       mode === "admin"
@@ -1855,17 +1865,27 @@ const [barber, setBarber] = useState("");
           );
         } catch (publicErr) {
           console.error(publicErr);
-          setMessage("Error al cargar reservas");
+          if (!silent) {
+            setMessage("Error al cargar reservas");
+          }
         }
 
         return;
       }
 
-      setMessage("Error al cargar reservas");
+      if (!silent) {
+        setMessage("Error al cargar reservas");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
+
+  useEffect(() => {
+    getAppointmentsRef.current = getAppointments;
+  });
 
   const loadAppointmentPayments = async (appointmentId) => {
     if (!paymentsEnabled || !businessId || !appointmentId) return;
@@ -3189,6 +3209,104 @@ setEditingId(appointment.id);
   const effectiveWeeklyBarberFilter = isProfessionalSession
     ? professionalResourceName
     : weeklyBarberFilter;
+  const hasClientBookingDraft =
+    appMode === "client" &&
+    Boolean(
+      name.trim() ||
+        clientFirstName.trim() ||
+        clientLastName.trim() ||
+        phone.trim() ||
+        clientRut.trim() ||
+        clientEmail.trim() ||
+        date ||
+        time ||
+        service ||
+        barber ||
+        customServiceName.trim() ||
+        customServicePrice ||
+        needsOpponent ||
+        opponentName.trim() ||
+        opponentPhone.trim()
+    );
+  const hasAutoRefreshBlocker = Boolean(
+    submitting ||
+      loggingIn ||
+      waitlistSubmitting ||
+      editingId ||
+      paymentAppointment ||
+      reservationVoucher ||
+      waitlistSlot ||
+      businessLoading
+  );
+
+  useEffect(() => {
+    if (!businessId || typeof window === "undefined") return undefined;
+
+    const getRefreshMode = () =>
+      appMode === "admin" && isLoggedIn ? "admin" : "public";
+
+    const refreshSilently = async ({ allowPageReload = false } = {}) => {
+      if (autoRefreshInFlightRef.current) return;
+
+      const shouldAvoidPageReload =
+        hasAutoRefreshBlocker || hasClientBookingDraft;
+
+      if (allowPageReload && !shouldAvoidPageReload) {
+        window.location.reload();
+        return;
+      }
+
+      autoRefreshInFlightRef.current = true;
+
+      try {
+        await getAppointmentsRef.current?.(getRefreshMode(), { silent: true });
+      } finally {
+        autoRefreshInFlightRef.current = false;
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        refreshSilently();
+      }
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        hiddenAtRef.current = Date.now();
+        return;
+      }
+
+      const hiddenForMs = hiddenAtRef.current
+        ? Date.now() - hiddenAtRef.current
+        : 0;
+
+      hiddenAtRef.current = null;
+
+      refreshSilently({
+        allowPageReload: hiddenForMs >= AUTO_REFRESH_INTERVAL_MS,
+      });
+    };
+
+    const handleWindowFocus = () => {
+      refreshSilently();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleWindowFocus);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleWindowFocus);
+    };
+  }, [
+    appMode,
+    businessId,
+    hasAutoRefreshBlocker,
+    hasClientBookingDraft,
+    isLoggedIn,
+  ]);
 
   useEffect(() => {
     if (!isProfessionalSession) return;
