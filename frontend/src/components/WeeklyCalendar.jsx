@@ -1,5 +1,6 @@
 import React from "react";
 import { isSunday } from "../utils/dateUtils";
+import { getBookingOriginInfo } from "../utils/appointmentAudit";
 
 function WeeklyCalendar({
   styles,
@@ -357,28 +358,6 @@ function WeeklyCalendar({
       !appointment?.opponent_phone
     );
   };
-  const getBookingOriginInfo = (appointment) => {
-    const createdFromAdmin = Boolean(
-      appointment?.created_by || appointment?.created_by_admin
-    );
-
-    return createdFromAdmin
-      ? {
-          label: "Admin",
-          shortLabel: "A",
-          background: "#e0f2fe",
-          border: "#7dd3fc",
-          color: "#075985",
-        }
-      : {
-          label: "Cliente",
-          shortLabel: "C",
-          background: "#f0fdf4",
-          border: "#86efac",
-          color: "#166534",
-        };
-  };
-
   const getSportsAppointmentForResource = (appointments, resourceName) => {
     return appointments.find(
       (appointment) =>
@@ -540,7 +519,8 @@ function WeeklyCalendar({
                   </div>
 
                   <span
-                    title={`Creada desde ${originInfo.label}`}
+                    title={originInfo.title}
+                    aria-label={originInfo.title}
                     style={{
                       border: `1px solid ${originInfo.border}`,
                       borderRadius: "999px",
@@ -769,7 +749,8 @@ function WeeklyCalendar({
 
           {occupied && (
             <span
-              title={`Creada desde ${originInfo.label}`}
+              title={originInfo.title}
+              aria-label={originInfo.title}
               style={{
                 border: `1px solid ${originInfo.border}`,
                 borderRadius: "999px",

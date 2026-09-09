@@ -3,6 +3,7 @@ import LoginScreen from "./components/LoginScreen";
 import AdminBookingPanel from "./components/AdminBookingPanel";
 import ClinicalRecordsPanel from "./components/ClinicalRecordsPanel";
 import WeeklyCalendar from "./components/WeeklyCalendar";
+import AppointmentAuditDetails from "./components/AppointmentAuditDetails";
 import BusinessHeader from "./components/BusinessHeader";
 import HomeLanding from "./components/HomeLanding";
 import ClientBookingWizard from "./components/ClientBookingWizard";
@@ -6476,6 +6477,8 @@ updateAppointment={updateAppointment}
                   X Cerrar
                 </button>
               </div>
+
+              <AppointmentAuditDetails appointment={paymentAppointment} />
 
               {paymentPanelError && (
                 <p

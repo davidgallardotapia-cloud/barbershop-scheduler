@@ -8,6 +8,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const pool = require("./config/database");
+const { getAppointmentActor, withAppointmentCreator } = require("./utils/appointmentAudit");
 
 const app = express();
 
@@ -1119,7 +1120,10 @@ const getScopedAppointmentById = async ({ appointmentId, businessId, user }) => 
   }
 
   return pool.query(
-    `SELECT *
+    `SELECT appointments.*,
+       (SELECT username FROM users
+        WHERE users.id = appointments.created_by
+          AND users.business_id = appointments.business_id) AS creator_username
      FROM appointments
      WHERE ${conditions.join(" AND ")}
      LIMIT 1`,
@@ -2662,6 +2666,15 @@ const createTables = async () => {
     `);
 
     await pool.query(`
+      ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS created_by_role VARCHAR(20),
+      ADD COLUMN IF NOT EXISTS created_by_username VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS updated_by_role VARCHAR(20),
+      ADD COLUMN IF NOT EXISTS updated_by_username VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS last_action_at TIMESTAMPTZ;
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS appointment_payments (
         id SERIAL PRIMARY KEY,
         appointment_id INTEGER NOT NULL,
@@ -3612,6 +3625,9 @@ app.get("/admin/appointments", requireAuth, async (req, res) => {
     const result = await pool.query(
       `SELECT
         appointments.*,
+        (SELECT username FROM users
+         WHERE users.id = appointments.created_by
+           AND users.business_id = appointments.business_id) AS creator_username,
         COALESCE(payment_totals.total_paid, 0) AS total_paid,
         COALESCE(payment_totals.transferencia_paid, 0) AS transferencia_paid,
         COALESCE(payment_totals.debito_paid, 0) AS debito_paid,
@@ -3632,7 +3648,9 @@ app.get("/admin/appointments", requireAuth, async (req, res) => {
       appointmentFilter.values
     );
 
-    return res.json(result.rows.map(normalizeAppointmentDateFields));
+    return res.json(result.rows.map((appointment) =>
+      normalizeAppointmentDateFields(withAppointmentCreator(appointment))
+    ));
   } catch (error) {
     console.error(error);
     return res.status(500).json({
@@ -5094,6 +5112,7 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
   const finalOpponentName = isAdminRequest ? opponentName || null : null;
   const finalCreatedBy = isAdminRequest ? req.user?.id || null : null;
   const finalCreatedVia = isAdminRequest ? "admin" : "client";
+  const actor = getAppointmentActor(req.user, businessId);
   const finalNeedsOpponent =
     isAdminRequest &&
     Boolean(needsOpponent) &&
@@ -5211,9 +5230,11 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
         opponent_name,
         opponent_phone,
         created_by,
-        created_via
+        created_via,
+        created_by_role,
+        created_by_username
       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
        RETURNING *`,
       [
         name,
@@ -5237,6 +5258,8 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
         normalizedOpponentPhone,
         finalCreatedBy,
         finalCreatedVia,
+        businessId === "giocata" ? actor.role : null,
+        businessId === "giocata" ? actor.username : null,
       ]
     );
 
@@ -5379,6 +5402,7 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
     Boolean(needsOpponent) && !finalOpponentName && !normalizedOpponentPhone;
   const finalCreatedBy = req.user?.id || null;
   const finalCreatedVia = "admin";
+  const actor = getAppointmentActor(req.user, businessId);
 
   const recurringGroupId = `${finalRecurrenceType}-${businessId}-${Date.now()}-${Math.random()
     .toString(36)
@@ -5526,11 +5550,13 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
           created_via,
           recurrence_group_id,
           recurrence_type,
-          recurrence_index
+          recurrence_index,
+          created_by_role,
+          created_by_username
         )
          VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-          $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
+          $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
         )
          RETURNING *`,
         [
@@ -5556,6 +5582,8 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
           recurringGroupId,
           finalRecurrenceType,
           index + 1,
+          businessId === "giocata" ? actor.role : null,
+          businessId === "giocata" ? actor.username : null,
         ]
       );
 
@@ -5643,7 +5671,10 @@ app.put("/appointments/:id/opponent", publicWriteLimiter, async (req, res) => {
        SET
          needs_opponent = false,
          opponent_name = $1,
-         opponent_phone = $2
+         opponent_phone = $2,
+         updated_by_role = CASE WHEN business_id = 'giocata' THEN 'client' ELSE updated_by_role END,
+         updated_by_username = CASE WHEN business_id = 'giocata' THEN NULL ELSE updated_by_username END,
+         last_action_at = CASE WHEN business_id = 'giocata' THEN NOW() ELSE last_action_at END
        WHERE id = $3 AND business_id = $4
        RETURNING *`,
       [opponentName, normalizedOpponentPhone, id, businessId]
@@ -5836,7 +5867,10 @@ app.put("/appointments/:id", requireAuth, async (req, res) => {
          notes = $16,
          needs_opponent = $17,
          opponent_name = $18,
-         opponent_phone = $19
+         opponent_phone = $19,
+         updated_by_role = CASE WHEN business_id = 'giocata' THEN $21 ELSE updated_by_role END,
+         updated_by_username = CASE WHEN business_id = 'giocata' THEN $22 ELSE updated_by_username END,
+         last_action_at = CASE WHEN business_id = 'giocata' THEN NOW() ELSE last_action_at END
        WHERE id = $20 AND business_id = $7
        RETURNING *`,
       [
@@ -5860,6 +5894,8 @@ app.put("/appointments/:id", requireAuth, async (req, res) => {
         finalOpponentName,
         normalizedOpponentPhone,
         id,
+        getAppointmentActor(req.user, businessId).role,
+        getAppointmentActor(req.user, businessId).username,
       ]
     );
 
@@ -5886,7 +5922,10 @@ app.put("/appointments/:id", requireAuth, async (req, res) => {
 
     return res.json({
       message: "Cita actualizada correctamente",
-      data: result.rows[0],
+      data: withAppointmentCreator({
+        ...result.rows[0],
+        creator_username: scopedAppointmentResult.rows[0].creator_username,
+      }),
     });
   } catch (error) {
     console.error(error);
