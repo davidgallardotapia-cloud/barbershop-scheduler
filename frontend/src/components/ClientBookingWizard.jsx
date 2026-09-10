@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { QUINCHO, isGiocataQuincho, getSportsResource } from "../utils/giocataQuincho";
 import {
   addDays,
   formatDateToInput,
@@ -50,10 +51,7 @@ function ClientBookingWizard({
     showResourceStep && business?.resourceFirstBookingFlow
   );
   const getResourceFromServiceName = (serviceName) => {
-    if (!serviceName) return "";
-
-    const match = String(serviceName).match(/Cancha\s+\d+/i);
-    return match ? match[0] : "";
+    return getSportsResource(serviceName, business?.id);
   };
 
   const isMobile = window.innerWidth < 768;
@@ -956,7 +954,7 @@ const isBlocked = slot.status === "blocked";
           cursor: isDisabled ? "not-allowed" : "pointer",
         }}
       >
-        <span>{slot.value}</span>
+        <span>{slot.label || slot.value}</span>
         <span
           style={{
             fontSize: "11px",
@@ -1263,7 +1261,7 @@ const isBlocked = slot.status === "blocked";
                     HORA
                   </div>
                   <div style={{ color: "#111827", fontWeight: "bold" }}>
-                    {time || "-"}
+                    {time && isGiocataQuincho(business?.id, service) ? QUINCHO.timeLabel : time || "-"}
                   </div>
                 </div>
               </div>

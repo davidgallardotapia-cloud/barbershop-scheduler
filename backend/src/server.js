@@ -9,6 +9,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const pool = require("./config/database");
 const { getAppointmentActor, withAppointmentCreator } = require("./utils/appointmentAudit");
+const { QUINCHO, isGiocataQuincho, validateQuinchoBooking, isQuinchoConflict } = require("./utils/giocataQuincho");
 
 const app = express();
 
@@ -1551,7 +1552,9 @@ const sendReservationConfirmationEmail = async ({
   const brandHeaderColor = isRegencura ? "#111111" : "#0f172a";
   const brandAccentColor = isRegencura ? "#b8872f" : "#2563eb";
   const reservationDate = formatReservationDate(appointment?.date);
-  const reservationTime = String(appointment?.time || "").slice(0, 5);
+  const reservationTime = isGiocataQuincho(business?.id, appointment?.barber)
+    ? `${QUINCHO.start} a ${QUINCHO.end}`
+    : String(appointment?.time || "").slice(0, 5);
   const bookingUrl = business?.slug
     ? `https://agendasmart.cl/${encodeURIComponent(business.slug)}`
     : "https://agendasmart.cl";
@@ -2204,6 +2207,7 @@ const getDurationAwareAppointmentMinutes = (serviceName) => {
 };
 
 const getAppointmentDurationMinutesForBusiness = (businessId, serviceName) => {
+  if (businessId === "giocata" && serviceName === QUINCHO.service) return QUINCHO.durationMinutes;
   return durationAwareBusinessIds.has(businessId)
     ? getDurationAwareAppointmentMinutes(serviceName)
     : 30;
@@ -2759,6 +2763,12 @@ const createTables = async () => {
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_appointments_business_barber_date_time
       ON appointments (business_id, barber, date, time);
+    `);
+
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_giocata_quincho_one_per_day
+      ON appointments (date)
+      WHERE business_id = 'giocata' AND barber = 'Quincho';
     `);
 
     await pool.query(`
@@ -5022,6 +5032,8 @@ app.post("/integrations/google-sheets/sync", requireAuth, async (req, res) => {
 });
 
 app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => {
+  const quinchoError = validateQuinchoBooking(req.body);
+  if (quinchoError) return res.status(400).json({ message: quinchoError });
   const {
     name,
     phone,
@@ -5095,7 +5107,9 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
     ? normalizeChilePhone(opponentPhone)
     : null;
   const finalStatus = isAdminRequest ? status || "reservada" : "reservada";
-  const finalTotalAmount = isAdminRequest ? totalAmount || 0 : 0;
+  const finalTotalAmount = isGiocataQuincho(businessId, barber)
+    ? QUINCHO.price
+    : isAdminRequest ? totalAmount || 0 : 0;
   const finalDepositRequired = isAdminRequest
     ? depositRequired ?? false
     : false;
@@ -5184,15 +5198,17 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
          WHERE business_id = $1
            AND date = $2
            AND RIGHT(regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g'), 9) = $3
+           AND (barber = 'Quincho') = $4
            AND COALESCE(status, 'reservada') NOT IN ('cancelada', 'eliminada', 'deleted')
          LIMIT 1`,
-        [businessId, date, normalizedPhoneLast9]
+        [businessId, date, normalizedPhoneLast9, isGiocataQuincho(businessId, barber)]
       );
 
       if (duplicateClientSlot.rows.length > 0) {
         return res.status(409).json({
-          message:
-            "Ya tienes una reserva para este día. Si necesitas cambiar la cancha u hora, comunícate con el negocio por WhatsApp.",
+          message: isGiocataQuincho(businessId, barber)
+            ? "Ya tienes una reserva de quincho para este día. Para modificarla, comunícate con el negocio por WhatsApp."
+            : "Ya tienes una reserva para este día. Si necesitas cambiar la cancha u hora, comunícate con el negocio por WhatsApp.",
         });
       }
     }
@@ -5316,6 +5332,9 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
         : toPublicAppointment(createdAppointment),
     });
   } catch (error) {
+    if (isQuinchoConflict(error)) {
+      return res.status(409).json({ message: "El quincho ya está reservado para ese día. Selecciona otra fecha." });
+    }
     console.error(error);
     return res.status(500).json({ message: "Error al crear cita" });
   }
@@ -5323,6 +5342,8 @@ app.post("/appointments", publicWriteLimiter, optionalAuth, async (req, res) => 
 
 
 app.post("/appointments/monthly", requireAuth, async (req, res) => {
+  const quinchoError = validateQuinchoBooking(req.body);
+  if (quinchoError) return res.status(400).json({ message: quinchoError });
   const {
     name,
     phone,
@@ -5459,10 +5480,11 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
          WHERE business_id = $1
            AND date = ANY($2::date[])
            AND RIGHT(regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g'), 9) = $3
+           AND (barber = 'Quincho') = $4
            AND COALESCE(status, 'reservada') NOT IN ('cancelada', 'eliminada', 'deleted')
          ORDER BY date ASC, time ASC
          LIMIT 10`,
-        [businessId, recurringDates, normalizedPhoneLast9]
+        [businessId, recurringDates, normalizedPhoneLast9, isGiocataQuincho(businessId, barber)]
       );
 
       if (duplicateClientDates.rows.length > 0) {
@@ -5568,7 +5590,7 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
           barber,
           businessId,
           status || "reservada",
-          totalAmount || 0,
+          isGiocataQuincho(businessId, barber) ? QUINCHO.price : totalAmount || 0,
           depositRequired ?? false,
           requiredDepositAmount || 0,
           paymentStatus || (depositRequired ? "deposit_pending" : "unpaid"),
@@ -5610,6 +5632,9 @@ app.post("/appointments/monthly", requireAuth, async (req, res) => {
   } catch (error) {
     await client.query("ROLLBACK");
 
+    if (isQuinchoConflict(error)) {
+      return res.status(409).json({ message: "El quincho fue reservado en una de las fechas. No se creó la serie; revisa la disponibilidad." });
+    }
     console.error(error);
 
     return res.status(500).json({
@@ -5699,6 +5724,8 @@ app.put("/appointments/:id/opponent", publicWriteLimiter, async (req, res) => {
 });
 
 app.put("/appointments/:id", requireAuth, async (req, res) => {
+  const quinchoError = validateQuinchoBooking(req.body);
+  if (quinchoError) return res.status(400).json({ message: quinchoError });
   const { id } = req.params;
   const {
     name,
@@ -5884,7 +5911,7 @@ app.put("/appointments/:id", requireAuth, async (req, res) => {
         normalizedClientRut,
         normalizedClientEmail,
         status || "reservada",
-        totalAmount || 0,
+        isGiocataQuincho(businessId, barber) ? QUINCHO.price : totalAmount || 0,
         depositRequired ?? false,
         requiredDepositAmount || 0,
         paymentStatus || (depositRequired ? "deposit_pending" : "unpaid"),
@@ -5928,6 +5955,9 @@ app.put("/appointments/:id", requireAuth, async (req, res) => {
       }),
     });
   } catch (error) {
+    if (isQuinchoConflict(error)) {
+      return res.status(409).json({ message: "El quincho ya está reservado para ese día. Selecciona otra fecha." });
+    }
     console.error(error);
     return res.status(500).json({ message: "Error al actualizar cita" });
   }

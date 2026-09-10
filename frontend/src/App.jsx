@@ -7,6 +7,7 @@ import AppointmentAuditDetails from "./components/AppointmentAuditDetails";
 import BusinessHeader from "./components/BusinessHeader";
 import HomeLanding from "./components/HomeLanding";
 import ClientBookingWizard from "./components/ClientBookingWizard";
+import { QUINCHO, isGiocataQuincho, getSportsResource, hasQuinchoBookingEnded } from "./utils/giocataQuincho";
 import {
   FaCalendarAlt,
   FaFacebookF,
@@ -1158,6 +1159,7 @@ const [barber, setBarber] = useState("");
   };
 
   const usesServiceDurations = Boolean(mergedBusiness?.usesServiceDurations);
+  const isQuinchoSelected = isGiocataQuincho(mergedBusiness?.id, service);
   const slotIntervalMinutes = Number(mergedBusiness?.slotIntervalMinutes || 30);
   const blockedWeekdays = mergedBusiness?.blockedWeekdays || [];
   const paymentsEnabled = mergedBusiness?.paymentsEnabled || false;
@@ -1179,6 +1181,13 @@ const [barber, setBarber] = useState("");
     "efectivo",
     "debito",
   ];
+
+  useEffect(() => {
+    if (!isQuinchoSelected) return;
+    setNeedsOpponent(false);
+    setOpponentName("");
+    setOpponentPhone("");
+  }, [isQuinchoSelected]);
 
   useEffect(() => {
     if (!service || !barber) return;
@@ -1377,6 +1386,7 @@ const [barber, setBarber] = useState("");
   };
 
   const getServiceDurationMinutes = (serviceName) => {
+    if (isGiocataQuincho(mergedBusiness?.id, serviceName)) return QUINCHO.durationMinutes;
     return (
       parseServiceDurationMinutes(serviceName) ||
       (usesServiceDurations ? slotIntervalMinutes : 0)
@@ -1467,8 +1477,9 @@ const [barber, setBarber] = useState("");
   const getBlocksForSlot = (day, hour, resourceName = "") => {
     const normalizedHour = normalizeScheduleTime(hour);
     const startMinutes = timeToMinutes(normalizedHour);
-    const endMinutes =
-      startMinutes === null ? null : startMinutes + slotIntervalMinutes;
+    const endMinutes = startMinutes === null ? null : startMinutes + (
+      isGiocataQuincho(mergedBusiness?.id, resourceName) ? QUINCHO.durationMinutes : slotIntervalMinutes
+    );
 
     return scheduleBlocks.filter((block) =>
       scheduleBlockOverlapsRange({
@@ -1488,7 +1499,7 @@ const [barber, setBarber] = useState("");
     serviceName,
   }) => {
     const startMinutes = timeToMinutes(timeValue);
-    const durationMinutes = usesServiceDurations
+    const durationMinutes = usesServiceDurations || isGiocataQuincho(mergedBusiness?.id, serviceName)
       ? getServiceDurationMinutes(serviceName)
       : slotIntervalMinutes;
     const endMinutes =
@@ -1580,6 +1591,7 @@ const [barber, setBarber] = useState("");
   };
 
   const getVoucherDurationLabel = (serviceName) => {
+    if (isGiocataQuincho(mergedBusiness?.id, serviceName)) return QUINCHO.durationLabel;
     const explicitDuration = String(serviceName || "").match(/(\d+)\s*min/i);
 
     if (explicitDuration) {
@@ -1600,7 +1612,8 @@ const [barber, setBarber] = useState("");
   }) => {
     const locationParts = [mergedBusiness?.address, mergedBusiness?.location].filter(Boolean);
     const isSportsBusiness = ["giocata", "pinguino-club"].includes(mergedBusiness?.id);
-    const resourceLabel = mergedBusiness?.resourceLabelSingle || "Profesional";
+    const isQuincho = isGiocataQuincho(mergedBusiness?.id, resourceName || appointment?.barber);
+    const resourceLabel = isQuincho ? "Espacio" : mergedBusiness?.resourceLabelSingle || "Profesional";
 
     setReservationVoucher({
       id: appointment?.id || "",
@@ -1614,7 +1627,7 @@ const [barber, setBarber] = useState("");
       resourceLabel,
       resource: resourceName || appointment?.barber || resourceLabel,
       dateLabel: formatVoucherDate(reservationDate || appointment?.date),
-      timeLabel: String(reservationTime || appointment?.time || "").slice(0, 5),
+      timeLabel: isQuincho ? QUINCHO.timeLabel : String(reservationTime || appointment?.time || "").slice(0, 5),
       durationLabel: getVoucherDurationLabel(serviceName || appointment?.service),
       locationLabel: locationParts.join(", ") || "Ubicación por confirmar",
       priceLabel: formatCurrency(totalAmount || getAppointmentTotalAmount(appointment)),
@@ -2430,10 +2443,7 @@ setEditingId(null);
   };
 
   const getResourceFromService = (serviceName) => {
-    if (!serviceName) return "";
-
-    const match = String(serviceName).match(/Cancha\s+\d+/i);
-    return match ? match[0] : "";
+    return getSportsResource(serviceName, mergedBusiness?.id);
   };
 
   const getResourceNumber = (resourceName) => {
@@ -2488,7 +2498,9 @@ setEditingId(null);
     if (submitting || !businessId) return;
 
     const resolvedBarber = mergedBusiness?.hideResourceSelector
-      ? barber || getResourceFromService(service)
+      ? mergedBusiness?.id === "giocata"
+        ? getResourceFromService(service) || barber
+        : barber || getResourceFromService(service)
       : barber;
 
     if (
@@ -2605,6 +2617,8 @@ ${mergedBusiness?.resourceLabelSingle || "Cancha"}: ${resolvedBarber}
 
   const finalService = service.trim();
 const finalTotalAmount = getServicePrice(finalService) || 0;
+const confirmationTimeLabel = isQuinchoSelected ? QUINCHO.timeLabel : time;
+const confirmationResourceLabel = isQuinchoSelected ? "Espacio" : mergedBusiness?.resourceLabelSingle || "Recurso";
 
 const createdAppointment = await createAppointmentService({
   name: name.trim(),
@@ -2726,8 +2740,8 @@ const generatedWhatsappUrl = barberPhone
           } registrada correctamente
 
 Fecha: ${date}
-Hora: ${time}
-${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}
+Hora: ${confirmationTimeLabel}
+${confirmationResourceLabel}: ${resolvedBarber}
 
 ${mergedBusiness?.whatsappLabel || "Confirma por WhatsApp"}`);
         } else {
@@ -2736,8 +2750,8 @@ ${mergedBusiness?.whatsappLabel || "Confirma por WhatsApp"}`);
           } registrada correctamente
 
 Fecha: ${date}
-Hora: ${time}
-${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
+Hora: ${confirmationTimeLabel}
+${confirmationResourceLabel}: ${resolvedBarber}`);
         }
       } else {
         setMessage(`${
@@ -2745,8 +2759,8 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
         } registrada correctamente
 
 Fecha: ${date}
-Hora: ${time}
-${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
+Hora: ${confirmationTimeLabel}
+${confirmationResourceLabel}: ${resolvedBarber}`);
       }
       resetForm();
     } catch (err) {
@@ -2782,7 +2796,9 @@ ${mergedBusiness?.resourceLabelSingle || "Recurso"}: ${resolvedBarber}`);
     }
 
     const resolvedBarber = mergedBusiness?.hideResourceSelector
-      ? barber || getResourceFromService(service)
+      ? mergedBusiness?.id === "giocata"
+        ? getResourceFromService(service) || barber
+        : barber || getResourceFromService(service)
       : barber;
 
     if (
@@ -2902,7 +2918,9 @@ ${
     if (submitting || !editingId || !businessId) return;
 
     const resolvedBarber = mergedBusiness?.hideResourceSelector
-      ? barber || getResourceFromService(service)
+      ? mergedBusiness?.id === "giocata"
+        ? getResourceFromService(service) || barber
+        : barber || getResourceFromService(service)
       : barber;
 
     if (
@@ -3637,6 +3655,7 @@ setEditingId(appointment.id);
         item.resource || getResourceFromService(selectedService);
 
       setService(selectedService);
+      if (mergedBusiness?.id === "giocata") setTime("");
 
       if (selectedResource) {
         setBarber(selectedResource);
@@ -4266,6 +4285,7 @@ setEditingId(appointment.id);
     const resourceTypeByName = new Map();
 
     (SERVICES || []).forEach((serviceName) => {
+      if (isGiocataQuincho(mergedBusiness?.id, serviceName)) return;
       const resourceName = getResourceFromService(serviceName);
       if (!resourceName) return;
 
@@ -4294,6 +4314,7 @@ setEditingId(appointment.id);
         const availableResources = [];
 
         (BARBERS || []).forEach((resourceName) => {
+          if (isGiocataQuincho(mergedBusiness?.id, resourceName)) return;
           const isOccupied = occupiedResources.has(resourceName);
           const isBlocked =
             getBlocksForSlot(dateValue, normalizedHour, resourceName).length > 0;
@@ -4322,6 +4343,11 @@ setEditingId(appointment.id);
       return {
         ...day,
         slots,
+        quincho: mergedBusiness?.id === "giocata" ? {
+          available: !hasQuinchoBookingEnded(dateValue) &&
+            !appointments.some((appointment) => sameDate(appointment.date, dayDate) && appointment.barber === QUINCHO.resource) &&
+            getBlocksForReservationCandidate({ dateValue, resourceName: QUINCHO.resource, timeValue: QUINCHO.start, serviceName: QUINCHO.service }).length === 0,
+        } : null,
         totalAvailable: slots.reduce(
           (sum, slot) => sum + slot.totalAvailable,
           0
@@ -4348,7 +4374,7 @@ setEditingId(appointment.id);
     mergedBusiness?.id
   );
 
-  const selectedDayHours = getScheduleSlotsForDate(selectedDay);
+  const selectedDayHours = isQuinchoSelected ? [QUINCHO.start] : getScheduleSlotsForDate(selectedDay);
 
   return selectedDayHours.map((hour) => {
     const formattedHour =
@@ -4356,7 +4382,9 @@ setEditingId(appointment.id);
 
     const normalizedHour = normalizeScheduleTime(hour);
 
-    const isPast = isPastSlot(selectedDay, normalizedHour);
+    const isPast = isQuinchoSelected
+      ? hasQuinchoBookingEnded(date)
+      : isPastSlot(selectedDay, normalizedHour);
     const slotAppointments = getAppointmentsForSlot(selectedDay, hour);
     const candidateStartMinutes = timeToMinutes(normalizedHour);
     const selectedDurationMinutes = getServiceDurationMinutes(service);
@@ -4426,6 +4454,7 @@ setEditingId(appointment.id);
 
     return {
       value: formattedHour,
+      label: isQuinchoSelected ? QUINCHO.timeLabel : formattedHour,
       isPast,
       isTaken,
       isBlocked,
@@ -4995,6 +5024,9 @@ paymentHistoryItem: {
   const paymentAppointmentWhatsappUrl = paymentAppointmentPhone
     ? `https://wa.me/${paymentAppointmentPhone}`
     : "";
+  const paymentAppointmentTimeLabel = isGiocataQuincho(mergedBusiness?.id, paymentAppointment?.barber)
+    ? QUINCHO.timeLabel
+    : String(paymentAppointment?.time || "").slice(0, 5);
 
   const isClientFormComplete =
     name.trim() &&
@@ -5069,7 +5101,7 @@ paymentHistoryItem: {
     <>
       <AppAnimationStyles />
       <GlobalFeedbackToast
-        message={message}
+        message={reservationVoucher ? "" : message}
         theme={theme}
         isMobile={isMobile}
         onClose={() => setMessage("")}
@@ -6379,7 +6411,7 @@ updateAppointment={updateAppointment}
                       {paymentAppointment?.date
                         ? formatDateOnlyForDisplay(paymentAppointment.date)
                         : ""}{" "}
-                      · {String(paymentAppointment?.time || "").slice(0, 5)}
+                      · {paymentAppointmentTimeLabel}
                     </p>
                   )}
 
@@ -6402,7 +6434,7 @@ updateAppointment={updateAppointment}
                     {paymentAppointment?.date
                       ? formatDateOnlyForDisplay(paymentAppointment.date)
                       : ""}{" "}
-                    · {String(paymentAppointment?.time || "").slice(0, 5)}
+                    · {paymentAppointmentTimeLabel}
                   </p>
 
                   <div
@@ -6654,7 +6686,7 @@ lineHeight: 1.2,
       {paymentAppointment?.date
         ? formatDateOnlyForDisplay(paymentAppointment.date)
         : "—"}{" "}
-      · {String(paymentAppointment?.time || "").slice(0, 5) || "—"}
+      · {paymentAppointmentTimeLabel || "—"}
     </div>
   </div>
 )}
@@ -6680,7 +6712,7 @@ lineHeight: 1.2,
     </div>
 
     <div style={{ fontWeight: "900", color: "#111827" }}>
-      {String(paymentAppointment?.time || "").slice(0, 5) || "—"}
+      {paymentAppointmentTimeLabel || "—"}
     </div>
   </div>
 )}

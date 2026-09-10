@@ -1,4 +1,6 @@
-﻿export const businessConfigBySlug = {
+﻿import { QUINCHO } from "../utils/giocataQuincho";
+
+export const businessConfigBySlug = {
   "urban-district-barber": {
     id: "barberia-james",
     tabTitle: "Urban District Barber | AgendaSmart",
@@ -232,7 +234,6 @@
     resourceLabelPlural: "Canchas",
     hideResourceSelector: true,
     headerSelectionMode: "service",
-    headerResourceSectionTitle: "Canchas disponibles",
     serviceLabel: "tipo de cancha",
     clientNamePlaceholder: "Nombre cliente",
     clientPhonePlaceholder: "Celular cliente (ej: 912345678)",
@@ -244,14 +245,14 @@
     createButtonLabel: "Crear reserva",
     creatingLabel: "Creando...",
     headerProfessionalsLimit: 3,
-    headerResourceSectionTitle: "Tipos de cancha",
+    headerResourceSectionTitle: "Canchas y quincho",
     newItemTitle: "Nueva reserva",
     editItemTitle: "Editar reserva",
     whatsappButtonLabel: "Abrir WhatsApp",
     resourceSelectedLabel: "Cancha seleccionada",
     resourceSelectPrompt: "Selecciona una cancha arriba",
     resourceSelectOption: "Selecciona una cancha",
-    serviceSelectOption: "Selecciona un tipo de cancha",
+    serviceSelectOption: "Selecciona una cancha o quincho",
     blockedWeekdays: [],
     takenSlotLabel: "Reservado",
     pastSlotLabel: "Pasó",
@@ -271,6 +272,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
       "Cancha 5",
       "Cancha 6",
       "Cancha 7",
+      QUINCHO.resource,
     ],
 
     phones: {
@@ -281,6 +283,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
       "Cancha 5": "56993239412",
       "Cancha 6": "56993239412",
       "Cancha 7": "56993239412",
+      [QUINCHO.resource]: "56993239412",
     },
 
     services: [
@@ -291,6 +294,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
   "Cancha 5 (8v8 - $36.000)",
   "Cancha 6 (7v7 - $32.000)",
   "Cancha 7 (6v6 - $24.000)",
+  QUINCHO.service,
     ],
 
     scheduleSlots: ["19:00", "20:00", "21:00", "22:00", "23:00"],

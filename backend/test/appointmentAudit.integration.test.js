@@ -69,9 +69,10 @@ test("reservation audit through the API in an isolated local schema", {
     ];
     for (const user of users) await pool.query("INSERT INTO users (id,username,password,business_id) VALUES ($1,$2,$3,$4)", [user.id, user.username, "unused-test-hash", user.business_id]);
     const [admin, veronica, urban] = users.map((user) => jwt.sign(user, secret, { expiresIn: "10m" }));
+    let clientAddress = "127.0.0.1";
     const request = async (route, token, body, method = body ? "POST" : "GET") => {
       const response = await fetch(`${base}${route}`, { method,
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body ? { "Content-Type": "application/json" } : {}) },
+        headers: { "X-Forwarded-For": clientAddress, ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body ? { "Content-Type": "application/json" } : {}) },
         body: body ? JSON.stringify(body) : undefined,
       });
       return { status: response.status, data: await response.json() };
@@ -182,6 +183,9 @@ test("reservation audit through the API in an isolated local schema", {
       assert.equal(publicList.status, 200);
       assert.ok(publicList.data.every((row) => !Object.hasOwn(row, "created_by_username") && !Object.hasOwn(row, "updated_by_username") && !Object.hasOwn(row, "last_action_at")));
     });
+    // A second simulated local client keeps independent suites within the real rate limit.
+    clientAddress = "127.0.0.2";
+    await require("./giocataQuinchoChecks")(t, { request, payload, admin, veronica, pool });
   } finally {
     if (server && server.exitCode === null) {
       const stopped = once(server, "exit");

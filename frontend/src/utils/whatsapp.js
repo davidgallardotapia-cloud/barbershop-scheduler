@@ -1,3 +1,5 @@
+import { QUINCHO, isGiocataQuincho } from "./giocataQuincho.js";
+
 const BULLET = "-";
 
 function isSportsBusiness(business) {
@@ -20,7 +22,17 @@ export function buildBarberWhatsappUrl({
   const isSports = isSportsBusiness(business);
   const resourceLabel = business?.resourceLabelSingle || "Barbero";
 
-  const messageText = isSports
+  const messageText = isGiocataQuincho(business?.id, barber)
+    ? `Nueva reserva de quincho
+
+${BULLET} Cliente: ${name}
+${BULLET} Telefono: ${phone}
+
+${BULLET} Fecha: ${date}
+${BULLET} Horario: ${QUINCHO.timeLabel}
+${BULLET} Servicio: ${QUINCHO.service}
+${BULLET} Duracion: ${QUINCHO.durationLabel}`
+    : isSports
     ? `Nueva reserva de cancha
 
 ${BULLET} Cliente / Equipo: ${name}

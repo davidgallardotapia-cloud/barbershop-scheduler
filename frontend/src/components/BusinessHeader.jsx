@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { QUINCHO, isGiocataQuincho, getSportsResource } from "../utils/giocataQuincho";
 import {
   FaWhatsapp,
   FaPhoneAlt,
@@ -140,6 +141,7 @@ function BusinessHeader({
     const types = new Set();
 
     (business?.services || []).forEach((serviceName) => {
+      if (isGiocataQuincho(business?.id, serviceName)) return;
       const match = String(serviceName || "").match(/\(([^)-]+?)\s*-/);
       if (match?.[1]) types.add(match[1].trim());
     });
@@ -228,7 +230,6 @@ function BusinessHeader({
     headerSelectionMode === "service"
       ? (business?.services || []).map((serviceName) => {
           const parsed = parseServiceCard(serviceName);
-          const resourceMatch = String(serviceName).match(/Cancha\s+\d+/i);
 
           return {
             key: serviceName,
@@ -236,7 +237,7 @@ function BusinessHeader({
             subtitle: parsed.subtitle,
             image: business?.logo || business?.image || "",
             service: serviceName,
-            resource: resourceMatch ? resourceMatch[0] : "",
+            resource: getSportsResource(serviceName, business?.id),
           };
         })
       : (business?.professionals || [])
@@ -1068,6 +1069,9 @@ function BusinessHeader({
                 }
                 style={{
                   width: "100%",
+                  minWidth: 0,
+                  maxWidth: "100%",
+                  boxSizing: "border-box",
                   minHeight: "46px",
                   border: "1px solid #cbd5e1",
                   borderRadius: "10px",
@@ -1218,6 +1222,28 @@ function BusinessHeader({
                 </tbody>
               </table>
             </div>
+            {selectedAvailabilityDay?.quincho && (
+              <div style={{ marginTop: "20px", paddingTop: "16px", borderTop: "1px solid #e5e7eb", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+                <div>
+                  <div style={{ fontWeight: "900", color: "#14532d", marginBottom: "6px" }}>Quincho</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", color: "#374151" }}>
+                    <FaRegClock aria-hidden="true" /> {QUINCHO.timeLabel}
+                  </div>
+                  <div style={{ marginTop: "6px", fontSize: "14px", fontWeight: "700" }}>$20.000 · Bloque completo</div>
+                </div>
+                <button
+                  type="button"
+                  disabled={!selectedAvailabilityDay.quincho.available}
+                  onClick={() => {
+                    setShowAvailabilitySummary(false);
+                    onAvailabilitySlotSelect?.({ date: selectedAvailabilityDay.value, time: QUINCHO.start, resourceName: QUINCHO.resource });
+                  }}
+                  style={{ padding: "12px 16px", minHeight: "44px", border: "1px solid #bbf7d0", borderRadius: "8px", fontFamily: "inherit", fontWeight: "800", fontSize: "14px", backgroundColor: selectedAvailabilityDay.quincho.available ? "#166534" : "#f3f4f6", color: selectedAvailabilityDay.quincho.available ? "#fff" : "#6b7280", cursor: selectedAvailabilityDay.quincho.available ? "pointer" : "default" }}
+                >
+                  {selectedAvailabilityDay.quincho.available ? "Reservar quincho" : "Quincho no disponible"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

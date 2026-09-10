@@ -1,4 +1,5 @@
 import React from "react";
+import { QUINCHO, isGiocataQuincho } from "../utils/giocataQuincho";
 import { isSunday } from "../utils/dateUtils";
 import { getBookingOriginInfo } from "../utils/appointmentAudit";
 
@@ -666,6 +667,10 @@ function WeeklyCalendar({
   };
 
   const renderSportsResourceBox = ({ resourceName, appointment, day, hour }) => {
+    const isQuincho = isGiocataQuincho(business?.id, resourceName);
+    const normalizedHour = typeof hour === "number" ? `${String(hour).padStart(2, "0")}:00` : String(hour).slice(0, 5);
+    if (isQuincho && normalizedHour !== QUINCHO.start) return null;
+    const quinchoBlocked = isQuincho && !appointment && getBlocksForSlot(day, hour, resourceName).length > 0;
     const paymentInfo = getPaymentStatusInfo(appointment?.payment_status);
     const reservationInfo = getReservationStatusInfo(appointment?.status);
     const occupied = Boolean(appointment);
@@ -676,6 +681,7 @@ function WeeklyCalendar({
       <button
         key={resourceName}
         type="button"
+        disabled={quinchoBlocked}
         onClick={() =>
           occupied
             ? handleSportsOccupiedClick(appointment)
@@ -684,7 +690,7 @@ function WeeklyCalendar({
         title={
           occupied
             ? `${resourceName} - ${getAppointmentDisplayName(appointment)}`
-            : `${resourceName} libre`
+            : `${resourceName} ${quinchoBlocked ? "bloqueado" : "libre"}${isQuincho ? ` - ${QUINCHO.timeLabel}` : ""}`
         }
         style={{
           width: "100%",
@@ -705,7 +711,7 @@ function WeeklyCalendar({
             ? "0 3px 10px rgba(15, 23, 42, 0.08)"
             : "none",
           display: "grid",
-          gridTemplateColumns: "34px minmax(0, 1fr) auto",
+          gridTemplateColumns: isQuincho ? "52px minmax(0, 1fr) auto" : "34px minmax(0, 1fr) auto",
           alignItems: "center",
           gap: "8px",
           overflow: "hidden",
@@ -776,7 +782,7 @@ function WeeklyCalendar({
               textOverflow: "ellipsis",
             }}
           >
-            {occupied ? getAppointmentDisplayName(appointment) : "Libre"}
+            {occupied ? getAppointmentDisplayName(appointment) : quinchoBlocked ? "Bloqueado" : "Libre"}
           </span>
         </span>
 
@@ -813,6 +819,9 @@ function WeeklyCalendar({
           </span>
         ) : (
           <span />
+        )}
+        {isQuincho && (
+          <span style={{ gridColumn: "1 / -1", fontSize: "11px", color: "#475569" }}>{QUINCHO.timeLabel} · $20.000</span>
         )}
       </button>
     );

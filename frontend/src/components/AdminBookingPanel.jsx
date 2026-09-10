@@ -1,4 +1,5 @@
 import React from "react";
+import { QUINCHO, isGiocataQuincho, getSportsResource } from "../utils/giocataQuincho";
 
 function AdminBookingPanel({
   styles,
@@ -60,6 +61,7 @@ function AdminBookingPanel({
   submitting,
   message,
 }) {
+  const isQuincho = isGiocataQuincho(business?.id, service);
   const applyCustomPriceToSelectedService = () => {
     if (!service || !customServicePrice.trim()) return;
 
@@ -210,17 +212,24 @@ function AdminBookingPanel({
           onChange={(e) => setDate(e.target.value)}
         />
 
-        <input
-          style={styles.input}
-          type="time"
-          value={time}
-          onChange={(e) => setTime(e.target.value)}
-        />
+        {isQuincho ? (
+          <input style={styles.input} aria-label="Horario del quincho" readOnly value={QUINCHO.timeLabel} />
+        ) : (
+          <input style={styles.input} type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+        )}
 
         <select
           style={styles.select}
           value={service}
-          onChange={(e) => setService(e.target.value)}
+          onChange={(e) => {
+            const nextService = e.target.value;
+            setService(nextService);
+            if (business?.id === "giocata") {
+              setBarber(getSportsResource(nextService, business.id));
+              if (isGiocataQuincho(business.id, nextService)) setTime(QUINCHO.start);
+              else if (isQuincho) setTime("");
+            }
+          }}
         >
           <option value="">
             {business?.serviceSelectOption || "Selecciona un servicio"}
@@ -233,7 +242,7 @@ function AdminBookingPanel({
           ))}
         </select>
 
-        {isCustomPriceBusiness && (
+        {isCustomPriceBusiness && !isQuincho && (
           <div
             style={{
               border: "1px solid #bbf7d0",
@@ -398,7 +407,7 @@ function AdminBookingPanel({
           </select>
         )}
 
-        {isSportsBusiness && (
+        {isSportsBusiness && !isQuincho && (
           <div
             style={{
               border: "1px solid #bfdbfe",
@@ -516,7 +525,7 @@ function AdminBookingPanel({
                 lineHeight: 1.4,
               }}
             >
-              Crea reservas semanales para el mismo día, hora y cancha durante
+              Crea reservas semanales para el mismo día, hora y {isQuincho ? "quincho" : "cancha"} durante
               un mes. Si alguna fecha está ocupada, no se creará la reserva
               mensual.
             </p>
@@ -565,7 +574,7 @@ function AdminBookingPanel({
                 lineHeight: 1.4,
               }}
             >
-              Crea reservas semanales para el mismo día, hora y cancha durante
+              Crea reservas semanales para el mismo día, hora y {isQuincho ? "quincho" : "cancha"} durante
               tres meses. Si alguna fecha está ocupada, no se creará la reserva
               trimestral.
             </p>
