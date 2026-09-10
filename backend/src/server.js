@@ -10,6 +10,7 @@ const jwt = require("jsonwebtoken");
 const pool = require("./config/database");
 const { getAppointmentActor, withAppointmentCreator } = require("./utils/appointmentAudit");
 const { QUINCHO, isGiocataQuincho, validateQuinchoBooking, isQuinchoConflict } = require("./utils/giocataQuincho");
+const { getReservationReplyTo } = require("./utils/reservationEmail");
 
 const app = express();
 
@@ -1531,7 +1532,10 @@ const sendReservationConfirmationEmail = async ({
 
   const resendApiKey = process.env.RESERVATIONS_RESEND_API_KEY;
   const from = process.env.RESERVATIONS_EMAIL_FROM;
-  const replyTo = normalizeEmail(process.env.RESERVATIONS_REPLY_TO);
+  const replyTo = getReservationReplyTo(
+    business?.id || appointment?.business_id,
+    normalizeEmail(process.env.RESERVATIONS_REPLY_TO)
+  );
   const to = normalizeEmail(recipientEmail || appointment?.client_email);
 
   if (!resendApiKey || !from || !to) {
