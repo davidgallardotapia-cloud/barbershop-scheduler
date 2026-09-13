@@ -1,0 +1,85 @@
+.giocata-reports { color: #17201c; background: #fff; padding: 12px 0 24px; letter-spacing: 0; min-width: 0; container-type: inline-size; }
+.giocata-reports * { box-sizing: border-box; }
+.giocata-reports h2 { font-size: 22px; margin: 0; }
+.giocata-reports h3 { font-size: 17px; margin: 0 0 14px; }
+.gr-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.gr-muted { color: #59655f; font-size: 13px; margin: 6px 0; }
+.giocata-reports button { cursor: pointer; font: inherit; font-size: 14px; font-weight: 700; border-radius: 6px; padding: 10px 12px; }
+.gr-refresh { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #b9c5bf; background: #fff; color: #185c39; }
+.giocata-reports button:disabled { opacity: .55; cursor: wait; }
+.giocata-reports button:focus-visible { outline: 3px solid #2680c2; outline-offset: 2px; }
+.gr-ranges { display: flex; flex-wrap: wrap; gap: 4px; margin: 20px 0 16px; }
+.gr-ranges button { background: #eef1ef; border: 1px solid transparent; color: #39483f; }
+.gr-ranges button[aria-pressed="true"] { background: #166534; color: #fff; }
+.gr-period { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; margin-bottom: 18px; }
+.gr-period span { color: #59655f; }
+.gr-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.gr-metric { border: 1px solid #dce3df; border-radius: 6px; padding: 14px; min-width: 0; }
+.gr-metric span { display: block; color: #59655f; font-size: 12px; margin-bottom: 8px; }
+.gr-metric strong { font-size: 22px; display: block; overflow-wrap: anywhere; }
+.gr-metric.income { border-top: 3px solid #198550; }
+.gr-metric.balance { border-top: 3px solid #c17a14; }
+.gr-metric.gr-attendance-toggle { text-align: left; background: #eff6fc; border-color: #9cbdd8; color: #244d70; }
+.gr-attendance-toggle[aria-expanded="true"] { outline: 2px solid #4479a4; }
+.gr-attendance { border-top: 1px solid #dce3df; margin-top: 24px; padding-top: 20px; }
+.gr-attendance-list { list-style: none; padding: 0; margin: 16px 0; }
+.gr-attendance-list li { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid #dce3df; padding: 14px 0; }
+.gr-attendance-person { min-width: 0; flex: 1 1 200px; overflow-wrap: anywhere; }
+.gr-attendance-person strong, .gr-attendance-person span { display: block; }
+.gr-attendance-person span { color: #59655f; font-size: 13px; margin-top: 5px; }
+.gr-attendance-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.gr-attendance-actions button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid; }
+.gr-attended { background: #e7f5ec; color: #166534; border-color: #9acdac; }
+.gr-no-show { background: #fff1f1; color: #982b2b; border-color: #e2b0b0; }
+.gr-pagination { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.gr-pagination button { border: 1px solid #b9c5bf; background: #fff; color: #244d70; }
+.gr-success { padding: 14px; background: #e7f5ec; color: #166534; border-left: 3px solid #198550; }
+.gr-metric.gr-balance-toggle { text-align: left; background: #fff8ea; color: #815015; }
+.gr-balance-toggle[aria-expanded="true"] { outline: 2px solid #c17a14; }
+.gr-balance-list { list-style: none; padding: 0; margin: 16px 0; }
+.gr-balance-list li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 1fr) auto; gap: 18px; align-items: center; border-bottom: 1px solid #dce3df; padding: 18px 0; }
+.gr-balance-amounts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.gr-balance-amounts dt { font-size: 12px; color: #59655f; }
+.gr-balance-amounts dd { margin: 6px 0 0; font-weight: 700; font-size: 16px; overflow-wrap: anywhere; }
+.gr-balance-amounts > div:last-child dd { color: #815015; }
+.gr-balance-pay { display: inline-flex; justify-content: center; align-items: center; gap: 8px; min-height: 44px; background: #166534; color: #fff; border: 0; }
+@container (max-width: 700px) {
+  .gr-balance-list li { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .gr-balance-pay { width: 100%; }
+}
+.gr-note { color: #59655f; font-size: 12px; line-height: 1.5; margin: 14px 0; }
+.gr-status { padding: 20px 0; color: #59655f; }
+.gr-error { padding: 14px; border-left: 3px solid #c23939; background: #fff1f1; color: #982b2b; }
+.gr-daily { border-top: 1px solid #dce3df; padding-top: 24px; margin-top: 24px; }
+.gr-table-scroll { max-height: 400px; overflow: auto; }
+.gr-daily table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
+.gr-daily caption { text-align: left; margin-bottom: 12px; }
+.gr-daily th, .gr-daily td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e5ebe7; overflow-wrap: anywhere; }
+.gr-daily th:first-child { width: 20%; }
+.gr-daily thead th { position: sticky; top: 0; background: #edf3ef; }
+.gr-track { height: 5px; border-radius: 3px; background: #eef1f3; margin-top: 6px; overflow: hidden; }
+.gr-track span { display: block; background: #4479a4; height: 100%; }
+.gr-income-track span { background: #268553; }
+.gr-charts { display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: 24px; }
+.gr-chart { border-top: 1px solid #dce3df; padding-top: 18px; min-width: 0; }
+.gr-chart h3 { margin-bottom: 4px; }
+.gr-chart-unit { color: #59655f; font-size: 12px; margin: 0 0 12px; }
+.gr-chart-svg { display: block; width: 100%; max-height: 300px; aspect-ratio: 360 / 264; }
+.gr-chart-axis line { stroke: #e1e7e3; stroke-width: 1; }
+.gr-chart-axis text, .gr-chart-label { fill: #59655f; font-size: 12px; }
+.gr-chart-value { fill: #263c30; font-size: 12px; font-weight: 700; }
+.gr-chart-bar { fill: #258355; }
+.gr-chart-horizontal .gr-chart-bar { fill: #4479a4; }
+.gr-chart-svg [tabindex] { cursor: pointer; }
+.gr-chart-svg [tabindex]:focus { outline: 2px solid #a66416; outline-offset: 2px; }
+.gr-chart-svg .gr-chart-bar:hover { fill: #165b37; }
+.gr-chart-detail { min-height: 42px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; color: #59655f; font-size: 12px; padding-top: 8px; overflow-wrap: anywhere; }
+.gr-chart-empty { height: 220px; display: grid; place-items: center; color: #59655f; font-size: 13px; }
+@container (min-width: 950px) { .gr-charts { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; } }
+@media (max-width: 600px) {
+  .gr-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .gr-metric { padding: 10px; }
+  .gr-metric strong { font-size: 20px; }
+  .gr-daily th, .gr-daily td { padding: 10px 6px; }
+  .gr-ranges { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

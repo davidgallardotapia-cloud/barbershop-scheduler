@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import ReportsBoundary from "./components/ReportsBoundary";
 import LoginScreen from "./components/LoginScreen";
 import AdminBookingPanel from "./components/AdminBookingPanel";
 import ClinicalRecordsPanel from "./components/ClinicalRecordsPanel";
@@ -10,6 +11,7 @@ import ClientBookingWizard from "./components/ClientBookingWizard";
 import { QUINCHO, isGiocataQuincho, getSportsResource, hasQuinchoBookingEnded } from "./utils/giocataQuincho";
 import {
   FaCalendarAlt,
+  FaChartBar,
   FaFacebookF,
   FaInstagram,
   FaMapMarkerAlt,
@@ -55,6 +57,8 @@ import {
   syncGoogleSheets as syncGoogleSheetsService,
 } from "./services/appointmentsService";
 import { businessConfigBySlug } from "./config/businessConfigBySlug";
+
+const GiocataReports = lazy(() => import("./components/GiocataReports"));
 
 const slugAliases = {
   "eu-curaciones-avanzadas": "regencura",
@@ -1075,6 +1079,14 @@ const [barber, setBarber] = useState("");
   );
   const [selectedMobileDay, setSelectedMobileDay] = useState(null);
   const [isDailyDashboardOpen, setIsDailyDashboardOpen] = useState(false);
+  const [isReportsOpen, setIsReportsOpen] = useState(false);
+  const [reportsPaymentRevision, setReportsPaymentRevision] = useState(0);
+  const [savingPayment, setSavingPayment] = useState(false);
+  const paymentSaveInFlight = useRef(false);
+
+  useEffect(() => {
+    setIsReportsOpen(false);
+  }, [currentUser?.id, appMode]);
 
   const [selectedAppointmentPayments, setSelectedAppointmentPayments] = useState(
     []
@@ -1335,6 +1347,7 @@ const [barber, setBarber] = useState("");
       summary.totalPaid !== undefined && summary.totalPaid !== null;
 
     if (!hasPaymentStatus && !hasTotalPaid) return;
+    if (businessId === "giocata") setReportsPaymentRevision((revision) => revision + 1);
 
     const patchAppointment = (appointment) => {
       if (!appointment || String(appointment.id) !== String(appointmentId)) {
@@ -2094,6 +2107,7 @@ const handleCancelPaymentEdit = () => {
 };
 
 const handleSavePayment = async () => {
+  if (paymentSaveInFlight.current) return;
   if (!paymentAppointment?.id || !businessId) return;
 
   if (!paymentAmount || Number(paymentAmount) <= 0) {
@@ -2101,6 +2115,8 @@ const handleSavePayment = async () => {
     return;
   }
 
+  paymentSaveInFlight.current = true;
+  setSavingPayment(true);
   try {
     let paymentResponse = null;
 
@@ -2148,6 +2164,9 @@ const handleSavePayment = async () => {
       err.response?.data?.message ||
         (editingPaymentId ? "Error al actualizar pago" : "Error al registrar pago")
     );
+  } finally {
+    paymentSaveInFlight.current = false;
+    setSavingPayment(false);
   }
 };
 
@@ -2181,6 +2200,7 @@ const handleDeletePayment = async (payment) => {
 };
 
 const closePaymentPanel = () => {
+  if (paymentSaveInFlight.current) return;
   setPaymentAppointment(null);
   setSelectedAppointmentPayments([]);
   setPaymentPanelError("");
@@ -3373,6 +3393,8 @@ setEditingId(appointment.id);
     isAdminMode &&
     (!dailyDashboardOwnerUsers ||
       dailyDashboardOwnerUsers.includes(currentUsername));
+  const reportsEnabled = isAdminMode && mergedBusiness?.id === "giocata" &&
+    currentUser?.business_id === "giocata" && currentUser?.username === "veronica_giocata";
   const adminBarbers = isProfessionalSession ? [professionalResourceName] : BARBERS;
   const scheduleBlockingEnabled =
     professionalSessionsEnabled && adminBarbers.length > 0;
@@ -3399,6 +3421,7 @@ setEditingId(appointment.id);
         opponentPhone.trim()
     );
   const hasAutoRefreshBlocker = Boolean(
+    (reportsEnabled && isReportsOpen) ||
     submitting ||
       loggingIn ||
       waitlistSubmitting ||
@@ -5110,7 +5133,7 @@ paymentHistoryItem: {
     <>
       <AppAnimationStyles />
       <GlobalFeedbackToast
-        message={reservationVoucher ? "" : message}
+        message={reservationVoucher || (isMobile && mergedBusiness?.id === "giocata" && paymentAppointment) ? "" : message}
         theme={theme}
         isMobile={isMobile}
         onClose={() => setMessage("")}
@@ -5634,7 +5657,24 @@ updateAppointment={updateAppointment}
             </div>
 
             <div style={styles.card}>
-              {dailyDashboardEnabled && (
+              {reportsEnabled && (
+                <>
+                  <button type="button" style={{ ...styles.button, ...styles.secondaryButton, marginBottom: "16px" }}
+                    aria-expanded={isReportsOpen} aria-controls="giocata-reports"
+                    onClick={() => setIsReportsOpen((open) => !open)}>
+                    <FaChartBar aria-hidden="true" /> {isReportsOpen ? "Cerrar reportes" : "Reportes"}
+                  </button>
+                  {isReportsOpen && <ReportsBoundary key={currentUser.id}>
+                    <Suspense fallback={<p role="status">Cargando reportes...</p>}>
+                      <GiocataReports onOpenPayment={openPaymentPanel} paymentRevision={reportsPaymentRevision} onAttendanceUpdated={(updated) => {
+                        setAppointments((current) => current.map((appointment) =>
+                          appointment.id === updated.id ? { ...appointment, ...updated } : appointment));
+                      }} />
+                    </Suspense>
+                  </ReportsBoundary>}
+                </>
+              )}
+              {dailyDashboardEnabled && !isReportsOpen && (
                 <>
                   <button
                     type="button"
@@ -6367,6 +6407,9 @@ updateAppointment={updateAppointment}
           <div style={styles.paymentModalOverlay} onClick={closePaymentPanel}>
             <div
               style={styles.paymentModalCard}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Pagos de la reserva"
               onClick={(e) => e.stopPropagation()}
             >
               <div
@@ -6517,6 +6560,11 @@ updateAppointment={updateAppointment}
                 >
                   X Cerrar
                 </button>
+                {isMobile && mergedBusiness?.id === "giocata" && message && (
+                  <div role="status" style={{ width: "100%", padding: "10px", boxSizing: "border-box",
+                    backgroundColor: "#f0f5f2", color: "#263c30", borderLeft: "3px solid #4479a4",
+                    fontSize: "13px", overflowWrap: "anywhere" }}>{message}</div>
+                )}
               </div>
 
               <AppointmentAuditDetails appointment={paymentAppointment} />
@@ -7064,8 +7112,9 @@ lineHeight: 1.2,
                       type="button"
                       style={{ ...styles.button, ...styles.primaryButton }}
                       onClick={handleSavePayment}
+                      disabled={savingPayment || loadingPayments || Boolean(paymentPanelError)}
                     >
-                      {editingPaymentId ? "Actualizar pago" : "Registrar pago"}
+                      {savingPayment ? "Guardando pago..." : editingPaymentId ? "Actualizar pago" : "Registrar pago"}
                     </button>
 
                     {editingPaymentId && (

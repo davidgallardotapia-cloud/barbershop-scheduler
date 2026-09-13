@@ -11,6 +11,7 @@ const pool = require("./config/database");
 const { getAppointmentActor, withAppointmentCreator } = require("./utils/appointmentAudit");
 const { QUINCHO, isGiocataQuincho, validateQuinchoBooking, isQuinchoConflict } = require("./utils/giocataQuincho");
 const { getReservationReplyTo } = require("./utils/reservationEmail");
+const { createGiocataReportsHandler } = require("./utils/giocataReports");
 
 const app = express();
 
@@ -3615,6 +3616,16 @@ app.get("/admin/client-suggestions", requireAuth, async (req, res) => {
     return res.status(500).json({ message: "Error al buscar clientes" });
   }
 });
+
+app.get("/admin/giocata/reports", requireAuth, createGiocataReportsHandler(pool));
+app.get("/admin/giocata/reports/balances", requireAuth,
+  createGiocataReportsHandler(pool, { view: "balances" }));
+app.get("/admin/giocata/reports/attendance", requireAuth,
+  createGiocataReportsHandler(pool, { view: "attendance" }));
+app.patch("/admin/giocata/reports/attendance/:id", requireAuth,
+  createGiocataReportsHandler(pool, { view: "updateAttendance", onStatusChanged: (appointment) => {
+    syncGoogleSheetsInBackground(buildAppointmentSheetsPayload(appointment), "asistencia_desde_reportes");
+  } }));
 
 app.get("/admin/appointments", requireAuth, async (req, res) => {
   const businessId = req.user?.business_id;

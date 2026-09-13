@@ -186,6 +186,8 @@ test("reservation audit through the API in an isolated local schema", {
     // A second simulated local client keeps independent suites within the real rate limit.
     clientAddress = "127.0.0.2";
     await require("./giocataQuinchoChecks")(t, { request, payload, admin, veronica, pool });
+    clientAddress = "127.0.0.3";
+    await require("./giocataReportsChecks")(t, { request, admin, veronica, urban, pool, jwt, secret });
   } finally {
     if (server && server.exitCode === null) {
       const stopped = once(server, "exit");
