@@ -194,7 +194,7 @@ export const businessConfigBySlug = {
     logoWidth: "150px",
     logoHeight: "150px",
     phone: "+56 9 9323 9412",
-    hours: "Lun a Vie, 19:00 a 23:00. Sab y Dom, 18:00 a 23:00",
+    hours: "Lun a Vie, 19:00 a 23:00. Sab y Dom, 18:00 a 22:00",
     location: "La Serena",
     address: "Hortensia Bustamante 52",
     image: "/giocata/giocata-hero-optimized.jpg",
@@ -299,8 +299,8 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
 
     scheduleSlots: ["19:00", "20:00", "21:00", "22:00", "23:00"],
     scheduleSlotsByWeekday: {
-      0: ["18:00", "19:00", "20:00", "21:00", "22:00", "23:00"],
-      6: ["18:00", "19:00", "20:00", "21:00", "22:00", "23:00"],
+      0: ["18:00", "19:00", "20:00", "21:00", "22:00"],
+      6: ["18:00", "19:00", "20:00", "21:00", "22:00"],
     },
 
     professionals: [

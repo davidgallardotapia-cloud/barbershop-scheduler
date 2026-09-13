@@ -4162,11 +4162,19 @@ setEditingId(appointment.id);
     if (!selectedMobileDay) return [];
 
     const selectedDayHours = getScheduleSlotsForDate(selectedMobileDay);
+    if (!isClientMode && mergedBusiness?.id === "giocata") {
+      // Keep existing reservations visible when a starting time is removed.
+      for (const hour of hours) {
+        if (!selectedDayHours.includes(hour) && getAppointmentsForSlot(selectedMobileDay, hour).length > 0) {
+          selectedDayHours.push(hour);
+        }
+      }
+    }
     const mobileSlotResource = isClientMode
       ? resolvedClientResource
       : effectiveWeeklyBarberFilter;
 
-    return selectedDayHours.map((hour) => {
+    return sortScheduleSlots(selectedDayHours).map((hour) => {
       const slotAppointments = getAppointmentsForSlot(selectedMobileDay, hour);
       const slotBlocks = getBlocksForSlot(
         selectedMobileDay,
@@ -4196,6 +4204,7 @@ setEditingId(appointment.id);
   }, [
     selectedMobileDay,
     hours,
+    appointments,
     scheduleBlocks,
     resolvedClientResource,
     effectiveWeeklyBarberFilter,

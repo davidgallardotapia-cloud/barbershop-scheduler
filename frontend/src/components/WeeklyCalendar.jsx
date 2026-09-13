@@ -667,6 +667,7 @@ function WeeklyCalendar({
   };
 
   const renderSportsResourceBox = ({ resourceName, appointment, day, hour }) => {
+    if (isGiocata && !appointment && !isScheduleSlotAvailable(day, hour)) return null;
     const isQuincho = isGiocataQuincho(business?.id, resourceName);
     const normalizedHour = typeof hour === "number" ? `${String(hour).padStart(2, "0")}:00` : String(hour).slice(0, 5);
     if (isQuincho && normalizedHour !== QUINCHO.start) return null;
@@ -924,7 +925,7 @@ function WeeklyCalendar({
                       minHeight: "275px",
                     }}
                   >
-                    {isAvailableForDay ? (
+                    {isAvailableForDay || (isGiocata && slotAppointments.length > 0) ? (
                       <div
                         style={{
                           display: "grid",
