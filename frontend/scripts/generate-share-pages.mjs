@@ -1,6 +1,8 @@
 ﻿import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { landingSeo } from "../src/config/landingSeo.js";
+import { renderLanding } from "./prerender-landing.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,9 +12,7 @@ const siteUrl = (process.env.VITE_PUBLIC_SITE_URL || "https://agendasmart.cl")
 
 const sharePages = {
   "/": {
-    title: "AgendaSmart | Plataforma de reservas para negocios",
-    description:
-      "Gestiona reservas, clientes, pagos y disponibilidad desde una plataforma simple y profesional.",
+    ...landingSeo,
     image: "/agendasmart/agendasmart.png",
     imageWidth: 1254,
     imageHeight: 1254,
@@ -142,6 +142,7 @@ const escapeHtml = (value) => {
 const removeExistingShareMeta = (html) => {
   return html
     .replace(/\s*<meta\s+(?:property|name)="(?:og|twitter):[^"]+"[^>]*>/gi, "")
+    .replace(/\s*<meta\s+name="description"[^>]*>/gi, "")
     .replace(/\s*<link\s+rel="canonical"[^>]*>/gi, "");
 };
 
@@ -184,6 +185,16 @@ const injectShareMeta = (html, routePath, meta) => {
 
 const writeSharePage = async (routePath, html) => {
   if (routePath === "/") {
+    const content = await renderLanding(path.resolve(__dirname, ".."));
+    const schema = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: "AgendaSmart",
+      url: `${siteUrl}/`,
+      inLanguage: "es-CL",
+    }).replace(/</g, "\\u003c");
+    html = html.replace('<div id="root"></div>', `<div id="root" data-prerendered="landing">${content}</div>`)
+      .replace("</head>", `<script type="application/ld+json">${schema}</script>\n</head>`);
     await writeFile(path.join(distDir, "index.html"), html);
     return;
   }
@@ -194,11 +205,21 @@ const writeSharePage = async (routePath, html) => {
 };
 
 const baseHtml = await readFile(path.join(distDir, "index.html"), "utf8");
+// Unknown/new business routes must not inherit the landing content or canonical.
+await writeFile(path.join(distDir, "app-shell.html"), baseHtml);
 
 await Promise.all(
   Object.entries(sharePages).map(async ([routePath, meta]) => {
     await writeSharePage(routePath, injectShareMeta(baseHtml, routePath, meta));
   })
+);
+
+// Start with the landing only; business pages are outside this SEO rollout.
+await writeFile(path.join(distDir, "sitemap.xml"),
+  `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${escapeHtml(siteUrl)}/</loc></url></urlset>\n`
+);
+await writeFile(path.join(distDir, "robots.txt"),
+  `User-agent: *\nAllow: /\n\nSitemap: ${siteUrl}/sitemap.xml\n`
 );
 
 console.log(

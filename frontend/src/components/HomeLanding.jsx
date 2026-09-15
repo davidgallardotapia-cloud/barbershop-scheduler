@@ -74,8 +74,8 @@ function LandingMotionStyles() {
       }
 
       .landing-reveal {
-        opacity: 0;
-        transform: translateY(24px);
+        opacity: 1;
+        transform: none;
         transition: opacity 680ms ease, transform 680ms ease;
         will-change: opacity, transform;
       }
@@ -83,6 +83,24 @@ function LandingMotionStyles() {
       .landing-reveal.is-visible {
         opacity: 1;
         transform: translateY(0);
+      }
+
+      @media (max-width: 767px) {
+        [data-prerendered=landing] .landing-page [style*=grid-template-columns] {
+          grid-template-columns: minmax(0, 1fr) !important;
+        }
+        [data-prerendered=landing] .landing-page h1 { font-size: 33px !important; }
+        [data-prerendered=landing] .landing-page h2 { font-size: 29px !important; }
+        [data-prerendered=landing] .landing-page img { max-width: 100%; }
+        [data-prerendered=landing] .landing-page > header > div {
+          padding: 10px 16px !important;
+          justify-content: center !important;
+          gap: 10px !important;
+        }
+        [data-prerendered=landing] .landing-page header img { height: 44px !important; }
+        [data-prerendered=landing] .landing-page nav { gap: 10px !important; }
+        [data-prerendered=landing] .landing-page nav a { font-size: 13px !important; }
+        [data-prerendered=landing] .landing-page > section:first-of-type { padding-top: 150px !important; }
       }
 
       .landing-mockup-motion {
@@ -304,7 +322,7 @@ function AnimatedMetricValue({ value }) {
       return String(value);
     }
 
-    return formatMetricValue(0, metric);
+    return String(value);
   });
 
   React.useEffect(() => {
@@ -1222,6 +1240,7 @@ function HomeLanding() {
 
   return (
     <div
+      className="landing-page"
       style={{
         minHeight: "100vh",
         background:
@@ -1252,7 +1271,7 @@ function HomeLanding() {
             <Badge>Plataforma de reservas para negocios</Badge>
 
             <h1 style={heroTitleStyle}>
-              Simplifica la gestión de tu negocio con AgendaSmart
+              AgendaSmart: reservas online para tu negocio
             </h1>
 
             <p
@@ -1263,8 +1282,8 @@ function HomeLanding() {
               }}
             >
               Administra reservas, horarios, clientes y servicios desde una
-              plataforma moderna, adaptable a barberías, canchas deportivas,
-              centros de estética y más.
+              plataforma para negocios en Chile, adaptable a barberías, canchas
+              deportivas, centros de salud y más.
             </p>
 
             <div

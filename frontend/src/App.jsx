@@ -7,6 +7,7 @@ import WeeklyCalendar from "./components/WeeklyCalendar";
 import AppointmentAuditDetails from "./components/AppointmentAuditDetails";
 import BusinessHeader from "./components/BusinessHeader";
 import HomeLanding from "./components/HomeLanding";
+import { landingSeo } from "./config/landingSeo";
 import ClientBookingWizard from "./components/ClientBookingWizard";
 import { QUINCHO, isGiocataQuincho, getSportsResource, hasQuinchoBookingEnded } from "./utils/giocataQuincho";
 import {
@@ -1811,7 +1812,7 @@ const [barber, setBarber] = useState("");
 
   useEffect(() => {
     if (!slug) {
-      document.title = "AgendaSmart";
+      document.title = landingSeo.title;
 
       const favicon = document.querySelector("link[rel='icon']");
       if (favicon) {

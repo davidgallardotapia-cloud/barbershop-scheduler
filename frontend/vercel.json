@@ -17,6 +17,17 @@
     }
   ],
   "rewrites": [
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/centro-ama", "destination": "/centro-ama/index.html" },
+    { "source": "/centro-ama/", "destination": "/centro-ama/index.html" },
+    { "source": "/regencura", "destination": "/regencura/index.html" },
+    { "source": "/regencura/", "destination": "/regencura/index.html" },
+    { "source": "/giocata/link", "destination": "/giocata/link/index.html" },
+    { "source": "/regencura/link", "destination": "/regencura/link/index.html" },
+    { "source": "/urban-district-barber/link", "destination": "/urban-district-barber/link/index.html" },
+    { "source": "/l/giocata", "destination": "/l/giocata/index.html" },
+    { "source": "/l/regencura", "destination": "/l/regencura/index.html" },
+    { "source": "/l/urban-district-barber", "destination": "/l/urban-district-barber/index.html" },
     {
       "source": "/agendasmart-demo",
       "destination": "/agendasmart-demo/index.html"
@@ -67,7 +78,7 @@
     },
     {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/app-shell.html"
     }
   ]
 }

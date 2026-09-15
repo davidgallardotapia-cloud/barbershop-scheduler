@@ -6,7 +6,10 @@ import PlatformAdminApp from './components/PlatformAdminApp'
 const isPlatformAdminRoute =
   window.location.pathname.split('/').filter(Boolean)[0] === 'plataforma'
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+const root = document.getElementById('root')
+// Only the landing is static at build time; other routes keep their existing mount.
+delete root.dataset.prerendered
+ReactDOM.createRoot(root).render(
   <React.StrictMode>
     {isPlatformAdminRoute ? <PlatformAdminApp /> : <App />}
   </React.StrictMode>,
