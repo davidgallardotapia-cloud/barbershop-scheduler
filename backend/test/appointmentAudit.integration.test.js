@@ -188,6 +188,8 @@ test("reservation audit through the API in an isolated local schema", {
     await require("./giocataQuinchoChecks")(t, { request, payload, admin, veronica, pool });
     clientAddress = "127.0.0.3";
     await require("./giocataReportsChecks")(t, { request, admin, veronica, urban, pool, jwt, secret });
+    clientAddress = "127.0.0.4";
+    await require("./giocataHolidayChecks")(t, { request, payload, admin, pool });
   } finally {
     if (server && server.exitCode === null) {
       const stopped = once(server, "exit");

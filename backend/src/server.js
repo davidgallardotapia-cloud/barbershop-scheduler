@@ -12,6 +12,7 @@ const { getAppointmentActor, withAppointmentCreator } = require("./utils/appoint
 const { QUINCHO, isGiocataQuincho, validateQuinchoBooking, isQuinchoConflict } = require("./utils/giocataQuincho");
 const { getReservationReplyTo } = require("./utils/reservationEmail");
 const { createGiocataReportsHandler } = require("./utils/giocataReports");
+const { ensureGiocataHolidayBlocks } = require("./utils/giocataHolidayBlocks");
 
 const app = express();
 
@@ -3239,6 +3240,7 @@ const createTables = async () => {
       );
     });
 
+    await ensureGiocataHolidayBlocks(pool);
     console.log("Tablas verificadas/creadas correctamente");
   } catch (error) {
     console.error("Error creando tablas:", error);
