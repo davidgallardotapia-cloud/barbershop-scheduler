@@ -80,7 +80,13 @@ function LandingMotionStyles() {
         will-change: opacity, transform;
       }
 
-      .landing-reveal.is-visible {
+      #root:not([data-prerendered="landing"]) .landing-reveal {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+
+      .landing-reveal.is-visible,
+      #root:not([data-prerendered="landing"]) .landing-reveal.is-visible {
         opacity: 1;
         transform: translateY(0);
       }
@@ -255,11 +261,13 @@ function useLandingIsMobile() {
   return isMobile;
 }
 
-function Reveal({ children, delay = 0, style }) {
+function Reveal({ children, delay = 0, initiallyVisible = false, style }) {
   const ref = React.useRef(null);
-  const [isVisible, setIsVisible] = React.useState(false);
+  const [isVisible, setIsVisible] = React.useState(initiallyVisible);
 
   React.useEffect(() => {
+    if (initiallyVisible) return undefined;
+
     const node = ref.current;
 
     if (!node) return undefined;
@@ -282,7 +290,7 @@ function Reveal({ children, delay = 0, style }) {
     observer.observe(node);
 
     return () => observer.disconnect();
-  }, []);
+  }, [initiallyVisible]);
 
   return (
     <div
@@ -316,13 +324,14 @@ function AnimatedMetricValue({ value }) {
   const metric = React.useMemo(() => parseMetricValue(value), [value]);
   const [displayValue, setDisplayValue] = React.useState(() => {
     if (
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      typeof window === "undefined" ||
+      (typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches)
     ) {
       return String(value);
     }
 
-    return String(value);
+    return formatMetricValue(0, metric);
   });
 
   React.useEffect(() => {
@@ -1267,7 +1276,7 @@ function HomeLanding() {
             alignItems: "center",
           }}
         >
-          <Reveal>
+          <Reveal initiallyVisible>
             <Badge>Plataforma de reservas para negocios</Badge>
 
             <h1 style={heroTitleStyle}>
@@ -1321,7 +1330,7 @@ function HomeLanding() {
             </div>
           </Reveal>
 
-          <Reveal delay={120}>
+          <Reveal delay={120} initiallyVisible>
             <BrowserMockup
               isMobile={isMobile}
               animated
