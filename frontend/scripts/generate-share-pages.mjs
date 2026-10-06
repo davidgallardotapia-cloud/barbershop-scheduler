@@ -77,25 +77,25 @@ const sharePages = {
     title: "Clínica VitalCure | Manejo Integral de Heridas",
     description:
       "Agenda tu atención particular para el manejo integral de heridas en Clínica VitalCure. Av. Videla 340, Oficina 212, Edificio Arenas, Coquimbo.",
-    image: "/vitalcure/vitalcure-logo.jpg",
-    imageWidth: 1280,
-    imageHeight: 426,
+    image: "/vitalcure/vitalcure-share-v2.jpg",
+    imageWidth: 1254,
+    imageHeight: 1254,
   },
   "/vitalcure/link": {
     title: "Clínica VitalCure | Manejo Integral de Heridas",
     description:
       "Agenda tu atención, habla por WhatsApp o revisa la ubicación de Clínica VitalCure en Coquimbo.",
-    image: "/vitalcure/vitalcure-logo.jpg",
-    imageWidth: 1280,
-    imageHeight: 426,
+    image: "/vitalcure/vitalcure-share-v2.jpg",
+    imageWidth: 1254,
+    imageHeight: 1254,
   },
   "/l/vitalcure": {
     title: "Clínica VitalCure | Manejo Integral de Heridas",
     description:
       "Agenda tu atención, habla por WhatsApp o revisa la ubicación de Clínica VitalCure en Coquimbo.",
-    image: "/vitalcure/vitalcure-logo.jpg",
-    imageWidth: 1280,
-    imageHeight: 426,
+    image: "/vitalcure/vitalcure-share-v2.jpg",
+    imageWidth: 1254,
+    imageHeight: 1254,
   },
   "/urban-district-barber": {
     title: "Urban District Barber | Reserva online",

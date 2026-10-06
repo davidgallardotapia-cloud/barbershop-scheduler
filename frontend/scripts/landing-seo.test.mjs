@@ -29,6 +29,27 @@ test("business pages keep their own titles and canonical URLs", async () => {
   }
 });
 
+test("VitalCure link previews use the dedicated square image without changing the website logo", async () => {
+  const imagePath = "/vitalcure/vitalcure-share-v2.jpg";
+  for (const route of ["vitalcure", "vitalcure/link", "l/vitalcure"]) {
+    const html = await readDist(`${route}/index.html`);
+    const ogImage = html.match(/property="og:image" content="([^"]+)"/)[1];
+    assert.equal(new URL(ogImage).pathname, imagePath, route);
+    assert.ok(html.includes(`property="og:image:secure_url" content="${ogImage}"`), route);
+    assert.ok(html.includes(`name="twitter:image" content="${ogImage}"`), route);
+    assert.ok(html.includes('property="og:image:width" content="1254"'), route);
+    assert.ok(html.includes('property="og:image:height" content="1254"'), route);
+    assert.equal([...html.matchAll(/property="og:image"/g)].length, 1, route);
+  }
+  const image = await readFile(new URL(`../dist${imagePath}`, import.meta.url));
+  assert.ok(image.length > 0 && image.length < 300_000, "share image stays lightweight");
+  assert.deepEqual(
+    await readFile(new URL("../dist/vitalcure/vitalcure-logo.jpg", import.meta.url)),
+    await readFile(new URL("../public/vitalcure/vitalcure-logo.jpg", import.meta.url)),
+    "the website still serves the original logo"
+  );
+});
+
 test("landing is readable before JavaScript and fallback is isolated", async () => {
   const html = await readDist("index.html");
   assert.equal([...html.matchAll(/<h1\b/g)].length, 1);
