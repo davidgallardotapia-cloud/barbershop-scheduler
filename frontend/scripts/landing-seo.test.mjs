@@ -29,8 +29,8 @@ test("business pages keep their own titles and canonical URLs", async () => {
   }
 });
 
-test("VitalCure link previews use the dedicated square image without changing the website logo", async () => {
-  const imagePath = "/vitalcure/vitalcure-share-v2.jpg";
+test("VitalCure link previews use the padded square image without changing the website logo", async () => {
+  const imagePath = "/vitalcure/vitalcure-share-v3.jpg";
   for (const route of ["vitalcure", "vitalcure/link", "l/vitalcure"]) {
     const html = await readDist(`${route}/index.html`);
     const ogImage = html.match(/property="og:image" content="([^"]+)"/)[1];
