@@ -598,25 +598,27 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     },
   },
 
-  "regencura": {
+  "vitalcure": {
     id: "eu-curaciones-avanzadas",
-    tabTitle: "Regencura | AgendaSmart",
-    favicon: "/regencura/regencura-logo.png",
+    tabTitle: "Clínica VitalCure | AgendaSmart",
+    favicon: "/vitalcure/vitalcure-logo.jpg",
 
-    name: "Regencura",
-    subtitle: "Curaciones avanzadas a domicilio",
+    name: "Clínica VitalCure",
+    subtitle: "Medicina integrativa y regenerativa",
     phone: "+56 9 2604 6697",
     hours: "Lunes a viernes: 17:00 a 21:00. Sabado: 10:00 a 14:00",
-    location: "Coquimbo - La Serena",
-    address: "Videla 340 oficina 212, Edificio Arenas, Coquimbo",
+    location: "Coquimbo",
+    address: "Av. Videla N° 340, Oficina 212, Edificio Arenas, Coquimbo",
 
-    image: "/regencura/regencura-hero.png",
-    logo: "/regencura/regencura-logo.png",
-    logoWidth: "120px",
-    logoHeight: "120px",
+    image: "/vitalcure/vitalcure-hero.png",
+    logo: "/vitalcure/vitalcure-logo.jpg",
+    logoWidth: "240px",
+    logoHeight: "80px",
+    logoObjectFit: "contain",
+    headerLogoStacked: true,
 
     description:
-      "Agenda una atencion de enfermeria a domicilio con Leslie Bustos Fernandez, especialista en manejo avanzado de heridas y ulceras cronicas.",
+      "Especialistas en manejo integral de heridas. Cuidamos, tratamos y acompañamos tu proceso de recuperación con atención particular en Coquimbo.",
 
     whatsappUrl: "https://wa.me/56926046697",
     whatsappLabel: "Agenda tu cita por WhatsApp",
@@ -626,23 +628,23 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     },
 
     mapLink:
-      "https://www.google.com/maps/search/?api=1&query=Videla%20340%20oficina%20212%2C%20Edificio%20Arenas%2C%20Coquimbo",
+      "https://www.google.com/maps/search/?api=1&query=Av.%20Videla%20340%2C%20Oficina%20212%2C%20Edificio%20Arenas%2C%20Coquimbo",
     mapEmbedUrl:
-      "https://www.google.com/maps?q=Videla+340+oficina+212,+Edificio+Arenas,+Coquimbo&output=embed",
+      "https://www.google.com/maps?q=Av.+Videla+340,+Oficina+212,+Edificio+Arenas,+Coquimbo&output=embed",
 
     bookingTitle: "Agenda tu atención",
-    adminTitle: "Panel Regencura",
+    adminTitle: "Panel Clínica VitalCure",
     linkBookingLabel: "Agenda tu atención",
     linkTheme: {
-      pageBackground: "#fffaf2",
+      pageBackground: "#f4fbfc",
       cardBackground: "#ffffff",
-      primary: "#b8872f",
-      primaryDark: "#111111",
-      primarySoft: "#fff6df",
-      border: "#ead7aa",
-      text: "#111111",
-      mutedText: "#57534e",
-      whatsapp: "#7c5a1c",
+      primary: "#007f91",
+      primaryDark: "#092b4a",
+      primarySoft: "#e5f7f9",
+      border: "#c6e8ed",
+      text: "#152d3b",
+      mutedText: "#526875",
+      whatsapp: "#15803d",
     },
     linkHero: {
       height: "205px",
@@ -650,13 +652,15 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
       backgroundSize: "cover",
     },
     linkLogo: {
-      size: "106px",
-      margin: "-53px auto 14px",
+      width: "280px",
+      height: "94px",
+      borderRadius: "8px",
+      margin: "-47px auto 14px",
     },
 
-    bookingPanelTitle: "Agenda tu curacion",
+    bookingPanelTitle: "Agenda tu atención",
     bookingPanelDescription:
-      "Selecciona el servicio, revisa los horarios disponibles y confirma tu atencion a domicilio.",
+      "Selecciona el servicio, revisa los horarios disponibles y confirma tu atención en Clínica VitalCure.",
 
     calendarHelpText:
       "Selecciona un horario disponible para agendar la atencion.",
@@ -693,6 +697,7 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
 
     usesServiceDurations: true,
     slotIntervalMinutes: 60,
+    servicePricesPending: true,
     paymentsEnabled: true,
     depositFeatureEnabled: false,
     depositOptional: false,
@@ -709,13 +714,14 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
     },
 
     services: [
-      "Ulcera de pie diabetico (60 min - $30.000)",
-      "Ulcera venosa (60 min - $30.000)",
-      "Ulcera por presion (60 min - $30.000)",
-      "Quemaduras (60 min - $28.000)",
-      "Ostomias y cuidados (60 min - $28.000)",
-      "Inyectables (60 min - $15.000)",
-      "Retiro de puntos (60 min - $18.000)",
+      "Pie diabético (60 min)",
+      "Úlceras (60 min)",
+      "Heridas operatorias (60 min)",
+      "Quemaduras (60 min)",
+      "Retiro de puntos y grapas (60 min)",
+      "Tratamientos inyectables (60 min)",
+      "Sueroterapia (60 min)",
+      "Control y seguimiento personalizado (60 min)",
     ],
 
     scheduleSlots: ["17:00", "18:00", "19:00", "20:00"],
@@ -728,19 +734,19 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
       {
         name: "Leslie Bustos Fernandez",
         subtitle: "Enfermeria y curaciones avanzadas",
-        image: "/regencura/regencura-logo.png",
+        image: "/vitalcure/vitalcure-logo.jpg",
       },
     ],
 
     theme: {
-      primary: "#b8872f",
-      primaryDark: "#111111",
-      primarySoft: "#fff6df",
-      pageBackground: "#fffaf2",
+      primary: "#007f91",
+      primaryDark: "#092b4a",
+      primarySoft: "#e5f7f9",
+      pageBackground: "#f4fbfc",
       cardBackground: "#ffffff",
-      border: "#ead7aa",
-      text: "#111111",
-      mutedText: "#57534e",
+      border: "#c6e8ed",
+      text: "#152d3b",
+      mutedText: "#526875",
     },
   },
 
@@ -1043,4 +1049,5 @@ paymentMethods: ["transferencia", "efectivo", "debito"],
   },
 };
 
-businessConfigBySlug["eu-curaciones-avanzadas"] = businessConfigBySlug.regencura;
+businessConfigBySlug.regencura = businessConfigBySlug.vitalcure;
+businessConfigBySlug["eu-curaciones-avanzadas"] = businessConfigBySlug.vitalcure;

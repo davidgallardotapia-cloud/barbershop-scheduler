@@ -73,29 +73,29 @@ const sharePages = {
     imageWidth: 1254,
     imageHeight: 1254,
   },
-  "/regencura": {
-    title: "Regencura | Curaciones Avanzadas",
+  "/vitalcure": {
+    title: "Clínica VitalCure | Manejo Integral de Heridas",
     description:
-      "Agenda atenciones de enfermeria y curaciones avanzadas con Leslie Bustos Fernandez.",
-    image: "/regencura/regencura-logo.png",
-    imageWidth: 1254,
-    imageHeight: 1254,
+      "Agenda tu atención particular para el manejo integral de heridas en Clínica VitalCure. Av. Videla 340, Oficina 212, Edificio Arenas, Coquimbo.",
+    image: "/vitalcure/vitalcure-logo.jpg",
+    imageWidth: 1280,
+    imageHeight: 426,
   },
-  "/regencura/link": {
-    title: "Regencura | Curaciones Avanzadas",
+  "/vitalcure/link": {
+    title: "Clínica VitalCure | Manejo Integral de Heridas",
     description:
-      "Agenda tu atencion, habla por WhatsApp o revisa la ubicacion de Regencura.",
-    image: "/regencura/regencura-logo.png",
-    imageWidth: 1254,
-    imageHeight: 1254,
+      "Agenda tu atención, habla por WhatsApp o revisa la ubicación de Clínica VitalCure en Coquimbo.",
+    image: "/vitalcure/vitalcure-logo.jpg",
+    imageWidth: 1280,
+    imageHeight: 426,
   },
-  "/l/regencura": {
-    title: "Regencura | Curaciones Avanzadas",
+  "/l/vitalcure": {
+    title: "Clínica VitalCure | Manejo Integral de Heridas",
     description:
-      "Agenda tu atencion, habla por WhatsApp o revisa la ubicacion de Regencura.",
-    image: "/regencura/regencura-logo.png",
-    imageWidth: 1254,
-    imageHeight: 1254,
+      "Agenda tu atención, habla por WhatsApp o revisa la ubicación de Clínica VitalCure en Coquimbo.",
+    image: "/vitalcure/vitalcure-logo.jpg",
+    imageWidth: 1280,
+    imageHeight: 426,
   },
   "/urban-district-barber": {
     title: "Urban District Barber | Reserva online",

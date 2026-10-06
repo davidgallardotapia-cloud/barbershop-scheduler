@@ -324,7 +324,9 @@ function BusinessHeader({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: isMobile ? "1fr" : "140px 1fr",
+            gridTemplateColumns: isMobile || business?.headerLogoStacked
+              ? "1fr"
+              : `${business?.logoWidth || "140px"} minmax(0, 1fr)`,
             gap: isMobile ? "16px" : "24px",
             alignItems: "start",
             padding: isMobile ? "16px" : "24px",
@@ -333,6 +335,7 @@ function BusinessHeader({
           <div
             style={{
               width: business?.logoWidth || "140px",
+              maxWidth: "100%",
               height: business?.logoHeight || "110px",
               borderRadius: "12px",
               overflow: "hidden",
@@ -346,7 +349,7 @@ function BusinessHeader({
               style={{
                 width: "100%",
                 height: "100%",
-                objectFit: "cover",
+                objectFit: business?.logoObjectFit || "cover",
                 display: "block",
               }}
             />
@@ -913,7 +916,9 @@ function BusinessHeader({
                         style={{
                           width: "100%",
                           height: "100%",
-                          objectFit: "cover",
+                          objectFit: item.image === business?.logo
+                            ? business?.logoObjectFit || "cover"
+                            : "cover",
                           display: "block",
                         }}
                       />

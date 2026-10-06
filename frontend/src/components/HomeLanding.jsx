@@ -408,12 +408,13 @@ const exampleBusinesses = [
     logo: "/centro-ama/centro-ama-logo.png",
   },
   {
-    name: "Regencura",
-    category: "Enfermeria a domicilio",
+    name: "Clínica VitalCure",
+    category: "Manejo integral de heridas",
     description:
-      "Reservas para curaciones, procedimientos y atencion clinica.",
-    href: "/regencura",
-    logo: "/regencura/regencura-logo.png",
+      "Reservas para curaciones, procedimientos y atención particular en Coquimbo.",
+    href: "/vitalcure",
+    logo: "/vitalcure/vitalcure-logo.jpg",
+    logoObjectFit: "contain",
   },
   {
     name: "Urban District Barber",
@@ -871,7 +872,7 @@ function BusinessExampleCard({ business }) {
           style={{
             width: "100%",
             height: "100%",
-            objectFit: "cover",
+            objectFit: business.logoObjectFit || "cover",
             display: "block",
           }}
         />

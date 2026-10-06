@@ -62,7 +62,8 @@ import { businessConfigBySlug } from "./config/businessConfigBySlug";
 const GiocataReports = lazy(() => import("./components/GiocataReports"));
 
 const slugAliases = {
-  "eu-curaciones-avanzadas": "regencura",
+  "regencura": "vitalcure",
+  "eu-curaciones-avanzadas": "vitalcure",
 };
 
 const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
@@ -617,9 +618,10 @@ function BusinessLinkPage({ business, isMobile, slug }) {
           >
             <div
               style={{
-                width: linkLogo.size || "112px",
-                height: linkLogo.size || "112px",
-                borderRadius: "999px",
+                width: linkLogo.width || linkLogo.size || "112px",
+                maxWidth: "100%",
+                height: linkLogo.height || linkLogo.size || "112px",
+                borderRadius: linkLogo.borderRadius || "999px",
                 backgroundColor: "#ffffff",
                 border: "5px solid #ffffff",
                 margin: linkLogo.margin || "-56px auto 14px",
@@ -634,7 +636,7 @@ function BusinessLinkPage({ business, isMobile, slug }) {
                 style={{
                   width: "100%",
                   height: "100%",
-                  objectFit: "cover",
+                  objectFit: business?.logoObjectFit || "cover",
                   display: "block",
                 }}
               />
@@ -1012,6 +1014,20 @@ function App() {
   const [routeInfo] = useState(getRouteInfoFromUrl);
   const slug = routeInfo.slug;
   const isBusinessLinkPage = routeInfo.isBusinessLinkPage;
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const segments = url.pathname.split("/").filter(Boolean);
+    const slugIndex = segments[0] === "l" ? 1 : 0;
+    const originalSlug = segments[slugIndex];
+    const canonicalSlug = resolveSlugAlias(originalSlug);
+
+    if (originalSlug && canonicalSlug !== originalSlug) {
+      segments[slugIndex] = canonicalSlug;
+      url.pathname = `/${segments.join("/")}`;
+      window.history.replaceState(window.history.state, "", url);
+    }
+  }, []);
 
   const [business, setBusiness] = useState(null);
   const [businessId, setBusinessId] = useState("");
@@ -1625,6 +1641,11 @@ const [barber, setBarber] = useState("");
     totalAmount,
   }) => {
     const locationParts = [mergedBusiness?.address, mergedBusiness?.location].filter(Boolean);
+    const normalizedAddress = String(mergedBusiness?.address || "").trim().toLocaleLowerCase("es-CL");
+    const normalizedLocation = String(mergedBusiness?.location || "").trim().toLocaleLowerCase("es-CL");
+    const locationLabel = normalizedLocation && normalizedAddress.endsWith(normalizedLocation)
+      ? mergedBusiness.address
+      : locationParts.join(", ");
     const isSportsBusiness = ["giocata", "pinguino-club"].includes(mergedBusiness?.id);
     const isQuincho = isGiocataQuincho(mergedBusiness?.id, resourceName || appointment?.barber);
     const resourceLabel = isQuincho ? "Espacio" : mergedBusiness?.resourceLabelSingle || "Profesional";
@@ -1643,8 +1664,11 @@ const [barber, setBarber] = useState("");
       dateLabel: formatVoucherDate(reservationDate || appointment?.date),
       timeLabel: isQuincho ? QUINCHO.timeLabel : String(reservationTime || appointment?.time || "").slice(0, 5),
       durationLabel: getVoucherDurationLabel(serviceName || appointment?.service),
-      locationLabel: locationParts.join(", ") || "Ubicación por confirmar",
-      priceLabel: formatCurrency(totalAmount || getAppointmentTotalAmount(appointment)),
+      locationLabel: locationLabel || "Ubicación por confirmar",
+      priceLabel: mergedBusiness?.servicePricesPending &&
+        !(totalAmount || getAppointmentTotalAmount(appointment))
+        ? "Por confirmar"
+        : formatCurrency(totalAmount || getAppointmentTotalAmount(appointment)),
       statusLabel: "Reserva registrada",
     });
   };

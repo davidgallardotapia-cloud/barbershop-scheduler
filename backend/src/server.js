@@ -1549,14 +1549,14 @@ const sendReservationConfirmationEmail = async ({
 
   const customerName = recipientName || appointment?.name || "Cliente";
   const businessName = business?.name || "AgendaSmart";
-  const isRegencura =
+  const isVitalCure =
     business?.id === "eu-curaciones-avanzadas" ||
-    business?.slug === "regencura";
-  const brandLogoUrl = isRegencura
-    ? "https://agendasmart.cl/regencura/regencura-logo.png"
+    business?.slug === "vitalcure" || business?.slug === "regencura";
+  const brandLogoUrl = isVitalCure
+    ? "https://agendasmart.cl/vitalcure/vitalcure-logo.jpg"
     : "";
-  const brandHeaderColor = isRegencura ? "#111111" : "#0f172a";
-  const brandAccentColor = isRegencura ? "#b8872f" : "#2563eb";
+  const brandHeaderColor = isVitalCure ? "#092b4a" : "#0f172a";
+  const brandAccentColor = isVitalCure ? "#007f91" : "#2563eb";
   const reservationDate = formatReservationDate(appointment?.date);
   const reservationTime = isGiocataQuincho(business?.id, appointment?.barber)
     ? `${QUINCHO.start} a ${QUINCHO.end}`
@@ -1609,9 +1609,9 @@ const sendReservationConfirmationEmail = async ({
             brandLogoUrl
               ? `<img src="${escapeEmailHtml(
                   brandLogoUrl
-                )}" width="76" height="76" alt="${escapeEmailHtml(
+                )}" width="240" height="80" alt="${escapeEmailHtml(
                   `${businessName} logo`
-                )}" style="display:block;width:76px;height:76px;object-fit:contain;background:#ffffff;border-radius:16px;margin:0 0 16px" />`
+                )}" style="display:block;width:240px;max-width:100%;height:auto;object-fit:contain;background:#ffffff;border-radius:8px;margin:0 0 16px" />`
               : ""
           }
           <div style="font-size:13px;letter-spacing:.08em;text-transform:uppercase;opacity:.8">${escapeEmailHtml(
@@ -3121,13 +3121,13 @@ const createTables = async () => {
 
     await pool.query(`
       INSERT INTO businesses (id, name, slug)
-      VALUES ('eu-curaciones-avanzadas', 'Regencura', 'regencura')
+      VALUES ('eu-curaciones-avanzadas', 'Clínica VitalCure', 'vitalcure')
       ON CONFLICT (id) DO NOTHING;
     `);
 
     await pool.query(`
       UPDATE businesses
-      SET name = 'Regencura', slug = 'regencura'
+      SET name = 'Clínica VitalCure', slug = 'vitalcure'
       WHERE id = 'eu-curaciones-avanzadas';
     `);
 
@@ -4098,6 +4098,9 @@ app.patch(
 
 app.get("/business/:slug", async (req, res) => {
   const { slug } = req.params;
+  const canonicalSlug = ["regencura", "eu-curaciones-avanzadas"].includes(slug)
+    ? "vitalcure"
+    : slug;
 
   try {
     const result = await pool.query(
@@ -4105,7 +4108,7 @@ app.get("/business/:slug", async (req, res) => {
        FROM businesses
        WHERE slug = $1 AND status = 'active'
        LIMIT 1`,
-      [slug]
+      [canonicalSlug]
     );
 
     if (result.rows.length === 0) {

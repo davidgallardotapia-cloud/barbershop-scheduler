@@ -20,7 +20,7 @@ test("built landing has unique SEO metadata and crawl files", async () => {
 });
 
 test("business pages keep their own titles and canonical URLs", async () => {
-  for (const slug of ["giocata", "regencura", "urban-district-barber", "centro-ama"]) {
+  for (const slug of ["giocata", "vitalcure", "urban-district-barber", "centro-ama"]) {
     const html = await readDist(`${slug}/index.html`);
     assert.ok(!html.includes(landingSeo.title), slug);
     assert.ok(!html.includes('data-prerendered="landing"'), slug);
@@ -33,7 +33,7 @@ test("landing is readable before JavaScript and fallback is isolated", async () 
   const html = await readDist("index.html");
   assert.equal([...html.matchAll(/<h1\b/g)].length, 1);
   assert.ok(html.includes('href="/giocata"'));
-  assert.ok(html.includes('href="/regencura"'));
+  assert.ok(html.includes('href="/vitalcure"'));
   const schema = JSON.parse(html.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)[1]);
   assert.equal(schema["@type"], "WebSite");
   assert.equal(schema.name, "AgendaSmart");
@@ -44,4 +44,20 @@ test("landing is readable before JavaScript and fallback is isolated", async () 
   const config = JSON.parse(await readFile(new URL("../vercel.json", import.meta.url), "utf8"));
   assert.equal(config.rewrites.find(rule => rule.source === "/").destination, "/index.html");
   assert.equal(config.rewrites.at(-1).destination, "/app-shell.html");
+});
+
+test("legacy clinic URLs redirect to VitalCure and preserve the booking destination", async () => {
+  const config = JSON.parse(await readFile(new URL("../vercel.json", import.meta.url), "utf8"));
+  for (const [source, destination] of [
+    ["/regencura", "/vitalcure"],
+    ["/regencura/link", "/vitalcure/link"],
+    ["/l/regencura", "/l/vitalcure"],
+    ["/eu-curaciones-avanzadas", "/vitalcure"],
+    ["/l/eu-curaciones-avanzadas", "/l/vitalcure"],
+  ]) {
+    const rule = config.redirects.find(rule => rule.source === source);
+    assert.equal(rule?.destination, destination, source);
+    assert.equal(rule?.permanent, true, source);
+  }
+  assert.ok(config.rewrites.some(rule => rule.source === "/vitalcure"));
 });
