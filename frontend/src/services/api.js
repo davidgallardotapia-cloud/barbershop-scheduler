@@ -1,5 +1,5 @@
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "https://barbershop-scheduler.onrender.com";
+  import.meta.env?.VITE_API_BASE_URL || "https://barbershop-scheduler.onrender.com";
 
 const buildUrl = (path, params) => {
   const url = new URL(path, API_BASE_URL);
@@ -34,7 +34,8 @@ const parseResponseBody = async (response) => {
 };
 
 const request = async (method, path, options = {}) => {
-  const token = getStoredAuthToken();
+  const authenticated = options.auth !== false;
+  const token = authenticated ? getStoredAuthToken() : "";
   const headers = {
     ...(options.data ? { "Content-Type": "application/json" } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -42,7 +43,7 @@ const request = async (method, path, options = {}) => {
 
   const response = await fetch(buildUrl(path, options.params), {
     method,
-    credentials: "include",
+    credentials: authenticated ? "include" : "omit",
     headers: Object.keys(headers).length > 0 ? headers : undefined,
     body: options.data ? JSON.stringify(options.data) : undefined,
   });

@@ -855,6 +855,7 @@ function getFeedbackTone(message) {
   }
 
   if (
+    (normalized.includes("sesión") && normalized.includes("expir")) ||
     normalized.includes("completa") ||
     normalized.includes("ingresa") ||
     normalized.includes("pendiente") ||
@@ -2053,7 +2054,7 @@ const [barber, setBarber] = useState("");
         setIsLoggedIn(false);
         setAppMode("client");
         setScheduleBlocks([]);
-        setMessage("Tu sesión expiró. Inicia sesión nuevamente.");
+        setMessage("Tu sesión de administración expiró. Puedes seguir reservando como cliente.");
 
         try {
           const publicDateRange = getAppointmentsDateRange(false);
@@ -2691,7 +2692,7 @@ const createdAppointment = await createAppointmentService({
   opponentPhone: opponentPhone.trim()
     ? normalizeChilePhone(opponentPhone)
     : null,
-});
+}, { auth: isAdminMode });
 
       const barberPhone = BARBER_PHONES[resolvedBarber] || "";
 
@@ -2812,7 +2813,7 @@ ${confirmationResourceLabel}: ${resolvedBarber}`);
       if (err.response?.data?.message) {
         setMessage(err.response.data.message);
       } else {
-        setMessage("Error al crear reserva");
+        setMessage("No se pudo crear la reserva. Intenta nuevamente.");
       }
     } finally {
       setSubmitting(false);

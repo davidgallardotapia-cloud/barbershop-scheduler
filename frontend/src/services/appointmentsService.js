@@ -1,7 +1,8 @@
-﻿import api from "./api";
+﻿import api from "./api.js";
 
 export const getAppointments = (businessId, filters = {}) => {
   return api.get("/appointments", {
+    auth: false,
     params: { businessId, ...filters },
   });
 };
@@ -20,6 +21,7 @@ export const getAdminClientSuggestions = (filters = {}) => {
 
 export const getScheduleBlocks = (businessId, filters = {}) => {
   return api.get("/schedule-blocks", {
+    auth: false,
     params: { businessId, ...filters },
   });
 };
@@ -40,8 +42,8 @@ export const deleteScheduleBlock = (id, businessId) => {
   });
 };
 
-export const createAppointment = (data) => {
-  return api.post("/appointments", data);
+export const createAppointment = (data, options = {}) => {
+  return api.post("/appointments", data, options);
 };
 
 export const getAdminWaitlistEntries = (filters = {}) => {
@@ -89,7 +91,7 @@ export const syncGoogleSheets = (data) => {
 };
 
 export const getBusinessBySlug = (slug) => {
-  return api.get(`/business/${slug}`);
+  return api.get(`/business/${slug}`, { auth: false });
 };
 
 export const getAppointmentPayments = (appointmentId, businessId) => {
