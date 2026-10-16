@@ -1168,9 +1168,13 @@ const [barber, setBarber] = useState("");
 
   const hours = useMemo(() => {
     const weekdaySpecificSlots = Object.values(scheduleSlotsByWeekday).flat();
+    const existingReservationSlots =
+      appMode === "admin" && isLoggedIn && mergedBusiness?.id === "giocata"
+        ? appointments.map((appointment) => appointment.time).filter(Boolean)
+        : [];
 
-    return sortScheduleSlots([...baseScheduleSlots, ...weekdaySpecificSlots]);
-  }, [baseScheduleSlots, scheduleSlotsByWeekday]);
+    return sortScheduleSlots([...baseScheduleSlots, ...weekdaySpecificSlots, ...existingReservationSlots]);
+  }, [baseScheduleSlots, scheduleSlotsByWeekday, appMode, isLoggedIn, mergedBusiness?.id, appointments]);
 
   const getScheduleSlotsForDate = (dateValue) => {
     const weekday = getWeekdayFromDateValue(dateValue);
