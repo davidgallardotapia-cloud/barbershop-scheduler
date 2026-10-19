@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Dialog } from "@headlessui/react";
+import { FaClock, FaTimes } from "react-icons/fa";
 import { QUINCHO, isGiocataQuincho, getSportsResource } from "../utils/giocataQuincho";
 import {
   addDays,
@@ -64,9 +66,19 @@ function ClientBookingWizard({
   const reservationWithoutPaymentStepRef = useRef(null);
   const dataStepRef = useRef(null);
   const messageRef = useRef(null);
+  const lateSlotNoticeConfirmRef = useRef(null);
 
   const [showProgress, setShowProgress] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
+  const [lateSlotNoticeOpen, setLateSlotNoticeOpen] = useState(false);
+
+  useEffect(() => {
+    setLateSlotNoticeOpen(
+      business?.id === "giocata" &&
+      !isGiocataQuincho(business?.id, service) &&
+      time === "23:00"
+    );
+  }, [business?.id, date, time, service]);
 
   const normalizedMessage = String(message || "").trim();
   const isWarningMessage = /ya tienes|error|completa|ingresa|no se pudo/i.test(
@@ -290,6 +302,63 @@ function ClientBookingWizard({
         position: "relative",
       }}
     >
+      <Dialog
+        open={lateSlotNoticeOpen}
+        onClose={() => setLateSlotNoticeOpen(false)}
+        initialFocus={lateSlotNoticeConfirmRef}
+        style={{ position: "fixed", inset: 0, zIndex: 14000 }}
+      >
+        <div
+          aria-hidden="true"
+          style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+        />
+        <div style={{ position: "fixed", inset: 0, overflowY: "auto", padding: "16px", display: "grid", placeItems: "center" }}>
+          <Dialog.Panel style={{ width: "100%", maxWidth: "440px", padding: "24px", borderRadius: "8px", backgroundColor: "#ffffff", boxShadow: "0 20px 60px rgba(0, 0, 0, 0.2)", fontFamily: "Arial, sans-serif", boxSizing: "border-box" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <FaClock aria-hidden="true" style={{ color: "#166534", fontSize: "22px", flexShrink: 0 }} />
+              <Dialog.Title style={{ flex: 1, margin: 0, color: "#111827", fontSize: "20px", lineHeight: 1.3 }}>
+                Reserva de las 23:00
+              </Dialog.Title>
+              <button
+                type="button"
+                aria-label="Cerrar aviso"
+                title="Cerrar aviso"
+                onClick={() => setLateSlotNoticeOpen(false)}
+                style={{ width: "36px", height: "36px", padding: 0, border: 0, borderRadius: "6px", backgroundColor: "#f3f4f6", color: "#374151", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}
+              >
+                <FaTimes aria-hidden="true" />
+              </button>
+            </div>
+            <Dialog.Description style={{ margin: "20px 0 24px", color: "#374151", fontSize: "16px", lineHeight: 1.6 }}>
+              Debido a la alta demanda, el inicio de tu reserva podría retrasarse por lo menos hasta las 23:20. En caso de retraso, se respetará tu hora completa de juego. Agradecemos tu comprensión.
+            </Dialog.Description>
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: "10px" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setLateSlotNoticeOpen(false);
+                  setTime("");
+                  setTimeout(() => scrollToStep(timeStepRef), 120);
+                }}
+                style={{ padding: "12px 16px", minHeight: "44px", border: "1px solid #d1d5db", borderRadius: "6px", backgroundColor: "#ffffff", color: "#374151", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}
+              >
+                Elegir otro horario
+              </button>
+              <button
+                ref={lateSlotNoticeConfirmRef}
+                type="button"
+                onClick={() => {
+                  setLateSlotNoticeOpen(false);
+                  setTimeout(() => scrollToStep(dataStepRef), 120);
+                }}
+                style={{ padding: "12px 20px", minHeight: "44px", border: "1px solid #166534", borderRadius: "6px", backgroundColor: "#166534", color: "#ffffff", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}
+              >
+                Entendido
+              </button>
+            </div>
+          </Dialog.Panel>
+        </div>
+      </Dialog>
       {showProgress && (
         <div
           style={{
