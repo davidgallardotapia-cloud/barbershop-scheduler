@@ -3,6 +3,80 @@ const { getReportRange, REPORT_SQL, PENDING_ATTENDANCE_SQL } = require("../src/u
 
 module.exports = async (t, { request, admin, veronica, urban, pool, jwt, secret }) => {
   const route = "/admin/giocata/reports";
+  await t.test("historical month summaries, balances and attendance stay consistent and private", async () => {
+    const historical = `${route}?range=month&month=2024-02`;
+    assert.equal((await request(historical)).status, 401);
+    assert.equal((await request(historical, admin)).status, 403);
+    assert.equal((await request(historical, urban)).status, 403);
+    assert.equal((await request(`${route}?range=month&month=9999-12`, veronica)).status, 400);
+    assert.equal((await request(`${route}?range=month&month=2024-02&month=2024-03`, veronica)).status, 400);
+    const ids = [];
+    try {
+      for (const [business, date, amount] of [["giocata", "2024-02-03", 32000],
+        ["giocata", "2024-03-01", 36000], ["barberia-james", "2024-02-03", 90000]]) {
+        const row = await pool.query(`INSERT INTO appointments
+          (name,phone,date,time,service,barber,business_id,total_amount,status)
+          VALUES ('History QA','912345678',$1,'19:00','History QA','History QA',$2,$3,'reservada') RETURNING id`,
+        [date, business, amount]);
+        ids.push(row.rows[0].id);
+      }
+      for (const amount of [12000, 8000]) {
+        await pool.query("INSERT INTO appointment_payments(appointment_id,amount,method,payment_stage) VALUES($1,$2,'efectivo','deposit')", [ids[0], amount]);
+      }
+      const response = await request(historical, veronica);
+      assert.equal(response.status, 200);
+      assert.deepEqual(response.data.range, { key: "month", start: "2024-02-01", end: "2024-02-29" });
+      assert.equal(response.data.summary.reservations, 1);
+      assert.equal(response.data.summary.income, 20000);
+      assert.equal(response.data.summary.pendingBalance, 12000);
+      assert.equal(response.data.daily.length, 29);
+      const balances = await request(`${route}/balances?range=month&month=2024-02`, veronica);
+      assert.deepEqual(balances.data.items.map(item => item.id), [ids[0]]);
+      assert.equal(Number(balances.data.items[0].balance), 12000);
+      const attendance = await request(`${route}/attendance?range=month&month=2024-02`, veronica);
+      assert.deepEqual(attendance.data.items.map(item => item.id), [ids[0]]);
+      for (const [range, date, start, end, count] of [
+        ["today", "2024-02-03", "2024-02-03", "2024-02-03", 1],
+        ["week", "2024-02-03", "2024-01-29", "2024-02-04", 1],
+        ["week", "2024-02-29", "2024-02-26", "2024-03-03", 1],
+        ["today", "2024-02-29", "2024-02-29", "2024-02-29", 0],
+      ]) {
+        const query = `range=${range}&date=${date}`;
+        const report = await request(`${route}?${query}`, veronica);
+        assert.equal(report.status, 200);
+        assert.deepEqual(report.data.range, { key: range, start, end });
+        assert.equal(report.data.summary.reservations, count);
+        assert.equal(report.data.daily.length, range === "week" ? 7 : 1);
+        for (const view of ["balances", "attendance"]) {
+          const details = await request(`${route}/${view}?${query}`, veronica);
+          assert.equal(details.status, 200);
+          assert.equal(details.data.items.length, count);
+          assert.deepEqual(details.data.range, report.data.range);
+        }
+        assert.equal((await request(`${route}?${query}`)).status, 401);
+        assert.equal((await request(`${route}?${query}`, admin)).status, 403);
+      }
+      for (const query of ["range=today&date=2025-02-29", "range=week&date=9999-12-01",
+        "range=week&date=2024-02-03&date=2024-02-04", "range=last30&date=2024-02-03"]) {
+        assert.equal((await request(`${route}?${query}`, veronica)).status, 400);
+      }
+      assert.equal((await request(`${route}/balances?range=month&month=2024-02&page=2`, veronica)).data.items.length, 0);
+      const updated = await request(`${route}/attendance/${ids[0]}`, veronica, { status: "atendida" }, "PATCH");
+      assert.equal(updated.status, 200);
+      const after = (await request(historical, veronica)).data.summary;
+      assert.equal(after.attended, 1);
+      assert.equal(after.pendingAttendance, 0);
+      assert.equal(after.income, 20000);
+      const nextMonth = await request(`${route}?range=month&month=2024-03`, veronica);
+      assert.equal(nextMonth.data.summary.reservations, 1);
+      assert.equal(nextMonth.data.summary.income, 0);
+      const empty = await request(`${route}?range=month&month=2023-01`, veronica);
+      assert.equal(empty.data.summary.reservations, 0);
+      assert.equal(empty.data.daily.length, 31);
+    } finally {
+      await pool.query("DELETE FROM appointments WHERE id=ANY($1::int[])", [ids]);
+    }
+  });
   await t.test("balances are owner-only, paginated and disappear after full payment", async () => {
     const path = `${route}/balances?range=last30`;
     assert.equal((await request(path)).status, 401);

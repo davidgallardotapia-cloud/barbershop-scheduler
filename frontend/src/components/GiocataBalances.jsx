@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { FaChevronLeft, FaChevronRight, FaMoneyBillWave, FaSyncAlt } from "react-icons/fa";
-import api from "../services/api";
+import { getGiocataReport } from "../services/giocataReportsService";
 
 const money = (value) => new Intl.NumberFormat("es-CL", {
   style: "currency", currency: "CLP", maximumFractionDigits: 0,
 }).format(Number(value || 0));
 
-export default function GiocataBalances({ range, onOpenPayment }) {
+export default function GiocataBalances({ range, month, date, onOpenPayment }) {
   const [page, setPage] = useState(1);
   const [revision, setRevision] = useState(0);
   const [result, setResult] = useState(null);
@@ -15,18 +15,19 @@ export default function GiocataBalances({ range, onOpenPayment }) {
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     setLoading(true);
     setError("");
     setResult(null);
-    api.get("/admin/giocata/reports/balances", { params: { range, page } })
+    getGiocataReport("/admin/giocata/reports/balances", { range, month, date, page }, controller.signal)
       .then(({ data }) => { if (active) setResult(data); })
       .catch((failure) => { if (active) setError(
         [401, 403].includes(failure.response?.status)
           ? "Tu sesión no permite ver estos saldos. Vuelve a iniciar sesión."
           : "No se pudieron cargar los saldos. Intenta nuevamente."); })
       .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [range, page, revision]);
+    return () => { active = false; controller.abort(); };
+  }, [range, month, date, page, revision]);
 
   return <section id="gr-balances" className="gr-attendance" aria-labelledby="gr-balances-title">
     <header className="gr-heading">

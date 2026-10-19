@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FaCheck, FaTimes, FaChevronLeft, FaChevronRight, FaSyncAlt } from "react-icons/fa";
 import api from "../services/api";
+import { getGiocataReport } from "../services/giocataReportsService";
 
-export default function GiocataAttendance({ range, onUpdated, onBusyChange }) {
+export default function GiocataAttendance({ range, month, date, onUpdated, onBusyChange }) {
   const [page, setPage] = useState(1);
   const [revision, setRevision] = useState(0);
   const [result, setResult] = useState(null);
@@ -14,15 +15,16 @@ export default function GiocataAttendance({ range, onUpdated, onBusyChange }) {
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     setLoading(true);
     setError("");
     setResult(null);
-    api.get("/admin/giocata/reports/attendance", { params: { range, page } })
+    getGiocataReport("/admin/giocata/reports/attendance", { range, month, date, page }, controller.signal)
       .then(({ data }) => { if (active) setResult(data); })
       .catch(() => { if (active) setError("No se pudo cargar la lista. Intenta nuevamente."); })
       .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [range, page, revision]);
+    return () => { active = false; controller.abort(); };
+  }, [range, month, date, page, revision]);
 
   const mark = async (appointment, status) => {
     if (inFlight.current) return;

@@ -43,6 +43,7 @@ const request = async (method, path, options = {}) => {
 
   const response = await fetch(buildUrl(path, options.params), {
     method,
+    signal: options.signal,
     credentials: authenticated ? "include" : "omit",
     headers: Object.keys(headers).length > 0 ? headers : undefined,
     body: options.data ? JSON.stringify(options.data) : undefined,

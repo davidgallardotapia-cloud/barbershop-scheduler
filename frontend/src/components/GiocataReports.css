@@ -11,6 +11,9 @@
 .gr-ranges { display: flex; flex-wrap: wrap; gap: 4px; margin: 20px 0 16px; }
 .gr-ranges button { background: #eef1ef; border: 1px solid transparent; color: #39483f; }
 .gr-ranges button[aria-pressed="true"] { background: #166534; color: #fff; }
+.gr-month-filter { display: grid; gap: 6px; width: 240px; max-width: 100%; margin-bottom: 18px; color: #39483f; font-size: 13px; font-weight: 700; }
+.gr-month-filter input { width: 100%; min-width: 0; min-height: 44px; padding: 9px 12px; border: 1px solid #b9c5bf; border-radius: 6px; background: #fff; color: #17201c; font: inherit; font-size: 14px; }
+.gr-month-filter input:focus-visible { outline: 3px solid #2680c2; outline-offset: 2px; }
 .gr-period { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; margin-bottom: 18px; }
 .gr-period span { color: #59655f; }
 .gr-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }

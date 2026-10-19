@@ -1,19 +1,29 @@
 import React, { useEffect, useState } from "react";
 import { FaSyncAlt } from "react-icons/fa";
-import api from "../services/api";
+import { getGiocataReport } from "../services/giocataReportsService";
 import GiocataReportCharts from "./GiocataReportCharts";
 import GiocataAttendance from "./GiocataAttendance";
 import GiocataBalances from "./GiocataBalances";
 import "./GiocataReports.css";
 
-const ranges = [["today", "Hoy"], ["week", "Semana"], ["month", "Mes"], ["last30", "Últimos 30 días"]];
+const ranges = [["today", "Día"], ["week", "Semana"], ["month", "Mes"], ["last30", "Últimos 30 días"]];
 const money = (value) => new Intl.NumberFormat("es-CL", {
   style: "currency", currency: "CLP", maximumFractionDigits: 0,
 }).format(value);
 const dateLabel = (value) => value.split("-").reverse().join("-");
+const currentDateInChile = () => {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "America/Santiago", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date());
+  return ["year", "month", "day"].map((type) => parts.find((part) => part.type === type).value).join("-");
+};
+const currentMonthInChile = () => currentDateInChile().slice(0, 7);
 
 export default function GiocataReports({ onAttendanceUpdated, onOpenPayment, paymentRevision = 0 }) {
   const [range, setRange] = useState("today");
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthInChile);
+  const [selectedDay, setSelectedDay] = useState(currentDateInChile);
+  const [selectedWeekDate, setSelectedWeekDate] = useState(currentDateInChile);
   const [revision, setRevision] = useState(0);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,6 +32,8 @@ export default function GiocataReports({ onAttendanceUpdated, onOpenPayment, pay
   const [balancesOpen, setBalancesOpen] = useState(false);
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [notice, setNotice] = useState("");
+  const selectedDate = range === "today" ? selectedDay : range === "week" ? selectedWeekDate : undefined;
+  const periodKey = `${range}-${range === "month" ? selectedMonth : selectedDate || ""}`;
 
   const handleAttendanceUpdated = (appointment, name) => {
     setNotice(`${name}: ${appointment.status === "atendida" ? "marcada como atendida" : "marcada como no asistió"}.`);
@@ -31,10 +43,22 @@ export default function GiocataReports({ onAttendanceUpdated, onOpenPayment, pay
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     setLoading(true);
     setError("");
     setData(null);
-    api.get("/admin/giocata/reports", { params: { range } })
+    if (range === "month" && (!/^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(selectedMonth) || selectedMonth > currentMonthInChile())) {
+      setError("Selecciona un mes válido que no sea posterior al actual.");
+      setLoading(false);
+      return () => { active = false; };
+    }
+    if (selectedDate !== undefined && (!/^[1-9]\d{3}-\d{2}-\d{2}$/.test(selectedDate) ||
+        selectedDate > currentDateInChile())) {
+      setError("Selecciona una fecha válida que no sea posterior a hoy.");
+      setLoading(false);
+      return () => { active = false; };
+    }
+    getGiocataReport("/admin/giocata/reports", { range, month: range === "month" ? selectedMonth : undefined, date: selectedDate }, controller.signal)
       .then((response) => { if (active) setData(response.data); })
       .catch((failure) => {
         if (active) setError(failure.response?.status === 401
@@ -44,8 +68,8 @@ export default function GiocataReports({ onAttendanceUpdated, onOpenPayment, pay
             : "No se pudieron cargar los reportes. Intenta nuevamente.");
       })
       .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [range, revision, paymentRevision]);
+    return () => { active = false; controller.abort(); };
+  }, [range, selectedMonth, selectedDate, revision, paymentRevision]);
 
   const summary = data?.summary;
   const maxReservations = Math.max(1, ...(data?.daily || []).map((day) => day.reservations));
@@ -59,8 +83,32 @@ export default function GiocataReports({ onAttendanceUpdated, onOpenPayment, pay
     </header>
     <div className="gr-ranges" role="group" aria-label="Período del reporte">
       {ranges.map(([key, label]) => <button type="button" key={key} aria-pressed={range === key} disabled={savingAttendance}
-        onClick={() => { setRange(key); setNotice(""); }}>{label}</button>)}
+        onClick={() => {
+          if (key === range) return;
+          setData(null); setLoading(true); setRange(key); setNotice("");
+        }}>{label}</button>)}
     </div>
+    {(range === "today" || range === "week") && <label className="gr-month-filter">
+      <span>{range === "today" ? "Día del reporte" : "Semana del reporte · Lunes a domingo"}</span>
+      <input type="date" min="1000-01-01" max={currentDateInChile()} value={selectedDate}
+        aria-label={range === "today" ? "Día del reporte" : "Fecha de la semana del reporte"}
+        disabled={savingAttendance} required
+        onChange={(event) => {
+          if (event.target.value === selectedDate) return;
+          setData(null); setLoading(true); setNotice("");
+          if (range === "today") setSelectedDay(event.target.value);
+          else setSelectedWeekDate(event.target.value);
+        }} />
+    </label>}
+    {range === "month" && <label className="gr-month-filter">
+      <span>Mes del reporte</span>
+      <input type="month" min="1000-01" max={currentMonthInChile()} value={selectedMonth}
+        disabled={savingAttendance} required
+        onChange={(event) => {
+          if (event.target.value === selectedMonth) return;
+          setData(null); setLoading(true); setSelectedMonth(event.target.value); setNotice("");
+        }} />
+    </label>}
     {loading && <p role="status" className="gr-status">Cargando reportes...</p>}
     {error && <p role="alert" className="gr-error">{error}</p>}
     {notice && <p role="status" className="gr-success">{notice}</p>}
@@ -91,12 +139,14 @@ export default function GiocataReports({ onAttendanceUpdated, onOpenPayment, pay
           <span>Asistencia por registrar</span><strong>{summary.pendingAttendance ?? 0}</strong>
         </button>
       </div>
-      {balancesOpen && <GiocataBalances key={`balances-${range}-${paymentRevision}`} range={range} onOpenPayment={onOpenPayment} />}
-      {attendanceOpen && <GiocataAttendance key={`attendance-${range}`} range={range}
+      {balancesOpen && <GiocataBalances key={`balances-${periodKey}-${paymentRevision}`} range={range}
+        month={range === "month" ? selectedMonth : undefined} date={selectedDate} onOpenPayment={onOpenPayment} />}
+      {attendanceOpen && <GiocataAttendance key={`attendance-${periodKey}`} range={range}
+        month={range === "month" ? selectedMonth : undefined} date={selectedDate}
         onUpdated={handleAttendanceUpdated} onBusyChange={setSavingAttendance} />}
       <p className="gr-note">Cobros y saldos correspondientes a las reservas del período, no a la fecha del pago. Los saldos excluyen las canceladas.</p>
       {summary.reservations === 0 && <p className="gr-status">No hay reservas registradas para este período.</p>}
-      <GiocataReportCharts key={`charts-${range}-${revision}`} data={data} />
+      <GiocataReportCharts key={`charts-${periodKey}-${revision}`} data={data} />
       <section className="gr-daily">
         <h3>Reservas e ingresos por día</h3>
         <div className="gr-table-scroll" tabIndex={0} role="region" aria-label="Detalle diario">

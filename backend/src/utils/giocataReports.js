@@ -1,5 +1,6 @@
 const moment = require("moment-timezone");
 const { getAppointmentActor } = require("./appointmentAudit");
+const { createGiocataReportWorkload } = require("./giocataReportWorkload");
 
 const REPORT_TIMEZONE = "America/Santiago";
 const REPORT_RANGES = ["today", "week", "month", "last30"];
@@ -7,11 +8,28 @@ const PENDING_ATTENDANCE_SQL = `LOWER(TRIM(COALESCE(status, 'reservada'))) = 're
   AND (CASE WHEN barber = 'Quincho' THEN date + TIME '23:30'
     ELSE date + time + INTERVAL '1 hour' END) <= (CURRENT_TIMESTAMP AT TIME ZONE 'America/Santiago')`;
 
-function getReportRange(range = "today", now = new Date()) {
+function getReportRange(range = "today", now = new Date(), month, date) {
   if (!REPORT_RANGES.includes(range)) return null;
   const today = moment(now).tz(REPORT_TIMEZONE).startOf("day");
   const start = today.clone();
   const end = today.clone();
+  if (date !== undefined) {
+    if (!["today", "week"].includes(range) || typeof date !== "string" ||
+        !/^[1-9]\d{3}-\d{2}-\d{2}$/.test(date) || date > today.format("YYYY-MM-DD")) return null;
+    const selected = moment.tz(date, "YYYY-MM-DD", true, REPORT_TIMEZONE);
+    if (!selected.isValid()) return null;
+    start.date(1).year(selected.year()).month(selected.month()).date(selected.date());
+    end.date(1).year(selected.year()).month(selected.month()).date(selected.date());
+  }
+  if (month !== undefined) {
+    if (range !== "month" || typeof month !== "string" ||
+        !/^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(month) || month > today.format("YYYY-MM")) {
+      return null;
+    }
+    const [year, monthNumber] = month.split("-").map(Number);
+    start.date(1).year(year).month(monthNumber - 1);
+    end.date(1).year(year).month(monthNumber - 1);
+  }
   if (range === "week") {
     start.startOf("isoWeek");
     end.endOf("isoWeek");
@@ -71,7 +89,9 @@ const REPORT_SQL = `
   ) AS report
 `;
 
-function createGiocataReportsHandler(pool, { view = "summary", onStatusChanged = () => {} } = {}) {
+function createGiocataReportsHandler(pool, {
+  view = "summary", onStatusChanged = () => {}, workload = createGiocataReportWorkload(),
+} = {}) {
   return async (req, res) => {
     res.set("Cache-Control", "private, no-store");
     const user = req.user;
@@ -79,12 +99,12 @@ function createGiocataReportsHandler(pool, { view = "summary", onStatusChanged =
         !Number.isInteger(user?.id)) {
       return res.status(403).json({ message: "No tienes acceso a estos reportes." });
     }
-    const range = getReportRange(req.query.range);
+    const range = getReportRange(req.query.range, new Date(), req.query.month, req.query.date);
     const isUpdate = view === "updateAttendance";
     const isList = ["attendance", "balances"].includes(view);
-    const allowedQuery = isUpdate ? [] : isList ? ["range", "page"] : ["range"];
+    const allowedQuery = isUpdate ? [] : isList ? ["range", "month", "date", "page"] : ["range", "month", "date"];
     if (!range || Object.keys(req.query).some((key) => !allowedQuery.includes(key))) {
-      return res.status(400).json({ message: "Selecciona hoy, semana, mes o los \u00faltimos 30 d\u00edas." });
+      return res.status(400).json({ message: "Selecciona un per\u00edodo v\u00e1lido que no sea futuro. Usa AAAA-MM para el mes o AAAA-MM-DD para la fecha." });
     }
     const page = req.query.page === undefined ? 1 : Number(req.query.page);
     if (isList && (!/^\d+$/.test(String(req.query.page ?? "1")) || !Number.isInteger(page) || page < 1 || page > 200)) {
@@ -97,11 +117,23 @@ function createGiocataReportsHandler(pool, { view = "summary", onStatusChanged =
       return res.status(400).json({ message: "Selecciona atendida o no asisti\u00f3 para una reserva v\u00e1lida." });
     }
 
+    const releaseSlot = isUpdate ? () => {} : workload.acquire();
+    if (!releaseSlot) {
+      res.set("Retry-After", "1");
+      return res.status(503).json({ code: "REPORT_BUSY", message: "Hay otro reporte en curso. Intenta nuevamente en un momento." });
+    }
+    const generation = workload.generation;
+    const cacheKey = `${user.id}:${range.key}:${range.start}:${range.end}`;
     let client;
     try {
       client = await pool.connect();
       await client.query(isUpdate ? "BEGIN" : "BEGIN READ ONLY");
-      await client.query("SET LOCAL statement_timeout = '5s'");
+      await client.query(isUpdate ? "SET LOCAL statement_timeout = '5s'" : "SET LOCAL statement_timeout = '2s'");
+      await client.query("SET LOCAL lock_timeout = '200ms'");
+      if (!isUpdate) {
+        await client.query("SET LOCAL max_parallel_workers_per_gather = 0");
+        await client.query("SET LOCAL jit = off");
+      }
       // Recheck the current account, rather than trusting browser state or an old JWT alone.
       const account = await client.query(
         "SELECT id FROM users WHERE id = $1 AND username = 'veronica_giocata' AND business_id = 'giocata'",
@@ -110,6 +142,13 @@ function createGiocataReportsHandler(pool, { view = "summary", onStatusChanged =
       if (!account.rowCount) {
         await client.query("ROLLBACK");
         return res.status(403).json({ message: "No tienes acceso a estos reportes." });
+      }
+      if (view === "summary") {
+        const cached = workload.get(cacheKey);
+        if (cached) {
+          await client.query("COMMIT");
+          return res.json(cached);
+        }
       }
       if (view === "balances") {
         // Keep the booking snapshot required by the existing payment/edit panel, capped at 20 rows.
@@ -148,6 +187,7 @@ function createGiocataReportsHandler(pool, { view = "summary", onStatusChanged =
         }
         await client.query("COMMIT");
         const appointment = result.rows[0];
+        workload.invalidate();
         Promise.resolve().then(() => onStatusChanged(appointment)).catch(() => {});
         return res.json({ data: { id: appointment.id, status: appointment.status,
           updated_by_role: appointment.updated_by_role, updated_by_username: appointment.updated_by_username,
@@ -155,15 +195,18 @@ function createGiocataReportsHandler(pool, { view = "summary", onStatusChanged =
       }
       const result = await client.query(REPORT_SQL, [range.start, range.end]);
       await client.query("COMMIT");
-      return res.json({ ...result.rows[0].report, range, timezone: REPORT_TIMEZONE,
-        incomeBasis: "reservation_date", generatedAt: new Date().toISOString() });
+      const payload = { ...result.rows[0].report, range, timezone: REPORT_TIMEZONE,
+        incomeBasis: "reservation_date", generatedAt: new Date().toISOString() };
+      workload.put(cacheKey, payload, generation);
+      return res.json(payload);
     } catch (error) {
       if (client) await client.query("ROLLBACK").catch(() => {});
-      return res.status(error.code === "57014" ? 503 : 500).json({
+      return res.status(["57014", "55P03"].includes(error.code) || !client ? 503 : 500).json({
         message: "No se pudieron cargar los reportes. Intenta nuevamente.",
       });
     } finally {
       client?.release();
+      releaseSlot();
     }
   };
 }

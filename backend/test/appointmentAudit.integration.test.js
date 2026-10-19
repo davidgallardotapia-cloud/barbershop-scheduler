@@ -41,8 +41,9 @@ test("reservation audit through the API in an isolated local schema", {
     const port = portProbe.address().port;
     await new Promise((resolve) => portProbe.close(resolve));
     const secret = crypto.randomBytes(32).toString("hex");
+    // Fixtures also write directly with SQL; disable summary caching for this suite only.
     const env = { ...process.env, PORT: String(port), PGOPTIONS: `-c search_path=${schema}`, JWT_SECRET: secret,
-      NODE_ENV: "test", GOOGLE_SHEETS_URL: "", GOOGLE_SHEETS_SECRET: "", PLATFORM_ADMIN_PASSWORD: "",
+      NODE_ENV: "test", GIOCATA_REPORT_CACHE_DISABLED: "1", GOOGLE_SHEETS_URL: "", GOOGLE_SHEETS_SECRET: "", PLATFORM_ADMIN_PASSWORD: "",
       RESERVATIONS_EMAIL_ENABLED: "false", SECURITY_ALERT_EMAIL_ENABLED: "false", SECURITY_ALERTS_ENABLED: "false",
     };
     if (url) {
@@ -190,6 +191,8 @@ test("reservation audit through the API in an isolated local schema", {
     await require("./giocataReportsChecks")(t, { request, admin, veronica, urban, pool, jwt, secret });
     clientAddress = "127.0.0.4";
     await require("./giocataHolidayChecks")(t, { request, payload, admin, pool });
+    clientAddress = "127.0.0.5";
+    await require("./giocataReportLoadChecks")(t, { request, veronica, pool });
   } finally {
     if (server && server.exitCode === null) {
       const stopped = once(server, "exit");

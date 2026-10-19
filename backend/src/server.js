@@ -12,9 +12,14 @@ const { getAppointmentActor, withAppointmentCreator } = require("./utils/appoint
 const { QUINCHO, isGiocataQuincho, validateQuinchoBooking, isQuinchoConflict } = require("./utils/giocataQuincho");
 const { getReservationReplyTo } = require("./utils/reservationEmail");
 const { createGiocataReportsHandler } = require("./utils/giocataReports");
+const reportPool = require("./config/reportDatabase");
+const { createGiocataReportWorkload, invalidateGiocataReportsOnWrite } = require("./utils/giocataReportWorkload");
 const { ensureGiocataHolidayBlocks } = require("./utils/giocataHolidayBlocks");
 
 const app = express();
+const giocataReportWorkload = createGiocataReportWorkload({
+  ttlMs: process.env.NODE_ENV === "test" && process.env.GIOCATA_REPORT_CACHE_DISABLED === "1" ? 0 : 120000,
+});
 
 const PLATFORM_ADMIN_BUSINESS_ID = "__platform__";
 const platformAdminUsername =
@@ -377,6 +382,7 @@ app.use(helmet());
 app.use(cors(corsOptions));
 app.use(generalLimiter);
 app.use(express.json({ limit: "25kb" }));
+app.use(invalidateGiocataReportsOnWrite(giocataReportWorkload));
 
 app.use((err, req, res, next) => {
   if (err?.message === "Origen no permitido por CORS") {
@@ -3619,13 +3625,14 @@ app.get("/admin/client-suggestions", requireAuth, async (req, res) => {
   }
 });
 
-app.get("/admin/giocata/reports", requireAuth, createGiocataReportsHandler(pool));
+app.get("/admin/giocata/reports", requireAuth,
+  createGiocataReportsHandler(reportPool, { workload: giocataReportWorkload }));
 app.get("/admin/giocata/reports/balances", requireAuth,
-  createGiocataReportsHandler(pool, { view: "balances" }));
+  createGiocataReportsHandler(reportPool, { view: "balances", workload: giocataReportWorkload }));
 app.get("/admin/giocata/reports/attendance", requireAuth,
-  createGiocataReportsHandler(pool, { view: "attendance" }));
+  createGiocataReportsHandler(reportPool, { view: "attendance", workload: giocataReportWorkload }));
 app.patch("/admin/giocata/reports/attendance/:id", requireAuth,
-  createGiocataReportsHandler(pool, { view: "updateAttendance", onStatusChanged: (appointment) => {
+  createGiocataReportsHandler(pool, { view: "updateAttendance", workload: giocataReportWorkload, onStatusChanged: (appointment) => {
     syncGoogleSheetsInBackground(buildAppointmentSheetsPayload(appointment), "asistencia_desde_reportes");
   } }));
 
