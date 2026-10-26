@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import { businessConfigBySlug } from "./businessConfigBySlug.js";
 import { QUINCHO } from "../utils/giocataQuincho.js";
 
-test("Giocata only offers 19:00, 20:00 and 21:00 on Saturdays and Sundays", () => {
+test("Giocata adds 22:00 on Sundays while Saturdays still end at 21:00", () => {
   const giocata = businessConfigBySlug.giocata;
-  for (const weekday of [0, 6]) {
-    assert.deepEqual(giocata.scheduleSlotsByWeekday[weekday], ["19:00", "20:00", "21:00"]);
-  }
-  assert.ok(giocata.hours.includes("19:00, 20:00 y 21:00"));
+  assert.deepEqual(giocata.scheduleSlotsByWeekday[0], ["19:00", "20:00", "21:00", "22:00"]);
+  assert.deepEqual(giocata.scheduleSlotsByWeekday[6], ["19:00", "20:00", "21:00"]);
+  assert.ok(giocata.hours.includes("Sábados: 19:00, 20:00 y 21:00"));
+  assert.ok(giocata.hours.includes("Domingos: 19:00, 20:00, 21:00 y 22:00"));
 });
 
 test("Giocata weekday starts and the quincho block remain unchanged", () => {
