@@ -523,7 +523,7 @@ function ClientBookingWizard({
             style={{ order: resourceFirstFlow ? 2 : 1 }}
           >
             <h3 style={{ marginTop: 0, marginBottom: "12px" }}>
-              {serviceStepNumber}. Elige un servicio
+              {serviceStepNumber}. {business?.serviceStepTitle || "Elige un servicio"}
             </h3>
 
             <div
