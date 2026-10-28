@@ -1336,7 +1336,21 @@ const isBlocked = slot.status === "blocked";
               </div>
             </div>
 
+            {business?.id === "giocata" && (
+              <p id="giocata-reservation-notice" style={{
+                margin: "0 0 16px", padding: "14px 16px", borderRadius: "8px",
+                border: "1px solid #e3c66a", backgroundColor: "#fff9e6",
+                color: "#594515", fontSize: "14px", lineHeight: 1.6,
+                overflowWrap: "anywhere",
+              }}>
+                <strong>Importante:</strong> La fecha, hora y cancha válidas son las registradas en AgendaSmart.
+                {" "}Editar el mensaje de WhatsApp no modifica tu reserva. Si el mensaje enviado contiene un horario
+                {" "}diferente al registrado, tu reserva podrá ser cancelada. Para solicitar cambios, comunícate
+                {" "}directamente con Giocata.
+              </p>
+            )}
             <button
+              aria-describedby={business?.id === "giocata" ? "giocata-reservation-notice" : undefined}
               style={{
                 ...styles.button,
                 ...styles.primaryButton,
